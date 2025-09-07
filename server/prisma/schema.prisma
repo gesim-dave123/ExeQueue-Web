@@ -1,0 +1,195 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PERSONNEL
+  WORKING_SCHOLAR
+}
+
+enum Queue_Type {
+  REGULAR
+  PRIORITY
+}
+
+enum Status {
+  WAITING
+  IN_SERVICE
+  DEFERRED
+  CANCELLED
+  COMPLETED
+  STALLED
+  SKIPPED
+}
+
+model Student {
+  stud_id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id           String   @unique @db.VarChar(20)
+  full_name           String   @db.VarChar(100)
+  course_id           Int
+  year                String   @db.VarChar(10)
+  created_at          DateTime @default(now())
+
+  course              Course   @relation(fields: [course_id], references: [course_id])
+  queue_entries       Queue[]
+  transaction_history TransactionHistory[]
+
+  @@index([school_id])
+  @@map("student")
+}
+
+model Course {
+  course_id   Int      @id @default(autoincrement())
+  course_code String   @unique @db.VarChar(10)
+  course_name String   @db.VarChar(50)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  deleted_at  DateTime?
+
+  students    Student[]
+  @@map("course")
+}
+
+model SasStaff {
+  sas_staff_id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username           String        @unique @db.VarChar(30)
+  hashed_password    String        @db.VarChar(255)
+  first_name         String        @db.VarChar(50)
+  last_name          String        @db.VarChar(50)
+  middle_name        String?       @db.VarChar(50)
+  email              String        @unique @db.VarChar(100)
+  role               Role          @default(WORKING_SCHOLAR)
+  is_active          Boolean       @default(true)
+  created_by         String?       @db.Uuid
+  creator            SasStaff?     @relation("staff_creator", fields: [created_by], references: [sas_staff_id])
+  created_accounts   SasStaff[]    @relation("staff_creator") 
+  created_at         DateTime      @default(now())
+  updated_at         DateTime      @updatedAt
+  deleted_at         DateTime?  
+
+  processed_requests     Request[]
+  processed_transac_hist TransactionHistory[]
+  processed_service_log  ServingLog[]
+
+  @@map("sas_staff")
+}
+
+model ServiceWindow {
+  window_id          Int      @id @default(autoincrement())
+  window_name        String   @unique @db.VarChar(30)
+  can_serve_priority Boolean  @default(true)
+  can_serve_regular  Boolean  @default(true)
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now())
+  deleted_at         DateTime?
+
+  queues             Queue[]
+  service_window_log ServingLog[]
+  @@map("service_window")
+}
+
+model Queue {
+  queue_id           Int             @id @default(autoincrement())
+  stud_id            String          @db.Uuid
+  student            Student         @relation(fields: [stud_id], references: [stud_id])
+  school_id          String          @db.VarChar(20)
+  queue_number       Int              
+  queue_status       Status          @default(WAITING)
+  queue_type         Queue_Type      @default(REGULAR)
+  served_by_window   Int?
+  window             ServiceWindow? @relation(fields: [served_by_window], references: [window_id])
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  deleted_at         DateTime?
+
+  requests           Request[]
+  transaction_history TransactionHistory[]
+  queue_log          ServingLog[]
+
+  @@index([queue_status, queue_type, served_by_window])
+  @@unique([stud_id, served_by_window, queue_status])
+  @@map("queue")
+}
+
+model Request {
+  request_id        Int          @id @default(autoincrement())
+  queue_id          Int
+  request_type_id   Int
+  processed_by      String       @db.Uuid
+  processed_at      DateTime     @default(now())
+  is_active         Boolean      @default(true)
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt  
+  deleted_at        DateTime?
+
+  queue_entry       Queue        @relation(fields: [queue_id], references: [queue_id])
+  request_type      RequestType  @relation(fields: [request_type_id], references: [request_type_id])
+  processed_by_staff SasStaff    @relation(fields: [processed_by], references: [sas_staff_id])
+  history           TransactionHistory[]
+
+  @@index([queue_id])
+  @@map("request")
+}
+
+model RequestType {
+  request_type_id Int       @id @default(autoincrement())
+  name            String    @unique @db.VarChar(50)
+  description     String    @db.VarChar(255)
+  created_at      DateTime  @default(now())
+  deleted_at      DateTime?
+
+  requests        Request[]
+
+  @@map("request_type")
+}
+
+model TransactionHistory {
+  id               Int        @id @default(autoincrement())
+  queue_id         Int
+  request_id       Int?
+  stud_id          String     @db.Uuid
+  school_id        String     @db.VarChar(20)
+  performed_by_id  String     @db.Uuid
+  performed_by_role Role
+  action           Status     @default(WAITING)
+  created_at       DateTime   @default(now())
+
+  request_data     Request?   @relation(fields: [request_id], references: [request_id])
+  queue_data       Queue      @relation(fields: [queue_id], references: [queue_id])
+  student          Student    @relation(fields: [stud_id], references: [stud_id])
+  sas_staff        SasStaff  @relation(fields: [performed_by_id], references: [sas_staff_id])
+
+  @@index([stud_id])
+  @@index([queue_id])
+  @@map("transaction_history")
+}
+
+model ServingLog {
+  service_log_id    Int   @id   @default(autoincrement())
+  queue_id          Int
+  serviced_by       String @db.Uuid
+  window_id         Int
+  started_at        DateTime    @default(now())
+  ended_at          DateTime?
+
+  queue             Queue          @relation(fields: [queue_id], references: [queue_id])
+  staff             SasStaff      @relation(fields: [serviced_by], references: [sas_staff_id])
+  window            ServiceWindow @relation(fields: [window_id], references: [window_id])
+
+  @@index([queue_id])
+  @@index([serviced_by])
+  @@index([window_id])
+  @@map("serving_log")
+}
