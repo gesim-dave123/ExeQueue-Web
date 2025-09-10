@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 
 export default function Navbar() {
   return (
-    <div className=' flex justify-between min-h-[10vh] shadow-sm '>
+    <div className='bg-transparent flex justify-between min-h-[10vh] shadow-md '>
       <div className='flex items-center ml-20'>
         <img src="public/assets/icon.svg" alt="" className='w-[10vh]' />
         <h1 className='text-2xl font-bold '>ExeQueue</h1>
