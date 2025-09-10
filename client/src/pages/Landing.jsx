@@ -2,7 +2,7 @@ import React from 'react'
 
 export default function Landing() {
   return (
-   <div className="min-h-[90vh] flex justify-center items-center px-6 sm:px-12 md:px-24 font-sans bg-gradient-to-br from-blue-50 via-white to-amber-50 relative overflow-hidden">
+   <div className="min-h-[85vh]  flex justify-center items-center px-6 sm:px-12 md:px- bg-gradient-to-br from-blue-50 via-white to-amber-50 relative overflow-hidden">
   {/* Animated background elements */}
   <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
     <div className="absolute -top-20 -left-20 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
@@ -10,15 +10,15 @@ export default function Landing() {
     <div className="absolute bottom-20 left-1/3 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
   </div>
 
-  <div className="w-full max-w-5xl text-center md:text-left space-y-10 p-10 rounded-2xl  relative z-10 ">
+  <div className="w-full max-w-5xl  text-center md:text-left space-y-1 px-10 rounded-2xl  relative z-10 ">
      {/* Trust badge */}
-    <div className=" flex flex-col items-center md:flex-row md:justify-between ">
+    {/* <div className=" flex flex-col items-center md:flex-row md:justify-between ">
       <span className="inline-block px-4 py-2 text-sm font-medium bg-gradient-to-r from-[#F9AB00] to-[#1A73E8] text-white rounded-full shadow-md">
         💡 Fast • Secure • Reliable
       </span>
-    </div>
+    </div> */}
     {/* Heading with improved gradient and animation */}
-    <div className="space-y-3">
+    <div className="space-y-10 pt-10 text-center mb-10">
       <h1 className="text-4xl sm:  md:text-7xl lg:text-8xl font-extrabold text-gray-900 leading-tight">
         <span className="bg-gradient-to-r from-[#1A73E8] via-[#F9AB00] to-[#1A73E8] bg-clip-text text-transparent bg-size-200 animate-gradient">
           Student
@@ -31,9 +31,12 @@ export default function Landing() {
     </div>
 
     {/* Subtitle with improved styling */}
-    <p className="text-lg sm:text-xl text-gray-700 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium">
-      Your campus services, now more accessible than ever.
-    </p>
+    <div className='flex justify-center'>
+      <p className="text-lg text-center mb-10 sm:text-xl text-gray-700 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium">
+            Your campus services, now more accessible than ever.
+      </p>
+    </div>
+   
 
     {/* Stats section */}
     {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-gray-200">
@@ -55,36 +58,39 @@ export default function Landing() {
       </div>
     </div> */}
 
-  {/* Feature highlights */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
-      {[
-        { icon: '🔒', title: 'Secure', desc: 'End-to-end encryption' },
-        { icon: '⚡', title: 'Fast', desc: 'Quick response times' },
-        { icon: '🎯', title: 'Reliable', desc: '99.9% uptime guarantee' }
-      ].map((feature, index) => (
-        <div key={index} className="flex flex-col items-center md:items-start p-4 bg-white/50 rounded-lg shadow-sm hover:bg-white transition-colors">
-          <div className="text-2xl mb-2">{feature.icon}</div>
-          <h3 className="font-semibold text-gray-800">{feature.title}</h3>
-          <p className="text-sm text-gray-600 text-center md:text-left">{feature.desc}</p>
-        </div>
-      ))}
-    </div>
+ 
 
       {/* Buttons with improved styling and icons */}
-    <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
-      <button className="group bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-md hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer">
+    <div className=" flex flex-col sm:flex-row mb-5 gap-4 justify-center">
+      <button className=" bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-md hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer">
         <span>Request Service</span>
-        <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        {/* <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-        </svg>
+        </svg> */}
       </button>
-      <button className="group border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] hover:text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer">
+      <button className="border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] hover:text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer">
         <span>Proceed as Staff</span>
       
       </button>
     </div>
-    <div className='items-center text-center text-gray-500'>
+    <div className='items-center mb-15 text-center text-gray-500'>
       <p>Already have a queue number? <span><button className='cursor-pointer underline'>View Queue</button></span></p>
+    </div>
+     {/* Feature highlights */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ">
+      {[
+        { icon: 'fa-sharp fa-solid fa-lock', title: 'Secure', desc: 'End-to-end encryption' },
+        { icon: 'fa-sharp fa-solid fa-bolt', title: 'Fast', desc: 'Quick response times' },
+        { icon: 'fa-sharp fa-solid fa-shield-alt', title: 'Reliable', desc: '99.9% uptime guarantee' }
+      ].map((feature, index) => (
+        <div key={index} className="flex flex-col items-center md:items-start p-4 bg-white/50 rounded-lg shadow-sm hover:bg-white transition-colors">
+          <div className="text-2xl mb-2">
+            <i className={feature.icon}></i>
+          </div>
+          <h3 className="font-semibold text-gray-800">{feature.title}</h3>
+          <p className="text-sm text-gray-600 text-center md:text-left">{feature.desc}</p>
+        </div>
+      ))}
     </div>
    {/* Trust badge */}
     {/* <div className="pt-1 flex flex-col items-center md:flex-row md:justify-between gap-4">
