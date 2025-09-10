@@ -7,5 +7,6 @@
 /* Apply Poppins globally */
 body {
   font-family: 'Poppins', sans-serif;
+  /* background: linear-gradient(to bottom right, #eff6ff, #ffffff, #fef3c7); */
     /* margin-left: 20px; */
 }
