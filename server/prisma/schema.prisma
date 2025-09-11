@@ -25,13 +25,13 @@ enum Queue_Type {
 }
 
 enum Status {
-  WAITING
-  IN_SERVICE
-  DEFERRED
-  CANCELLED
-  COMPLETED
-  STALLED
-  SKIPPED
+  WAITING // Queue
+  IN_SERVICE // Queue
+  DEFERRED // Queue
+  CANCELLED // Request
+  COMPLETED // Request or Queue
+  STALLED // Request
+  SKIPPED // Request
 }
 
 model Student {
@@ -52,7 +52,7 @@ model Student {
 
 model Course {
   course_id   Int      @id @default(autoincrement())
-  course_code String   @unique @db.VarChar(10)
+  course_code String   @unique @db.VarChar(10) // BSIT //BSCS
   course_name String   @db.VarChar(50)
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
@@ -65,7 +65,7 @@ model Course {
 model SasStaff {
   sas_staff_id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   username           String        @unique @db.VarChar(30)
-  hashed_password    String        @db.VarChar(255)
+  hashed_password    String        @db.VarChar(255) 
   first_name         String        @db.VarChar(50)
   last_name          String        @db.VarChar(50)
   middle_name        String?       @db.VarChar(50)
@@ -89,8 +89,8 @@ model SasStaff {
 model ServiceWindow {
   window_id          Int      @id @default(autoincrement())
   window_name        String   @unique @db.VarChar(30)
-  can_serve_priority Boolean  @default(true)
-  can_serve_regular  Boolean  @default(true)
+  can_serve_priority Boolean  @default(true) 
+  can_serve_regular  Boolean  @default(true) 
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now())
   deleted_at         DateTime?
@@ -103,7 +103,6 @@ model ServiceWindow {
 model Queue {
   queue_id           Int             @id @default(autoincrement())
   stud_id            String          @db.Uuid
-  student            Student         @relation(fields: [stud_id], references: [stud_id])
   school_id          String          @db.VarChar(20)
   queue_number       Int              
   queue_status       Status          @default(WAITING)
@@ -114,6 +113,7 @@ model Queue {
   updated_at         DateTime @updatedAt
   deleted_at         DateTime?
 
+  student            Student         @relation(fields: [stud_id], references: [stud_id])
   requests           Request[]
   transaction_history TransactionHistory[]
   queue_log          ServingLog[]
@@ -155,8 +155,10 @@ model RequestType {
   @@map("request_type")
 }
 
+
+
 model TransactionHistory {
-  id               Int        @id @default(autoincrement())
+  servicing_log_id Int        @id @default(autoincrement())
   queue_id         Int
   request_id       Int?
   stud_id          String     @db.Uuid
