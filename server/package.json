@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "copy .env.local .env && nodemon src/server.js",
     "start": "node src/server.js",
+    "seed": "node prisma/seed.js",
+    "seed:local": "npm run switch:local && npx prisma migrate dev && npm run seed",
+    "seed:online": "npm run switch:online && npx prisma migrate dev && npm run seed",
     "switch:local": "copy .env.local .env && echo Switched to LOCAL database",
     "switch:online": "copy .env.online .env && echo Switched to ONLINE database",
     "local": "npm run switch:local && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\"",
