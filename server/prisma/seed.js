@@ -1,9 +1,86 @@
+import bcrypt from "bcryptjs";
+import { Role } from "../src/generated/prisma/index.js";
 import prisma from "./prisma.js";
 
 async function main() {
   // ----------------------
   // 1. Seed Courses
   // ----------------------
+
+  await prisma.sasStaff.deleteMany({
+    where: {
+      email: {
+        in: [
+          'admin@gmail.com',
+          'admin2@gmail.com',
+          'working@gmail.com',
+          'working2@gmail.com'
+        ]
+      }
+    }
+  })
+
+  const adminPassword = await bcrypt.hash("admin123456", 12)
+  const workingPassword = await bcrypt.hash("working123456", 12)
+
+  const admin1 = await prisma.sasStaff.create({
+    data: {
+      username: 'admin',
+      hashed_password: adminPassword,
+      first_name: 'Jacinth',
+      last_name: 'Barral',
+      email: 'admin@gmail.com',
+      role: Role.PERSONNEL,
+      is_active: true
+    }
+  })
+
+  const admin2 = await prisma.sasStaff.create({
+    data: {
+      username: 'admin2',
+      hashed_password: adminPassword,
+      first_name: 'Christian Dave',
+      last_name: 'Gesim',
+      email: 'admin2@gmail.com',
+      role: Role.PERSONNEL,
+      is_active: true
+    }
+  })
+
+  const working = await prisma.sasStaff.create({
+    data: {
+      username: 'working',
+      hashed_password: workingPassword,
+      first_name: 'Christian Dave',
+      last_name: 'Gesim',
+      email: 'working@gmail.com',
+      role: Role.WORKING_SCHOLAR,
+      is_active: true
+    }
+  })
+
+  const working2 = await prisma.sasStaff.create({
+    data: {
+      username: 'working2',
+      hashed_password: workingPassword,
+      first_name: 'Jacinth',
+      last_name: 'Barral',
+      email: 'working2@gmail.com',
+      role: Role.WORKING_SCHOLAR,
+      is_active: true
+    }
+  })
+
+  console.log('Seed data created successfully:')
+  console.log('Admin accounts (password: admin123456):')
+  console.log(`- admin: admin123456`)
+  console.log(`- admin2: admin123456`)
+  console.log('Working scholar accounts (password: working123456):')
+  console.log(`- working: working123456`)
+  console.log(`- working2: working123456`)
+  
+  console.log('\nUse these passwords for login testing')
+
 
   await prisma.student.deleteMany(); // first delete all students
   await prisma.course.deleteMany();  // then delete courses
