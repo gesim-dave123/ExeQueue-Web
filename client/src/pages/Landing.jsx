@@ -1,9 +1,24 @@
-import React from 'react'
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClipboardList, faUserCog } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 
 export default function Landing() {
+
+  const handleRedirect = (destination) =>{
+    if(destination === '/student'){
+      window.location.href = "/"; // or use your router
+    }
+    else if(destination === '/staff/login'){
+      window.location.href = destination; // or use your router
+    }
+    else if(destination === '/student/view-queue'){
+      console.log('View Queue')
+      window.location.href = destination
+    }
+  }
+
+
+
   return (
    <div className="min-h-[90vh] flex items-center justify-center px-4 sm:px-6 md:px-8 bg-gradient-to-br from-blue-50 via-white to-amber-50 relative overflow-hidden py-8">
   {/* Animated background elements */}
@@ -34,20 +49,28 @@ export default function Landing() {
     {/* Buttons with improved styling and icons */}
     <div className="flex flex-col sm:flex-row mb-4 gap-3 justify-center ">
          {/* Request Service */}
-      <button className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base">
+      <button className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base"
+        onClick={() =>handleRedirect('/student')}
+      >
+
         <FontAwesomeIcon icon={faClipboardList} size="lg" />
         <span>Request Service</span>
       </button>
 
       {/* Proceed as Staff */}
-      <button className="border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] hover:text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base">
+      <button className="border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] hover:text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-base"
+        onClick={() =>handleRedirect('/staff/login')}
+      >
         <FontAwesomeIcon icon={faUserCog} size="lg" />
         <span>Proceed as Staff</span>
       </button>
     </div>
     
     <div className='items-center mb-8 text-center text-gray-500 text-sm sm:text-base'>
-      <p>Already have a queue number? <span><button className='cursor-pointer underline'>View Queue</button></span></p>
+      <p>Already have a queue number? <span><button className='cursor-pointer underline'
+        onClick={() => handleRedirect('/student')} // change later to url destination for view queue
+      >
+      View Queue</button></span></p>
     </div>
     
     {/* Feature highlights */}
