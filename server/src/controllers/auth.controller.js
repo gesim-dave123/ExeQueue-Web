@@ -5,8 +5,9 @@ import prisma from '../../prisma/prisma.js'
 import { Role } from '../generated/prisma/index.js'
 export const loginUser = async (req, res) =>{
   const {username, password} =req.body
+  console.log("Hereee")
   try {
-    if(!username || !password)return res.status(403).json({success: false, message: "Required Fields are missing!"})
+    if(!username || !password) return res.status(403).json({success: false, message: "Required Fields are missing!"})
     const user = await prisma.sasStaff.findUnique({
       where:{
         username: username
@@ -76,6 +77,14 @@ export const createUser = (req,res)=>{
 }
 
 export const logoutUser = (req, res) => {
-  res.clearCookie("token");
-  return res.status(200).json({ message: "Logged out successfully" });
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: "strict"
+  });
+
+  return res.status(200).json({
+    success:true,
+    message: "Logged Out Successfully!"
+  })
 };
