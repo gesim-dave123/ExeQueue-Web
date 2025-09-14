@@ -19,7 +19,7 @@ node_modules
 .env
 
 src/generated/prisma
-prisma/seed.js
+server/prisma/seed.js
 
 
 # Build outputs
