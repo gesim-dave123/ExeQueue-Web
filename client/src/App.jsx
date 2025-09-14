@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import AboutUs from './pages/AboutUs';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import Request from './pages/students/Request';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -20,6 +21,7 @@ function App() {
           <Route path = "/" element = {<Landing/>}></Route>
           <Route path = "/about" element ={<AboutUs/>}></Route>
           <Route path = "/staff/login" element={<Login/>}></Route> 
+          <Route path= "/student/request" element={<Request/>}></Route>
         </Route>
       </Routes>
     </Router>
