@@ -1,2 +1,2 @@
-# Queuing-Management-System---Web
+# ExeQueue-Web (Queueing Management System)
 System Project for Testing And Quality Assurance
