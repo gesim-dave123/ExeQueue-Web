@@ -6,9 +6,13 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import AuthRoute from '../src/routes/auth.route.js';
+import validateAccess from '../utils/validate.js';
 
 
 dotenv.config();
+
+validateAccess();
+
 const app = express();
 const PORT = process.env.PORT||5000;
 
