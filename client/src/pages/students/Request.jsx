@@ -8,7 +8,6 @@ export default function Request() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedQueue, setSelectedQueue] = useState(null);
-  const [fullName, setfullName] = useState("");
   const [selectedServices, setSelectedServices] = useState([]);
   const [formData, setFormData] = useState({
     lastName: "",
@@ -18,6 +17,7 @@ export default function Request() {
     course: "",
     yearLevel: ""
   });
+  const fullName = `${formData.lastName}, ${formData.firstName} ${formData.middleName}`;
   const [errors, setErrors] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   
@@ -162,9 +162,8 @@ export default function Request() {
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <motion.div 
-          className="mb-6 md:mb-8"
-          variants={itemVariants}
+        <div 
+          className="mb-6 md:mb-8 px-15"
         >
           {currentStep === 1 && (
             <>
@@ -210,17 +209,16 @@ export default function Request() {
               </p>
             </div>
           )}
-        </motion.div>
+        </div>
         
         {/* Step Indicator */}
-        <motion.div 
+        <div 
           className="mb-8 md:mb-10"
-          variants={itemVariants}
         >
-          <p className="text-sm text-left text-gray-500 mb-2">
+          <p className="text-sm text-left text-gray-500 mb-2 px-15">
             Step {currentStep} of 4
           </p>
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 px-15">
             {[1, 2, 3, 4].map((step) => (
               <div
                 key={step}
@@ -235,15 +233,13 @@ export default function Request() {
               </div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         {/* Step 1: Queue Options */}
         {currentStep === 1 && (
-          <motion.div 
+          <div 
             className="space-y-4 mb-8 md:mb-10"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
+          
           >
             {errors.step1 && (
               <motion.div 
@@ -347,26 +343,24 @@ export default function Request() {
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
 
         {/* Step 2: Your Information */}
         {currentStep === 2 && (
           <motion.form 
-            className="space-y-4 mb-8 bg-white shadow-md p-10 rounded-2xl md:mb-10 text-left"
+            className="space-y-4 mb-8 bg-white shadow-sm p-10 rounded-2xl md:mb-10 text-left"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
             {Object.keys(errors).length > 0 && (
-              <motion.div 
+              <div 
                 className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+             
               >
                 Please fill out all required fields
-              </motion.div>
+              </div>
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -465,16 +459,23 @@ export default function Request() {
               <label className="block text-sm font-medium text-gray-700">
                 Course <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="course"
                 value={formData.course}
                 onChange={handleChange}
-                placeholder="e.g., BSIT"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.course ? "border-red-500" : "border-gray-300"
                 }`}
-              />
+                >
+                <option value="" disabled>
+                  Select your course
+                </option>
+                <option value="BSIT">BSIT</option>
+                <option value="BSCS">BSCS</option>
+                <option value="BSECE">BSECE</option>
+                <option value="BSCE">BSCE</option>
+                <option value="BSEE">BSEE</option>
+              </select>
               {errors.course && (
                 <p className="mt-1 text-sm text-red-600">{errors.course}</p>
               )}
@@ -488,16 +489,24 @@ export default function Request() {
               <label className="block text-sm font-medium text-gray-700">
                 Year Level <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="yearLevel"
                 value={formData.yearLevel}
                 onChange={handleChange}
-                placeholder="e.g., Third Year"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.yearLevel ? "border-red-500" : "border-gray-300"
                 }`}
-              />
+              >
+                <option value="" disabled>
+                  Select your year level
+                </option>
+                <option value="First Year">First Year</option>
+                <option value="Second Year">Second Year</option>
+                <option value="Third Year">Third Year</option>
+                <option value="Fourth Year">Fourth Year</option>
+                <option value="Irregular">Irregular</option>
+              </select>
+
               {errors.yearLevel && (
                 <p className="mt-1 text-sm text-red-600">{errors.yearLevel}</p>
               )}
@@ -507,21 +516,16 @@ export default function Request() {
         
         {/* Step 3: Multiple Service Selection */}
         {currentStep === 3 && (
-          <motion.div 
+          <div 
             className="space-y-6 mb-8 md:mb-10"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
+        
           >
             {errors.step3 && (
-              <motion.div 
+              <div 
                 className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
               >
                 {errors.step3}
-              </motion.div>
+              </div>
             )}
             
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -542,7 +546,7 @@ export default function Request() {
                   delay: idx * 0.1, // Stagger delay based on index
                   ease: "easeInOut"
                 }}
-                className={`flex flex-col items-center justify-center border rounded-xl p-4 md:p-6 cursor-pointer transition-all duration-200 ${
+                className={`flex flex-col items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
                   selectedServices.includes(service.label)
                     ? "border-blue-500 bg-blue-50 shadow-sm"
                     : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
@@ -560,20 +564,18 @@ export default function Request() {
               </motion.div>
             ))}
           </div>
-          </motion.div>
+          </div>
         )}
 
         {/* Step 4: Review */}
         {currentStep === 4 && (
-          <motion.div 
+          <div 
             className="space-y-6 mb-8 md:mb-10"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
+       
           >
             {/* Queue Type */}
             <motion.div 
-              className="bg-white shadow-md rounded-xl p-4 md:p-6 text-left border border-gray-100"
+              className="bg-white shadow-sm rounded-xl p-4 md:p-6 text-left border border-gray-100"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
@@ -584,7 +586,7 @@ export default function Request() {
                   <h3 className="text-[#F9AB00] font-semibold text-base md:text-lg">Queue Type</h3>
                 </div>
                 <button
-                  className="flex items-center space-x-1 text-[#1A73E8] text-sm font-medium hover:underline"
+                  className="flex items-center space-x-1 text-[#1A73E8] text-sm font-medium hover:underline cursor-pointer"
                   onClick={() => setCurrentStep(1)}
                 >
                   <i className="fa-solid fa-pen text-xs md:text-sm"></i>
@@ -592,15 +594,14 @@ export default function Request() {
                 </button>
               </div>
               <p className="mt-2 pl-5">
-                <span className="text-gray-500 text-sm font-medium">Type: </span>
-                <br />
+                <span className="text-gray-500 text-sm font-medium">Type:  </span>
                 <span className="font-semibold text-gray-800">{selectedQueue} Queue</span>
               </p>
             </motion.div>
 
             {/* Your Information */}
             <motion.div 
-              className="bg-white shadow-md rounded-xl p-4 md:p-6 text-left border border-gray-100"
+              className="bg-white shadow-sm rounded-xl p-4 md:p-6 text-left border border-gray-100"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
@@ -611,7 +612,7 @@ export default function Request() {
                   <h3 className="text-[#F9AB00] font-semibold text-base md:text-lg">Your Information</h3>
                 </div>
                 <button
-                  className="flex items-center space-x-1 text-[#1A73E8] text-sm font-medium hover:underline"
+                  className="flex items-center space-x-1 text-[#1A73E8] text-sm font-medium hover:underline cursor-pointer"
                   onClick={() => setCurrentStep(2)}
                 >
                   <i className="fa-solid fa-pen text-xs md:text-sm"></i>
@@ -620,34 +621,31 @@ export default function Request() {
               </div>
 
               {/* Info Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4 mt-3 pl-5 items-center justify-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4 mt-3 pl-5  justify-center space-x-5">
                 <div>
-                  <p className="text-gray-500 text-xs md:text-sm font-medium">Name: </p>
-                  <p className="font-semibold text-gray-800 text-sm md:text-base">
-                    {formData.lastName}, {formData.firstName}
-                  </p>
+                  <p className="text-gray-500 text-xs md:text-sm font-medium">Name:  <span className="font-semibold text-gray-800 text-sm md:text-base"> 
+                     {fullName}
+                    </span></p>
+                
                 </div>
 
                 <div>
-                  <p className="text-gray-500 text-xs md:text-sm font-medium">Student ID:</p>
-                  <p className="font-semibold text-gray-800 text-sm md:text-base">{formData.studentId}</p>
+                  <p className="text-gray-500 text-xs md:text-sm font-medium">Student ID: <span className="font-semibold text-gray-800 text-sm md:text-base">{formData.studentId}</span></p>
                 </div>
 
                 <div>
-                  <p className="text-gray-500 text-xs md:text-sm font-medium">Course:</p>
-                  <p className="font-semibold text-gray-800 text-sm md:text-base">{formData.course}</p>
+                  <p className="text-gray-500 text-xs md:text-sm font-medium">Course: <span className="font-semibold text-gray-800 text-sm md:text-base">{formData.course}</span> </p>
                 </div>
 
                 <div>
-                  <p className="text-gray-500 text-xs md:text-sm font-medium">Year Level:</p>
-                  <p className="font-semibold text-gray-800 text-sm md:text-base">{formData.yearLevel}</p>
+                  <p className="text-gray-500 text-xs md:text-sm font-medium">Year Level: <span className="font-semibold text-gray-800 text-sm md:text-base">{formData.yearLevel}</span> </p>
                 </div>
               </div>
             </motion.div>
 
             {/* Service Request */}
             <motion.div 
-              className="bg-white shadow-md rounded-xl p-4 md:p-6 text-left border border-gray-100"
+              className="bg-white shadow-sm rounded-xl p-4 md:p-6 text-left border border-gray-100"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
@@ -658,11 +656,11 @@ export default function Request() {
                   <h3 className="text-[#F9AB00] font-semibold text-base md:text-lg">Service Request</h3>
                 </div>
                 <button
-                  className="flex items-center space-x-1 text-[#1A73E8] text-sm font-medium hover:underline"
+                  className="flex items-center space-x-1 text-[#1A73E8] text-sm font-medium hover:underline cursor-pointer"
                   onClick={() => setCurrentStep(3)}
                 >
-                  <i className="fa-solid fa-pen text-xs md:text-sm"></i>
-                  <span className="hidden sm:inline">Edit</span>
+                  <i className="fa-solid fa-pen text-xs md:text-sm "></i>
+                  <span className="hidden sm:inline ">Edit</span>
                 </button>
               </div>
               <div className="mt-2 ml-5">
@@ -679,27 +677,23 @@ export default function Request() {
                 </ul>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
 
         {/* Navigation Buttons */}
-        <motion.div 
+        <div 
           className="flex justify-between items-center mt-auto pt-4"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+
         >
-          <motion.button
+          <button
             onClick={handleBack}
             className="flex items-center gap-2 px-4 md:px-7 py-2 md:py-2.5 rounded-3xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition  text-sm md:text-base cursor-pointer"
-         
-     
           >
             <ArrowLeft size={16} />
             Back
-          </motion.button>
+          </button>
 
-          <motion.button
+          <button
             onClick={handleNext}
             disabled={(currentStep === 1 && !selectedQueue) || 
                      (currentStep === 3 && selectedServices.length === 0)}
@@ -712,10 +706,10 @@ export default function Request() {
        
           >
             {currentStep === 4 ? "Submit Request" : "Continue"}
-          </motion.button>
-        </motion.div>
+          </button>
+        </div>
         
-        {currentStep === 4 && (
+        {/* {currentStep === 4 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -723,7 +717,7 @@ export default function Request() {
           >
 
           </motion.div>
-        )}
+        )} */}
 
         {/* Confirmation Modal */}
         {showConfirmModal && (

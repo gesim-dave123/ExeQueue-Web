@@ -51,7 +51,7 @@ export default function Landing() {
         >
 
           <FontAwesomeIcon icon={faClipboardList} size="lg" />
-        <span>Request Service</span>
+        <span className="">Request Service</span>
         </button>
       </Link>
 
@@ -74,9 +74,10 @@ export default function Landing() {
     {/* Feature highlights */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-10 ">
       {[
-        { icon: 'fa-sharp fa-solid fa-lock', title: 'Secure', desc: 'End-to-end encryption' },
-        { icon: 'fa-sharp fa-solid fa-bolt', title: 'Fast', desc: 'Quick response times' },
-        { icon: 'fa-sharp fa-solid fa-shield-alt', title: 'Reliable', desc: '99.9% uptime guarantee' }
+       { icon: 'fa-sharp fa-solid fa-lock text-gray-500', title: 'Secure', desc: 'End-to-end encryption' },
+{ icon: 'fa-sharp fa-solid fa-bolt text-gray-500', title: 'Fast', desc: 'Quick response times' },
+{ icon: 'fa-sharp fa-solid fa-shield-alt text-gray-500', title: 'Reliable', desc: '99.9% uptime guarantee' }
+
       ].map((feature, index) => (
         <div key={index} className="flex flex-col items-center md:items-start p-3 bg-white/50 rounded-lg shadow-sm hover:bg-white transition-colors">
           <div className="text-xl mb-1">
