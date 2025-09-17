@@ -6,6 +6,7 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import AuthRoute from '../src/routes/auth.route.js';
+import QueueRoute from '../src/routes/queue.route.js';
 import validateAccess from '../utils/validate.js';
 
 
@@ -28,6 +29,8 @@ app.use(helmet())
 
 // Server Routes
 app.use('/api/auth', AuthRoute)
+app.use('/api/queue', QueueRoute)
+// app.use('/api/student', StudentRoute)
 
 app.listen(PORT, () => {
     console.log('Server is running on port ', PORT);
