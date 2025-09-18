@@ -4,7 +4,6 @@ import backendConnection from './backendConnection.js';
 
 export const login= async (formData) =>{
   try {
-    console.log("?Hereee")
     const response = await axios.post(
       `${backendConnection()}/api/auth/login`,
       formData,
