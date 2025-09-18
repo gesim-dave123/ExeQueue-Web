@@ -1,3 +1,5 @@
+
+
 export default function Help() {
   return (
     <div className="min-h-[90vh] flex flex-col lg:flex-row justify-start items-start md:justify-center md:items-center p-10 sm:p-0">
