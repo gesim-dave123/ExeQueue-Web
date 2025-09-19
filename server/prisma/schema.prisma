@@ -243,20 +243,21 @@ model Course {
 
   @@index([isActive], map: "idx_course_is_active")
   @@index([courseCode, isActive], map: "idx_course_code_active")
-  @@index([createdAt], map: "idx_course_created_at")
-  @@index([deletedAt], map: "idx_course_deleted_at")
+  // @@index([createdAt], map: "idx_course_created_at")
+  // @@index([deletedAt], map: "idx_course_deleted_at")
   @@map("course")
 }
 
 model SasStaff {
   sasStaffId     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("sas_staff_id")
-  username       String    @unique @db.VarChar(30)
+  username       String    @unique @db.VarChar(100)
   hashedPassword String    @db.VarChar(255) @map("hashed_password")
   firstName      String    @db.VarChar(50) @map("first_name")
   lastName       String    @db.VarChar(50) @map("last_name")
   middleName     String?   @db.VarChar(50) @map("middle_name")
   email          String    @unique @db.VarChar(100)
-  role           Role      @default(WORKING_SCHOLAR)
+  role           Role?      
+  windowId       Int?      @map("window_id")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      String?   @db.Uuid @map("created_by")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -273,9 +274,9 @@ model SasStaff {
   @@index([role, isActive], map: "idx_sas_staff_role_active")
   @@index([isActive, createdAt], map: "idx_sas_staff_active_created")
   @@index([createdBy], map: "idx_sas_staff_created_by")
-  @@index([firstName, lastName], map: "idx_sas_staff_full_name")
-  @@index([updatedAt], map: "idx_sas_staff_updated_at")
-  @@index([deletedAt], map: "idx_sas_staff_deleted_at")
+  // @@index([firstName, lastName], map: "idx_sas_staff_full_name")
+  // @@index([updatedAt], map: "idx_sas_staff_updated_at")
+  // @@index([deletedAt], map: "idx_sas_staff_deleted_at")
   @@map("sas_staff")
 }
 
@@ -292,12 +293,25 @@ model ServiceWindow {
 
   @@index([isActive, canServePriority, canServeRegular], map: "idx_service_window_capabilities")
   @@index([windowName, isActive], map: "idx_service_window_name_active")
-  @@index([isActive], map: "idx_service_window_is_active")
-  @@index([createdAt], map: "idx_service_window_created_at")
-  @@index([deletedAt], map: "idx_service_window_deleted_at")
+  // @@index([isActive], map: "idx_service_window_is_active")
+  // @@index([createdAt], map: "idx_service_window_created_at")
+  // @@index([deletedAt], map: "idx_service_window_deleted_at")
   @@map("service_window")
 }
+model QueueSession {
+  sessionId       Int       @id @map("session_id")@default(autoincrement())
+  sessionNo       Int       @map("session_no")
+  sessionDate     DateTime  @map("session_date") 
+  isActive        Boolean   @map("is_active") @default(true)
+  createdAt       DateTime  @map("created_at") @default(now())
 
+  queues          Queue[]  @relation("SessionQueues") 
+
+  @@unique([sessionDate, sessionNo], map: "unq_sessions_same_date")     // prevent duplicate sessions for the same date
+  @@index([sessionDate, isActive], map:"idx_today_active_session")       // quickly find "today's active session"
+
+
+}
 model Queue {
   queueId          Int        @id @default(autoincrement()) @map("queue_id")
   schoolId         String     @db.VarChar(20) @map("school_id")
@@ -307,32 +321,37 @@ model Queue {
   queueNumber      Int        @map("queue_number")
   queueStatus      Status     @default(WAITING) @map("queue_status")
   queueType        Queue_Type @default(REGULAR) @map("queue_type")
+  queueDate        DateTime   @map("queue_date")
+  queueSessionId   Int        @map("queue_session_id")
   windowId         Int?       @map("window_id")
-  referenceNumber  String?    @db.VarChar(255) @map("reference_number")
+  referenceNumber  String    @db.VarChar(255) @map("reference_number")
   isActive         Boolean    @default(true) @map("is_active")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
   deletedAt        DateTime?  @map("deleted_at")
-
+  
+  session          QueueSession? @relation("SessionQueues", fields: [queueSessionId], references: [sessionId])
   course               Course               @relation("CourseQueue", fields: [courseId], references: [courseId], onDelete: Restrict, map: "fk_queue_course")
   serviceWindow        ServiceWindow?       @relation("WindowQueue", fields: [windowId], references: [windowId], onDelete: SetNull, map: "fk_queue_service_window")
   requests             Request[]            @relation("QueueRequest")
   transactionHistories TransactionHistory[] @relation("QueueTransaction")
 
   @@index([queueStatus, queueType, windowId], map: "idx_queue_status_type_window")
-  @@index([queueStatus, queueType, createdAt], map: "idx_queue_status_type_created")
+  // @@index([queueStatus, queueType, createdAt], map: "idx_queue_status_type_created")
   @@index([queueStatus, isActive], map: "idx_queue_status_active")
   @@index([schoolId, queueStatus], map: "idx_queue_school_status")
-  @@index([courseId, queueStatus, queueType], map: "idx_queue_course_status_type")
+  // @@index([courseId, queueStatus, queueType], map: "idx_queue_course_status_type")
   @@index([windowId, queueStatus], map: "idx_queue_window_status")
-  @@index([queueNumber, createdAt], map: "idx_queue_number_created")
+  // @@index([queueType, queueNumber, createdAt], map: "idx_queue_number_created")
+  @@unique([queueType, queueNumber, queueDate, queueSessionId], map: "unq_queue_number_created")
+  //  @@index([queueType, queueNumber, createdAt], map: "idx_queue_")
   @@index([referenceNumber], map: "idx_queue_reference_number")
-  @@index([createdAt], map: "idx_queue_created_at")
-  @@index([updatedAt], map: "idx_queue_updated_at")
+  // @@index([createdAt], map: "idx_queue_created_at")
+  // @@index([updatedAt], map: "idx_queue_updated_at")
   @@index([isActive, createdAt], map: "idx_queue_active_created")
-  @@index([yearLevel, courseId], map: "idx_queue_year_course")
-  @@index([studentFullName], map: "idx_queue_student_name")
-  @@index([deletedAt], map: "idx_queue_deleted_at")
+  // @@index([yearLevel, courseId], map: "idx_queue_year_course")
+  // @@index([studentFullName], map: "idx_queue_student_name")
+  // @@index([deletedAt], map: "idx_queue_deleted_at")
   @@map("queue")
 }
 
@@ -340,9 +359,9 @@ model Request {
   requestId       Int       @id @default(autoincrement()) @map("request_id")
   queueId         Int       @map("queue_id")
   requestTypeId   Int       @map("request_type_id")
-  processedBy     String    @db.Uuid @map("processed_by")
+  processedBy     String?   @db.Uuid @map("processed_by")
   requestStatus   Status?   @map("request_status")
-  processedAt     DateTime  @default(now()) @map("processed_at")
+  processedAt     DateTime? @default(now()) @map("processed_at")
   isActive        Boolean   @default(true) @map("is_active")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
@@ -350,7 +369,7 @@ model Request {
 
   queue               Queue                @relation("QueueRequest", fields: [queueId], references: [queueId], onDelete: Cascade, map: "fk_request_queue")
   requestType         RequestType          @relation("TypeRequest", fields: [requestTypeId], references: [requestTypeId], onDelete: Restrict, map: "fk_request_type")
-  processor           SasStaff             @relation("ProcessedBy", fields: [processedBy], references: [sasStaffId], onDelete: Restrict, map: "fk_request_processor")
+  processor           SasStaff?            @relation("ProcessedBy", fields: [processedBy], references: [sasStaffId], onDelete: Restrict, map: "fk_request_processor")
   transactionHistories TransactionHistory[] @relation("RequestTransaction")
 
   @@index([queueId], map: "idx_request_queue_id")
@@ -361,8 +380,8 @@ model Request {
   @@index([processedAt], map: "idx_request_processed_at")
   @@index([createdAt], map: "idx_request_created_at")
   @@index([isActive, createdAt], map: "idx_request_active_created")
-  @@index([updatedAt], map: "idx_request_updated_at")
-  @@index([deletedAt], map: "idx_request_deleted_at")
+  // @@index([updatedAt], map: "idx_request_updated_at")
+  // @@index([deletedAt], map: "idx_request_deleted_at")
   @@map("request")
 }
 
@@ -386,7 +405,7 @@ model TransactionHistory {
   requestId            Int?     @map("request_id")
   performedById        String   @db.Uuid @map("performed_by_id")
   performedByRole      Role     @map("performed_by_role")
-  action               Status?
+  transactionStatus    Status?
   createdAt            DateTime @default(now()) @map("created_at")
 
   queue     Queue     @relation("QueueTransaction", fields: [queueId], references: [queueId], onDelete: Cascade, map: "fk_transaction_queue")
@@ -395,11 +414,11 @@ model TransactionHistory {
 
   @@index([queueId], map: "idx_transaction_queue_id")
   @@index([performedById, createdAt], map: "idx_transaction_performer_time")
-  @@index([action, createdAt], map: "idx_transaction_action_time")
+  @@index([transactionStatus, createdAt], map: "idx_transaction_action_time")
   @@index([queueId, createdAt], map: "idx_transaction_queue_chronology")
   @@index([requestId], map: "idx_transaction_request_id")
-  @@index([performedByRole, action], map: "idx_transaction_role_action")
-  @@index([createdAt], map: "idx_transaction_created_at")
-  @@index([queueId, action, createdAt], map: "idx_transaction_queue_action_time")
+  @@index([performedByRole, transactionStatus], map: "idx_transaction_role_action")
+  // @@index([createdAt], map: "idx_transaction_created_at")
+  // @@index([queueId, action, createdAt], map: "idx_transaction_queue_action_time")
   @@map("transaction_history")
 }

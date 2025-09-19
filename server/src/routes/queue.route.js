@@ -1,8 +1,9 @@
 import express from 'express';
-import { createQueue } from '../controllers/queue.controller.js';
+import { generateQueue } from '../controllers/queue.controller.js';
 
 const router = express.Router();
 
-router.post('/register', createQueue);
+router.post('/generate', generateQueue)
+
 
 export default router;
