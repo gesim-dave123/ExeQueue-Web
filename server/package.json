@@ -4,21 +4,37 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "dev": "copy .env.local .env && nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed": "node prisma/seed.js",
+    "seed:local": "npm run switch:local && npx prisma migrate dev && npm run seed",
+    "seed:online": "npm run switch:online && npx prisma migrate dev && npm run seed",
+    "switch:local": "copy .env.local .env && echo Switched to LOCAL database",
+    "switch:online": "copy .env.online .env && echo Switched to ONLINE database",
+    "local": "npm run switch:local && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\"",
+    "online": "npm run switch:online && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\""
   },
   "keywords": [],
-  "type":"module",
+  "type": "module",
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "^6.0.0",
+    "@prisma/client": "^6.15.0",
+    "bcryptjs": "^3.0.2",
+    "concurrently": "^8.2.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.2",
-    "nodemon": "^3.1.10"
+    "morgan": "^1.10.1",
+    "nodemon": "^3.1.10",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "prisma": "^6.15.0"
   }
 }

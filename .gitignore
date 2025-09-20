@@ -11,6 +11,23 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.online
+
+
+node_modules
+# Keep environment variables out of version control
+.env
+# prisma
+src/generated/prisma
+server/prisma/seed.js
+seed.js
+
+server/prisma/seed.js
+
+server/prisma/_old_migrations
+server/prisma/prisma
+server/prisma/prisma/schema.prisma
+
 
 # Build outputs
 dist/

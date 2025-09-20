@@ -1,0 +1,424 @@
+// // This is your Prisma schema file,
+// // learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// generator client {
+//   provider = "prisma-client-js"
+//   output   = "../src/generated/prisma"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
+// enum Role {
+//   PERSONNEL
+//   WORKING_SCHOLAR
+// }
+
+// enum Queue_Type {
+//   REGULAR
+//   PRIORITY
+// }
+
+// enum Status {
+//   WAITING // Queue
+//   IN_SERVICE // Queue
+//   DEFERRED // Queue
+//   CANCELLED // Request
+//   COMPLETED // Request or Queue
+//   STALLED // Request
+//   SKIPPED // Request
+// }
+
+// model Student {
+//   stud_id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+//   school_id           String   @unique @db.VarChar(20)
+//   full_name           String   @db.VarChar(100)
+//   course_id           Int
+//   year                String   @db.VarChar(10)
+//   created_at          DateTime @default(now())
+
+//   course              Course   @relation(fields: [course_id], references: [course_id])
+//   queue_entries       Queue[]
+//   transaction_history TransactionHistory[]
+
+//   @@index([school_id])
+//   @@map("student")
+// }
+
+// model Course {
+//   course_id   Int      @id @default(autoincrement())
+//   course_code String   @unique @db.VarChar(10) // BSIT //BSCS
+//   course_name String   @db.VarChar(50)
+//   is_active   Boolean  @default(true)
+//   created_at  DateTime @default(now())
+//   deleted_at  DateTime?
+
+//   students    Student[]
+//   @@map("course")
+// }
+
+// model SasStaff {
+//   sas_staff_id       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+//   username           String        @unique @db.VarChar(30)
+//   hashed_password    String        @db.VarChar(255) 
+//   first_name         String        @db.VarChar(50)
+//   last_name          String        @db.VarChar(50)
+//   middle_name        String?       @db.VarChar(50)
+//   email              String        @unique @db.VarChar(100)
+//   role               Role          @default(WORKING_SCHOLAR)
+//   is_active          Boolean       @default(true)
+//   created_by         String?       @db.Uuid
+//   creator            SasStaff?     @relation("staff_creator", fields: [created_by], references: [sas_staff_id])
+//   created_accounts   SasStaff[]    @relation("staff_creator") 
+//   created_at         DateTime      @default(now())
+//   updated_at         DateTime      @updatedAt
+//   deleted_at         DateTime?  
+
+//   processed_requests     Request[]
+//   processed_transac_hist TransactionHistory[]
+//   processed_service_log  ServingLog[]
+
+//   @@map("sas_staff")
+// }
+
+// model ServiceWindow {
+//   window_id          Int      @id @default(autoincrement())
+//   window_name        String   @unique @db.VarChar(30)
+//   can_serve_priority Boolean  @default(true) 
+//   can_serve_regular  Boolean  @default(true) 
+//   is_active          Boolean  @default(true)
+//   created_at         DateTime @default(now())
+//   deleted_at         DateTime?
+
+//   queues             Queue[]
+//   service_window_log ServingLog[]
+//   @@map("service_window")
+// }
+
+// model Queue {
+//   queue_id           Int             @id @default(autoincrement())
+//   stud_id            String          @db.Uuid
+//   school_id          String          @db.VarChar(20)
+//   queue_number       Int              
+//   queue_status       Status          @default(WAITING)
+//   queue_type         Queue_Type      @default(REGULAR)
+//   served_by_window   Int?
+//   window             ServiceWindow? @relation(fields: [served_by_window], references: [window_id])
+//   created_at         DateTime @default(now())
+//   updated_at         DateTime @updatedAt
+//   deleted_at         DateTime?
+
+//   student            Student         @relation(fields: [stud_id], references: [stud_id])
+//   requests           Request[]
+//   transaction_history TransactionHistory[]
+//   queue_log          ServingLog[]
+
+//   @@index([queue_status, queue_type, served_by_window])
+//   @@unique([stud_id, served_by_window, queue_status])
+//   @@map("queue")
+// }
+
+// model Request {
+//   request_id        Int          @id @default(autoincrement())
+//   queue_id          Int
+//   request_type_id   Int
+//   processed_by      String       @db.Uuid
+//   processed_at      DateTime     @default(now())
+//   is_active         Boolean      @default(true)
+//   created_at        DateTime     @default(now())
+//   updated_at        DateTime     @updatedAt  
+//   deleted_at        DateTime?
+
+//   queue_entry       Queue        @relation(fields: [queue_id], references: [queue_id])
+//   request_type      RequestType  @relation(fields: [request_type_id], references: [request_type_id])
+//   processed_by_staff SasStaff    @relation(fields: [processed_by], references: [sas_staff_id])
+//   history           TransactionHistory[]
+
+//   @@index([queue_id])
+//   @@map("request")
+// }
+
+// model RequestType {
+//   request_type_id Int       @id @default(autoincrement())
+//   request_name    String    @db.VarChar(50)
+//   description     String    @db.VarChar(255)
+//   created_at      DateTime  @default(now())
+//   deleted_at      DateTime?
+
+//   requests        Request[]
+
+//   @@map("request_type")
+// }
+
+
+
+// model TransactionHistory {
+//   transaction_history_id Int        @id @default(autoincrement())
+//   queue_id         Int
+//   request_id       Int?
+//   stud_id          String     @db.Uuid
+//   school_id        String     @db.VarChar(20)
+//   performed_by_id  String     @db.Uuid
+//   performed_by_role Role
+//   action           Status     @default(WAITING)
+//   created_at       DateTime   @default(now())
+
+//   request_data     Request?   @relation(fields: [request_id], references: [request_id])
+//   queue_data       Queue      @relation(fields: [queue_id], references: [queue_id])
+//   student          Student    @relation(fields: [stud_id], references: [stud_id])
+//   sas_staff        SasStaff  @relation(fields: [performed_by_id], references: [sas_staff_id])
+
+//   @@index([stud_id])
+//   @@index([queue_id])
+//   @@map("transaction_history")
+// }
+
+// model ServingLog {
+//   service_log_id    Int   @id   @default(autoincrement())
+//   queue_id          Int
+//   serviced_by       String @db.Uuid
+//   window_id         Int
+//   started_at        DateTime    @default(now())
+//   ended_at          DateTime?
+
+//   queue             Queue          @relation(fields: [queue_id], references: [queue_id])
+//   staff             SasStaff      @relation(fields: [serviced_by], references: [sas_staff_id])
+//   window            ServiceWindow @relation(fields: [window_id], references: [window_id])
+
+//   @@index([queue_id])
+//   @@index([serviced_by])
+//   @@index([window_id])
+//   @@map("serving_log")
+// }
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PERSONNEL
+  WORKING_SCHOLAR
+}
+
+enum Queue_Type {
+  REGULAR
+  PRIORITY
+}
+
+enum Status {
+  WAITING
+  IN_SERVICE
+  DEFERRED
+  CANCELLED
+  COMPLETED
+  STALLED
+  SKIPPED
+}
+
+model Course {
+  courseId    Int       @id @default(autoincrement()) @map("course_id")
+  courseCode  String    @unique @db.VarChar(10) @map("course_code")
+  courseName  String    @db.VarChar(255) @map("course_name")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  queues Queue[] @relation("CourseQueue")
+
+  @@index([isActive], map: "idx_course_is_active")
+  @@index([courseCode, isActive], map: "idx_course_code_active")
+  // @@index([createdAt], map: "idx_course_created_at")
+  // @@index([deletedAt], map: "idx_course_deleted_at")
+  @@map("course")
+}
+
+model SasStaff {
+  sasStaffId     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("sas_staff_id")
+  username       String    @unique @db.VarChar(100)
+  hashedPassword String    @db.VarChar(255) @map("hashed_password")
+  firstName      String    @db.VarChar(50) @map("first_name")
+  lastName       String    @db.VarChar(50) @map("last_name")
+  middleName     String?   @db.VarChar(50) @map("middle_name")
+  email          String    @unique @db.VarChar(100)
+  role           Role?      
+  windowId       Int?      @map("window_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdBy      String?   @db.Uuid @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  creator                SasStaff?            @relation("StaffCreatedBy", fields: [createdBy], references: [sasStaffId], onDelete: SetNull, map: "fk_sas_staff_created_by")
+  createdStaff           SasStaff[]           @relation("StaffCreatedBy")
+  processedRequests      Request[]            @relation("ProcessedBy")
+  transactionHistories   TransactionHistory[] @relation("PerformedBy")
+
+  @@index([username, isActive], map: "idx_sas_staff_username_active")
+  @@index([email, isActive], map: "idx_sas_staff_email_active")
+  @@index([role, isActive], map: "idx_sas_staff_role_active")
+  @@index([isActive, createdAt], map: "idx_sas_staff_active_created")
+  @@index([createdBy], map: "idx_sas_staff_created_by")
+  // @@index([firstName, lastName], map: "idx_sas_staff_full_name")
+  // @@index([updatedAt], map: "idx_sas_staff_updated_at")
+  // @@index([deletedAt], map: "idx_sas_staff_deleted_at")
+  @@map("sas_staff")
+}
+
+model ServiceWindow {
+  windowId           Int       @id @default(autoincrement()) @map("window_id")
+  windowName         String    @unique @db.VarChar(30) @map("window_name")
+  canServePriority   Boolean   @default(true) @map("can_serve_priority")
+  canServeRegular    Boolean   @default(true) @map("can_serve_regular")
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  queues Queue[] @relation("WindowQueue")
+
+  @@index([isActive, canServePriority, canServeRegular], map: "idx_service_window_capabilities")
+  @@index([windowName, isActive], map: "idx_service_window_name_active")
+  // @@index([isActive], map: "idx_service_window_is_active")
+  // @@index([createdAt], map: "idx_service_window_created_at")
+  // @@index([deletedAt], map: "idx_service_window_deleted_at")
+  @@map("service_window")
+}
+model QueueSession {
+  sessionId       Int       @id @map("session_id")@default(autoincrement())
+  sessionNo       Int       @map("session_no")
+  sessionDate     DateTime  @map("session_date") 
+  isActive        Boolean   @map("is_active") @default(true)
+  createdAt       DateTime  @map("created_at") @default(now())
+
+  queues          Queue[]  @relation("SessionQueues") 
+
+  @@unique([sessionDate, sessionNo], map: "unq_sessions_same_date")     // prevent duplicate sessions for the same date
+  @@index([sessionDate, isActive], map:"idx_today_active_session")       // quickly find "today's active session"
+
+
+}
+model Queue {
+  queueId          Int        @id @default(autoincrement()) @map("queue_id")
+  schoolId         String     @db.VarChar(20) @map("school_id")
+  studentFullName  String     @db.VarChar(255) @map("student_full_name")
+  courseId         Int        @map("course_id")
+  yearLevel        String     @db.VarChar(20) @map("year_level")
+  queueNumber      Int        @map("queue_number")
+  queueStatus      Status     @default(WAITING) @map("queue_status")
+  queueType        Queue_Type @default(REGULAR) @map("queue_type")
+  queueDate        DateTime   @map("queue_date")
+  queueSessionId   Int        @map("queue_session_id")
+  windowId         Int?       @map("window_id")
+  referenceNumber  String   @db.VarChar(255) @map("reference_number")
+  isActive         Boolean    @default(true) @map("is_active")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
+  deletedAt        DateTime?  @map("deleted_at")
+  
+  session          QueueSession? @relation("SessionQueues", fields: [queueSessionId], references: [sessionId])
+  course               Course               @relation("CourseQueue", fields: [courseId], references: [courseId], onDelete: Restrict, map: "fk_queue_course")
+  serviceWindow        ServiceWindow?       @relation("WindowQueue", fields: [windowId], references: [windowId], onDelete: SetNull, map: "fk_queue_service_window")
+  requests             Request[]            @relation("QueueRequest")
+  transactionHistories TransactionHistory[] @relation("QueueTransaction")
+
+  @@index([queueStatus, queueType, windowId], map: "idx_queue_status_type_window")
+  // @@index([queueStatus, queueType, createdAt], map: "idx_queue_status_type_created")
+  @@index([queueStatus, isActive], map: "idx_queue_status_active")
+  @@index([schoolId, queueStatus], map: "idx_queue_school_status")
+  // @@index([courseId, queueStatus, queueType], map: "idx_queue_course_status_type")
+  @@index([windowId, queueStatus], map: "idx_queue_window_status")
+  // @@index([queueType, queueNumber, createdAt], map: "idx_queue_number_created")
+  @@unique([queueType, queueNumber, queueDate, queueSessionId], map: "unq_queue_number_created")
+  //  @@index([queueType, queueNumber, createdAt], map: "idx_queue_")
+  @@index([referenceNumber], map: "idx_queue_reference_number")
+  // @@index([createdAt], map: "idx_queue_created_at")
+  // @@index([updatedAt], map: "idx_queue_updated_at")
+  @@index([isActive, createdAt], map: "idx_queue_active_created")
+  // @@index([yearLevel, courseId], map: "idx_queue_year_course")
+  // @@index([studentFullName], map: "idx_queue_student_name")
+  // @@index([deletedAt], map: "idx_queue_deleted_at")
+  @@map("queue")
+}
+
+model Request {
+  requestId       Int       @id @default(autoincrement()) @map("request_id")
+  queueId         Int       @map("queue_id")
+  requestTypeId   Int       @map("request_type_id")
+  processedBy     String?   @db.Uuid @map("processed_by")
+  requestStatus   Status?   @map("request_status")
+  processedAt     DateTime? @default(now()) @map("processed_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  queue               Queue                @relation("QueueRequest", fields: [queueId], references: [queueId], onDelete: Cascade, map: "fk_request_queue")
+  requestType         RequestType          @relation("TypeRequest", fields: [requestTypeId], references: [requestTypeId], onDelete: Restrict, map: "fk_request_type")
+  processor           SasStaff?            @relation("ProcessedBy", fields: [processedBy], references: [sasStaffId], onDelete: Restrict, map: "fk_request_processor")
+  transactionHistories TransactionHistory[] @relation("RequestTransaction")
+
+  @@index([queueId], map: "idx_request_queue_id")
+  @@index([requestStatus, isActive], map: "idx_request_status_active")
+  @@index([processedBy, processedAt], map: "idx_request_processor_time")
+  @@index([requestTypeId, requestStatus], map: "idx_request_type_status")
+  @@index([queueId, requestStatus], map: "idx_request_queue_status")
+  @@index([processedAt], map: "idx_request_processed_at")
+  @@index([createdAt], map: "idx_request_created_at")
+  @@index([isActive, createdAt], map: "idx_request_active_created")
+  // @@index([updatedAt], map: "idx_request_updated_at")
+  // @@index([deletedAt], map: "idx_request_deleted_at")
+  @@map("request")
+}
+
+model RequestType {
+  requestTypeId Int       @id @default(autoincrement()) @map("request_type_id")
+  requestName   String    @db.VarChar(50) @map("request_name")
+  description   String    @db.VarChar(255)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  deletedAt     DateTime? @map("deleted_at")
+  requests Request[] @relation("TypeRequest")
+
+  @@index([requestName], map: "idx_request_type_name")
+  @@index([createdAt], map: "idx_request_type_created_at")
+  @@index([deletedAt], map: "idx_request_type_deleted_at")
+  @@map("request_type")
+}
+
+model TransactionHistory {
+  transactionHistoryId Int      @id @default(autoincrement()) @map("transaction_history_id")
+  queueId              Int      @map("queue_id")
+  requestId            Int?     @map("request_id")
+  performedById        String   @db.Uuid @map("performed_by_id")
+  performedByRole      Role     @map("performed_by_role")
+  transactionStatus    Status?
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  queue     Queue     @relation("QueueTransaction", fields: [queueId], references: [queueId], onDelete: Cascade, map: "fk_transaction_queue")
+  request   Request?  @relation("RequestTransaction", fields: [requestId], references: [requestId], onDelete: SetNull, map: "fk_transaction_request")
+  performer SasStaff  @relation("PerformedBy", fields: [performedById], references: [sasStaffId], onDelete: Restrict, map: "fk_transaction_performer")
+
+  @@index([queueId], map: "idx_transaction_queue_id")
+  @@index([performedById, createdAt], map: "idx_transaction_performer_time")
+  @@index([transactionStatus, createdAt], map: "idx_transaction_action_time")
+  @@index([queueId, createdAt], map: "idx_transaction_queue_chronology")
+  @@index([requestId], map: "idx_transaction_request_id")
+  @@index([performedByRole, transactionStatus], map: "idx_transaction_role_action")
+  // @@index([createdAt], map: "idx_transaction_created_at")
+  // @@index([queueId, action, createdAt], map: "idx_transaction_queue_action_time")
+  @@map("transaction_history")
+}
