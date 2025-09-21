@@ -41,7 +41,7 @@ export default function FAQ() {
         a: "If you leave, your number may be marked as Skipped and eventually Cancelled. You will likely need to get a new queue number upon your return.",
       },
     ],
-    "Queue Types & Priority": [
+    "Queue Types": [
       {
         q: "What is a Priority Queue number?",
         a: "A Priority Queue number is for persons with disabilities (PWD), pregnant women, and senior citizens. It ensures you are served faster to reduce waiting time.",
@@ -128,7 +128,7 @@ export default function FAQ() {
           </button>
 
           {openIndex === index && (
-            <div className="px-6 pb-4 text-gray-600 text-sm leading-relaxed max-w-4xl">
+            <div className="px-6 pb-4 text-gray-600 text-sm text-left leading-relaxed max-w-4xl">
                   {item.a}
             </div>
           )}

@@ -57,7 +57,7 @@ export default function Contact() {
        
 
       {/* Bottom Note */}
-      <div className="mt-10 text-center text-xs text-gray-400">
+      <div className="mt-10 text-center text-xs text-gray-400  lg:w-5xl">
         © 2025 University of Cebu Main Campus - ExeQueue v1.0.1 | All Rights Reserved.
       </div>
     </footer>
