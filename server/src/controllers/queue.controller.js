@@ -327,5 +327,164 @@ export const getQueueStatus = async (req, res) => {
       },
     };
     res.json(response);
-  } catch (error) {}
+  } catch (error) {
+    res.stattus(500).json({ message: 'Server error' });
+  }
+};
+
+//View Queue Page in figma (student)
+export const getQueueOverview = async (req, res) => {
+  const { schoolId } = req.params;
+
+  try {
+    //Your Information
+    const studentQueue = await prisma.queue.findFirst({
+      where: {
+        schoolId,
+        isActive: true,
+        select: {
+          queueId: true,
+          queueNumber: true,
+          queueStatus: true,
+          queueSessionId: true,
+          queueType: true,
+          studentFullName: true,
+          schoolId: true,
+          requests: {
+            select: {
+              requestId: true,
+              requestType: {
+                select: { requestName: true },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!studentQueue)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Student not found in queue' });
+    //Queue Status
+    const currentServing = await prisma.queue.findMany({
+      where: {
+        queueSessionId: studentQueue.queueSessionId,
+        queueStatus: 'IN_SERVICE',
+        isActive: true,
+      },
+      select: {
+        queueNumber: true,
+        queueType: true,
+        serviceWindow: { select: { windowName: true } },
+      },
+    });
+    //Next in Line(window 1 = all regular)
+    const window1Next = await prisma.queue.findFirst({
+      where: {
+        queueSessionId: studentQueue.queueSessionId,
+        queueStatus: 'WAITING',
+        isActive: true,
+        queueType: 'REGULAR',
+        serviceWindow: { windowName: 'Window 1' },
+      },
+      orderBy: { queueNumber: 'asc' },
+      select: {
+        queueNumber: true,
+        queueType: true,
+        serviceWindow: { select: { windowName: true } },
+      },
+    });
+    //Next in Line (window 2 = prioritize priority queueType)
+    const window2Next = await prisma.queue.findFirst({
+      where: {
+        queueSessionId: studentQueue.queueSessionId,
+        queueStatus: 'WAITING',
+        isActive: true,
+        queueType: 'PRIORITY',
+        serviceWindow: { windowName: 'Window 2' },
+      },
+      orderBy: { queueNumber: 'asc' },
+      select: {
+        queueNumber: true,
+        queueType: true,
+        serviceWindow: { select: { windowName: true } },
+      },
+    });
+    //If no priority is waiting, go back to regular
+    if (!window2Next) {
+      window2Next = await prisma.queue.findFirst({
+        where: {
+          queueSessionId: studentQueue.queueSessionId,
+          queueStatus: 'WAITING',
+          isActive: true,
+          queueType: 'REGULAR',
+          serviceWindow: { windowname: 'Window 2' },
+        },
+        orderBy: { queueNumber: 'asc' },
+        select: {
+          queueNumber: true,
+          queueType: true,
+          serviceWindow: { select: { windowName: true } },
+        },
+      });
+    }
+
+    //totals for regular & priority
+    const [regularCount, priorityCount] = await Promise.all([
+      prisma.queue.count({
+        where: {
+          queueSessionId: studentQueue.queueSessionId,
+          queueStatus: 'WAITING',
+          queueType: 'REGULAR',
+          isActive: true,
+        },
+      }),
+      prisma.queue.count({
+        where: {
+          queueSessionId: studentQueue.queueSessionId,
+          queueStatus: 'WAITING',
+          queueType: 'PRIORITY',
+          isActive: true,
+        },
+      }),
+    ]);
+
+    const aheadCount = await prisma.queue.count({
+      where: {
+        queueSessionId: studentQueue.queueSessionId,
+        queueType: studentQueue.queueType,
+        isActive: true,
+        queueStatus: 'WAITING',
+        queueNumber: { lt: studentQueue.queueNumber },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Queue overview fetched successfully',
+      data: {
+        student: {
+          fullName: studentQueue.studentFullName,
+          studentId: studentQueue.schoolId,
+          queueNumber: studentQueue.queueNumber,
+          queueType: studentQueue.queueType,
+          position: aheadCount + 1,
+          status: studentQueue.queueStatus,
+          services: studentQueue.requests.map((r) => r.requestType.requestName),
+        },
+        currentServing,
+        window1: window1Next || null,
+        window2: window2Next || null,
+        totals: {
+          regularWaiting: regularCount,
+          priorityWaiting: priorityCount,
+        },
+      },
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: 'Internal Server Error' });
+  }
 };

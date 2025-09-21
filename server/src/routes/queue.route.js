@@ -1,9 +1,16 @@
 import express from 'express';
-import { generateQueue } from '../controllers/queue.controller.js';
-import { getQueueStatus } from '../controllers/queue.controller.js';
+import {
+  generateQueue,
+  getQueueStatus,
+  getQueueOverview,
+} from '../controllers/queue.controller.js';
+
 const router = express.Router();
 
 router.post('/generate', generateQueue);
 
-router.get('status/:schoolId', getQueueStatus);
+router.get('/status/:schoolId', getQueueStatus);
+
+router.get('/overview/:schoolId', getQueueOverview);
+
 export default router;
