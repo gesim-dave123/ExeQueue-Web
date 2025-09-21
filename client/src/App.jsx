@@ -10,7 +10,9 @@ import Request from './pages/students/Request';
 import Dashboard from './pages/Dashboard';
 import LayoutDashboard from './components/LayoutDashboard';
 import Help from './components/Help';
-
+import FAQs from './pages/FAQs';
+import Contact from './pages/Contact';
+import Home from './pages/Home';
 function App() {
   const [count, setCount] = useState(0)
 
@@ -23,7 +25,9 @@ function App() {
         <Route element = {<Layout/>}>
           <Route path = "/" element = {<Landing/>}></Route>
           <Route path = "/about" element ={<AboutUs/>}></Route>
-         <Route path = "/help" element ={<Help/>}></Route>
+          <Route path = "/help" element ={<Help/>}></Route>
+          <Route path="/faq" element={<FAQs/>}></Route>
+          <Route path="/footer" element={<Contact/>}></Route>
           <Route path = "/staff/login" element={<Login/>}></Route> 
           <Route path= "/student/request" element={<Request/>}></Route>
         </Route>
