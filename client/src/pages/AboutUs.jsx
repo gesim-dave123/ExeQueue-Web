@@ -6,6 +6,8 @@ export default function AboutUs() {
     <div className="w-full min-h-screen gap-10 flex flex-col lg:flex-row justify-center items-center mt-7 py-16 px-10 sm:px-8">
      {/* Left side */}
       <div className="w-full lg:w-1/2 flex justify-center  ml-7 mr-7 relative mb-12 lg:mb-0">
+        <div className="absolute -top-13  w-70 h-40 sm:w-100 sm:h-70 bg-[#F9AB00]/25 rounded-full  filter blur-xl opacity-20"></div>
+
         {/* Container with scaling */}
         <div className="relative flex justify-center w-[380px] sm:w-[450px] md:w-[470px] lg:w-[500px] 
                         transform origin-center scale-90 sm:scale-90 md:scale-100">
@@ -13,7 +15,7 @@ export default function AboutUs() {
           <div className="bg-white w-1/2 shadow-sm border border-[#E2E3E4] rounded-xl 
                           px-8 sm:px-12 py-12 sm:py-16 text-center 
                           text-4xl sm:text-4xl md:text-5xl font-bold text-blue-600">
-            A01
+            P01
           </div>
 
           {/* Floating tags */}

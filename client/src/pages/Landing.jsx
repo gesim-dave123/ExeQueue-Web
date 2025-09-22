@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Request from "./students/Request";
 import { Link } from 'react-router-dom';
 import AboutUs from "./AboutUs";
-import Help from "../components/Help";
+import Help from "./Help";
 import FAQs from "./FAQs";
 import Contact from "./Contact";
 import Home from "./Home";
@@ -22,10 +22,10 @@ export default function Landing() {
       </section>
 
       {/* Help Section */}
-      <section id="help" className="min-h-screen flex items-center justify-center ">
+      <section id="help" className="min-h-[80vh] flex items-center justify-center ">
         <Help />
       </section>
-      <section id="faq" className=" flex items-center justify-center">
+      <section id="faq" className="min-h-[80vh] flex items-center justify-center">
         <FAQs/>
       </section>
         <section id="faq" className="min-h-[50vh] flex items-center justify-center">

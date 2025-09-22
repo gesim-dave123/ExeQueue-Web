@@ -1,9 +1,10 @@
 import React from "react";
-import { Facebook } from "lucide-react";
+import { FaFacebookF } from "react-icons/fa";
+import { Globe } from "lucide-react";
 
 export default function Contact() {
   return (
-    <footer className="bg-[#092851] text-white py-10 px-6 md:px-12 rounded-2xl">
+    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-12 rounded-2xl">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10">
         
         {/* Left Section */}
@@ -16,18 +17,21 @@ export default function Contact() {
             <h1 className="text-xl font-bold">ExeQueue</h1>
           </div>
 
-          <p className="text-sm md:text-base text-gray-300 leading-relaxed">
+          <p className="text-sm text-left md:text-base text-gray-300 leading-relaxed">
             Queue Management System for Student Affairs Services Office
           </p>
 
           {/* Socials */}
-          {/* <a
-            href="#"
-            className="w-8 h-8 flex items-center justify-center bg-white text-[#0a285f] rounded-full hover:bg-gray-200 transition"
+          <a
+            href="https://www.facebook.com/ucmain.sao"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-8 mt-5 h-8 flex items-center justify-center bg-white text-[#0a285f] rounded-full hover:bg-gray-200 transition"
           >
-            <Facebook size={20} /> 
-          </a> */}
-          <p className="mt-6 text-sm">basta pisbuk logo ni nga part, wapa nahuman</p>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </a>
         </div>
 
         {/* Middle - Services */}
