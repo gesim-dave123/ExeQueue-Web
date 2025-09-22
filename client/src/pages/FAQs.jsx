@@ -73,7 +73,7 @@ export default function FAQ() {
   };
 
   return (
-    <div className="w-full min-h-[80vh] flex items-center  flex-col lg:flex-row py-16 px-4 sm:px-6 lg:px-8 gap-8 lg:gap-16 max-w-7xl mx-auto">
+    <div className="w-full mt-10 flex items-center  flex-col lg:flex-row py-16 px-4 sm:px-6 lg:px-8 gap-8 lg:gap-16 max-w-7xl mx-auto">
   {/* Left side: Categories */}
   <div className="w-full lg:w-3xl flex flex-col gap-4 mb-8 lg:mb-0">
     <h2 className="text-3xl sm:text-4xl lg:text-4xl text-left font-semibold text-gray-900 mb-2">
