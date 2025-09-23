@@ -14,6 +14,9 @@ import FAQs from './pages/FAQs';
 import Contact from './pages/Contact';
 import Home from './pages/Home';
 import LoginStaff from './pages/staffs/LoginStaff';
+import LiveQueue from './pages/LiveQueue';
+
+
 function App() {
   const [count, setCount] = useState(0)
 
@@ -31,6 +34,7 @@ function App() {
           <Route path="/footer" element={<Contact/>}></Route>
           <Route path = "/staff/login" element={<LoginStaff/>}></Route> 
           <Route path= "/student/request" element={<Request/>}></Route>
+          <Route path="/student/live-queue" element={<LiveQueue/>}></Route>
         </Route>
         {/* <Route>
           <Route path="/staff/call-next" element={<CallNextTest/>}></Route>
