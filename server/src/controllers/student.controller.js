@@ -1,7 +1,8 @@
-import { Prisma, Queue_Type } from '@prisma/client';
+import { Queue_Type, Status } from '@prisma/client';
 import prisma from '../../prisma/prisma.js';
 import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
 import generateReferenceNumber from '../services/queue/generateReferenceNumber.js';
+import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 export const generateQueue = async (req, res) => {
   try {
@@ -10,11 +11,11 @@ export const generateQueue = async (req, res) => {
       studentId,
       courseId,
       courseCode,
-      yearLevel,
+      yearLevel, 
       queueType,
       serviceRequests,
     } = req.body;
-
+    
     if (
       !fullName?.trim() ||
       !studentId?.trim() ||
@@ -35,11 +36,7 @@ export const generateQueue = async (req, res) => {
         .json({ success: false, message: 'Invalid student id' });
     }
 
-    if (
-      !['1st', '2nd', '3rd', '4th', '5th', '6th', 'Irregular'].includes(
-        yearLevel
-      )
-    ) {
+    if (!['1st', '2nd', '3rd', '4th', '5th', '6th', 'Irregular'].includes(yearLevel)) {
       return res
         .status(400)
         .json({ success: false, message: 'Invalid year level' });
@@ -56,151 +53,108 @@ export const generateQueue = async (req, res) => {
       },
       select: {
         courseId: true,
-        isActive: true,
-      },
+        isActive: true
+      } 
     });
-
+    
     if (!course || !course.isActive) {
       return res
         .status(404)
         .json({ success: false, message: 'Course not found' });
     }
 
-    if (
-      !serviceRequests ||
-      !Array.isArray(serviceRequests) ||
-      serviceRequests.length === 0
-    ) {
+    if (!serviceRequests || !Array.isArray(serviceRequests) || serviceRequests.length === 0) {
       return res.status(403).json({
         success: false,
-        message: 'Service requests are required and must be a non-empty array',
+        message: "Service requests are required and must be a non-empty array"
       });
     }
 
-    if (
-      ![
-        Queue_Type.REGULAR.toLowerCase(),
-        Queue_Type.PRIORITY.toLowerCase(),
-      ].includes(queueType.toLowerCase())
-    ) {
+    if (![Queue_Type.REGULAR.toLowerCase(), Queue_Type.PRIORITY.toLowerCase()].includes(queueType.toLowerCase())) {
       return res.status(403).json({
         success: false,
-        message: 'Invalid Queue Type!',
+        message: "Invalid Queue Type!"
       });
     }
 
-    const QUEUETYPE =
-      queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase()
-        ? Queue_Type.REGULAR
-        : Queue_Type.PRIORITY;
+    const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase() 
+      ? Queue_Type.REGULAR
+      : Queue_Type.PRIORITY;
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async(tx) => {
       // Get start of day in Manila timezone, converted to UTC for database storage
-      const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
-        new Date(),
-        'Asia/Manila'
-      );
-
+      const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
+      
       // Debug logs to verify timezone handling
-      const currentManilaTime =
-        DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
+      const currentManilaTime = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
       const currentUTCTime = new Date();
-
+      
       console.log('=== TIMEZONE DEBUG LOGS ===');
       console.log('Current UTC Time:', currentUTCTime.toISOString());
-      console.log(
-        'Current Manila Time:',
-        DateAndTimeFormatter.formatInTimeZone(
-          currentManilaTime,
-          'yyyy-MM-dd HH:mm:ss zzz',
-          'Asia/Manila'
-        )
-      );
-      console.log(
-        'Manila Date Only:',
-        DateAndTimeFormatter.formatInTimeZone(
-          currentManilaTime,
-          'yyyy-MM-dd',
-          'Asia/Manila'
-        )
-      );
+      console.log('Current Manila Time:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
+      console.log('Manila Date Only:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd', 'Asia/Manila'));
       console.log('Today UTC (start of Manila day):', todayUTC.toISOString());
-      console.log(
-        'Today UTC formatted as Manila:',
-        DateAndTimeFormatter.formatInTimeZone(
-          todayUTC,
-          'yyyy-MM-dd HH:mm:ss zzz',
-          'Asia/Manila'
-        )
-      );
+      console.log('Today UTC formatted as Manila:', DateAndTimeFormatter.formatInTimeZone(todayUTC, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
       console.log('=== END DEBUG LOGS ===');
 
       const activeSession = await tx.queueSession.findFirst({
         where: {
           sessionDate: todayUTC,
-          isActive: true,
+          isActive: true
         },
         orderBy: {
-          sessionId: 'desc',
+          sessionId: 'desc'
         },
         select: {
           sessionId: true,
           sessionNo: true,
-        },
+        }
       });
-
+      
       let session;
       if (activeSession) {
         session = activeSession;
       } else {
         session = await tx.queueSession.create({
-          data: {
-            sessionNo: 1,
-            sessionDate: todayUTC,
+          data: { 
+            sessionNo: 1, 
+            sessionDate: todayUTC 
           },
           select: {
             sessionId: true,
-            sessionNo: true,
-          },
+            sessionNo: true
+          }
         });
       }
-
+      
       const sessionId = session.sessionId;
       const sessionNo = session.sessionNo;
-
+      
       let attempt = 0;
       let maxRetries = 3;
       let newQueue = null;
-
+      
       while (attempt < maxRetries && !newQueue) {
         try {
           const latest = await tx.queue.findFirst({
             where: {
               queueType: QUEUETYPE,
               queueDate: todayUTC,
-              queueSessionId: sessionId,
+              queueSessionId: sessionId
             },
             orderBy: {
-              queueNumber: 'desc',
+              queueNumber: 'desc'
             },
             select: {
-              queueNumber: true,
-            },
+              queueNumber: true
+            }
           });
-
-          if (!latest)
-            console.log(
-              'There is no current queue number, default 0 will be applied'
-            );
-
+          
+          if (!latest) console.log("There is no current queue number, default 0 will be applied");
+          
           const nextNumber = (latest?.queueNumber ?? 0) + 1;
-          const refNumber = generateReferenceNumber(
-            todayUTC,
-            QUEUETYPE,
-            nextNumber,
-            sessionNo
-          );
-
+          const refNumber = generateReferenceNumber(todayUTC, QUEUETYPE, nextNumber, sessionNo);
+          
           newQueue = await tx.queue.create({
             data: {
               schoolId: studentId,
@@ -211,39 +165,36 @@ export const generateQueue = async (req, res) => {
               queueType: QUEUETYPE,
               queueDate: todayUTC,
               queueSessionId: sessionId,
-              referenceNumber: refNumber,
-            },
+              referenceNumber: refNumber 
+            }
           });
+          
         } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
             attempt++;
-            console.warn(
-              `Queue conflict detected, retrying... (attempt: ${attempt})`
-            );
+            console.warn(`Queue conflict detected, retrying... (attempt: ${attempt})`);
             continue;
           }
           throw error;
         }
       }
 
-      const reqTypeIds = serviceRequests.map((r) => r.requestTypeId);
+      const formattedQueueNumber = formatQueueNumber(QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R', newQueue.queueNumber);
+      const reqTypeIds = serviceRequests.map(r => r.requestTypeId);
       const existingRequestData = await tx.requestType.findMany({
         where: { requestTypeId: { in: reqTypeIds } },
-        select: { requestTypeId: true },
+        select: { requestTypeId: true }
       });
 
-      const existingIds = existingRequestData.map((r) => r.requestTypeId);
-      const invalidIds = reqTypeIds.filter((id) => !existingIds.includes(id));
-
+      const existingIds = existingRequestData.map(r => r.requestTypeId);
+      const invalidIds = reqTypeIds.filter(id => !existingIds.includes(id));
+      
       if (invalidIds.length > 0) {
         throw new Error(`Request Types Not Found: ${invalidIds.join(', ')}`);
       }
-
+      
       const requests = await Promise.all(
-        reqTypeIds.map((id) =>
+        reqTypeIds.map(id =>
           tx.request.create({
             data: {
               queueId: newQueue.queueId,
@@ -251,8 +202,8 @@ export const generateQueue = async (req, res) => {
               processedBy: null,
               requestStatus: null,
               processedAt: null,
-              isActive: true,
-            },
+              isActive: true
+            }
           })
         )
       );
@@ -260,33 +211,121 @@ export const generateQueue = async (req, res) => {
       if (!newQueue) {
         return res.status(500).json({
           success: false,
-          message: 'Failed to generate queue after multiple retries',
+          message: "Failed to generate queue after multiple retries"
         });
       }
 
       if (!requests) {
         return res.status(500).json({
           success: false,
-          message: 'Failed to generate requests',
+          message: "Failed to generate requests"
         });
       }
-
       return res.status(201).json({
         success: true,
-        message: 'Queue Generated Successfully!',
-        data: { queueDetails: newQueue, serviceRequests: requests },
+        message: "Queue Generated Successfully!",
+        data: { queueDetails: newQueue, queueNumber: formattedQueueNumber, serviceRequests: requests }
       });
     });
+
   } catch (error) {
-    console.error('Error generating queue:', error);
+    console.error("Error generating queue:", error);
     return res
       .status(500)
       .json({ success: false, message: 'Internal Server Error' });
   }
 };
 
+
+export const getQueue = async (req, res) => {
+  try {
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
+    const {studentId, referenceNumber} = req.query;
+    console.log("Student ID:", studentId);
+    console.log("Reference Number:", referenceNumber);
+    if(!studentId?.trim() || !referenceNumber?.trim()){
+      return res.status(400).json({success: false, message: "Missing required fields"});
+    }
+
+    let whereClause = {
+      queueDate: todayUTC,
+      isActive: true,
+      queueStatus: Status.WAITING
+    };
+
+     if (studentId) {
+      whereClause.schoolId = studentId;
+    } else if (referenceNumber) {
+      whereClause.referenceNumber = referenceNumber;
+    }
+
+    const queues = await prisma.queue.findMany({
+      where: whereClause,
+      orderBy: [
+        { queueSessionId: 'desc' },
+        { queueNumber: 'desc' }
+      ],
+      select: {
+        queueId: true,
+        studentFullName: true,
+        schoolId: true,
+        course: {
+          select: {
+            courseCode: true
+          }
+        },
+        yearLevel: true,
+        queueSessionId: true,
+        queueStatus: true,
+        queueDate: true,
+        referenceNumber: true,
+        queueType: true,
+        queueNumber: true,
+        createdAt: true,
+        isActive: true,
+        requests: {
+          select: {
+            requestId: true,
+            requestStatus: true,
+            requestType: {
+              select: {
+                requestName: true,
+                description: true
+              }
+            }
+          },
+          where: {
+            isActive: true
+          }
+        }
+      }
+    });
+
+    if (!queues || queues.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No queues found for today"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Queues fetched successfully!",
+      queue: queues
+    });
+
+  } catch (error) {
+    console.error('Error fetching queue:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch queue"
+    });
+  }
+};
+
+
 export const getQueueStatus = async (req, res) => {
-  const { schoolId } = req.params;
+  const { schoolId} = req.params;
 
   try {
     const studentQueue = await prisma.queue.findFirst({
@@ -342,7 +381,8 @@ export const getQueueOverview = async (req, res) => {
       where: {
         schoolId,
         isActive: true,
-        select: {
+      },
+      select: {
           queueId: true,
           queueNumber: true,
           queueStatus: true,
@@ -358,7 +398,7 @@ export const getQueueOverview = async (req, res) => {
               },
             },
           },
-        },
+
       },
     });
 
@@ -366,6 +406,7 @@ export const getQueueOverview = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: 'Student not found in queue' });
+    console.log("Student Queue:", studentQueue)
     //Queue Status
     const currentServing = await prisma.queue.findMany({
       where: {
@@ -376,9 +417,10 @@ export const getQueueOverview = async (req, res) => {
       select: {
         queueNumber: true,
         queueType: true,
-        serviceWindow: { select: { windowName: true } },
+        windowId: true,
       },
     });
+    console.log("Current Serving:", currentServing)
     //Next in Line(window 1 = all regular)
     const window1Next = await prisma.queue.findFirst({
       where: {
@@ -386,29 +428,29 @@ export const getQueueOverview = async (req, res) => {
         queueStatus: 'WAITING',
         isActive: true,
         queueType: 'REGULAR',
-        serviceWindow: { windowName: 'Window 1' },
+        windowId: 1,
       },
       orderBy: { queueNumber: 'asc' },
       select: {
         queueNumber: true,
         queueType: true,
-        serviceWindow: { select: { windowName: true } },
+        windowId: true,
       },
     });
     //Next in Line (window 2 = prioritize priority queueType)
-    const window2Next = await prisma.queue.findFirst({
+    let window2Next = await prisma.queue.findFirst({
       where: {
         queueSessionId: studentQueue.queueSessionId,
         queueStatus: 'WAITING',
         isActive: true,
         queueType: 'PRIORITY',
-        serviceWindow: { windowName: 'Window 2' },
+        windowId: 2,
       },
       orderBy: { queueNumber: 'asc' },
       select: {
         queueNumber: true,
         queueType: true,
-        serviceWindow: { select: { windowName: true } },
+        windowId: true,
       },
     });
     //If no priority is waiting, go back to regular
@@ -419,13 +461,13 @@ export const getQueueOverview = async (req, res) => {
           queueStatus: 'WAITING',
           isActive: true,
           queueType: 'REGULAR',
-          serviceWindow: { windowname: 'Window 2' },
+          windowId: 1,
         },
         orderBy: { queueNumber: 'asc' },
         select: {
           queueNumber: true,
           queueType: true,
-          serviceWindow: { select: { windowName: true } },
+          windowId: true,
         },
       });
     }
@@ -483,8 +525,74 @@ export const getQueueOverview = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Error in Getting Overview:", error)
     return res
       .status(500)
       .json({ success: false, message: 'Internal Server Error' });
   }
 };
+
+
+// Get Course Data
+export const getCourseData = async (req, res) => {
+  try {
+    const courseData = await prisma.course.findMany({
+      orderBy: {
+        courseId: 'asc',
+      },
+      select: {
+        courseId: true,
+        courseCode: true,
+        courseName: true,
+      },
+    });
+
+    if (!courseData)
+      return res.status(403).json({
+        success: false,
+        message: 'Error in fetching course data',
+      });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Course data fetched successfully!',
+      courseData: courseData,
+    });
+  } catch (error) {
+    console.error('Error in Course Route: ', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error!',
+    });
+  }
+};
+
+// Get Request Types
+export const getRequestTypes = async(req,res) =>{
+  try {
+    
+    const requestTypes = await prisma.requestType.findMany({
+      orderBy:{
+        requestTypeId: "asc"
+      },
+      select:{
+        requestTypeId: true,
+        requestName: true,
+      }
+    })
+    if(!requestTypes) return res.status(403).json({success: false, message: "An error occurred when fetching request types"})
+
+    return res.status(200).json({
+      success: true,
+      message: "Successfully fetched reqeust Types",
+      requestType: requestTypes
+    })
+
+  } catch (error) {
+    console.error("Error in Request ROute: ", error)
+    return res.status(500).json({
+      success:false,
+      message: "Internal Server Error!"
+    })
+  }
+}
