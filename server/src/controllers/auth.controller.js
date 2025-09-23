@@ -1,8 +1,9 @@
 
+import { Role } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import prisma from '../../prisma/prisma.js'
-import { Role } from '../generated/prisma/index.js'
+
 export const loginUser = async (req, res) =>{
   const {username, password} =req.body
   console.log("Hereee")
@@ -13,22 +14,24 @@ export const loginUser = async (req, res) =>{
         username: username
       },
       select:{
-        sas_staff_id: true,
-        hashed_password: true,
+        sasStaffId: true,
+        hashedPassword: true,
         role: true,
-        is_active: true
+        isActive: true,
+        windowId: true
       }
     })
 
     if(!user) return res.status(404).json({success: false, message: "Account not found!"})
     
-    const decrypt = await bcrypt.compare(password, user.hashed_password)
+    const decrypt = await bcrypt.compare(password, user.hashedPassword)
     if(!decrypt) return res.status(403).json({success: false, message: 'Invalid Credentials'})
     
     const token = await jwt.sign({
-      id: user.sas_staff_id,
+      id: user.sasStaffId,
       role: user.role,
-      is_active: user.is_active
+      isActive: user.isActive,
+      windowId: user.windowId
 
     }, process.env.JWT_SECRET,
     {expiresIn: user.role === Role.PERSONNEL ? '10h': '5h'}
@@ -45,6 +48,7 @@ export const loginUser = async (req, res) =>{
     success: true,
     message: "Logged In Successfully!",
     role: user.role,
+    windowId: user.windowId,
     token: token
    })
 
