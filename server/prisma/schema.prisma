@@ -257,7 +257,7 @@ model SasStaff {
   middleName     String?   @db.VarChar(50) @map("middle_name")
   email          String    @unique @db.VarChar(100)
   role           Role?      
-  windowId       Int?      @map("window_id")
+  serving_window_no       Int?      @map("window_id")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      String?   @db.Uuid @map("created_by")
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -303,7 +303,7 @@ model QueueSession {
   sessionDate     DateTime  @map("session_date") 
   isActive        Boolean   @map("is_active") @default(true)
   createdAt       DateTime  @map("created_at") @default(now())
-
+  
   queues          Queue[]  @relation("SessionQueues") 
 
   @@unique([sessionDate, sessionNo], map: "unq_sessions_same_date")     // prevent duplicate sessions for the same date
