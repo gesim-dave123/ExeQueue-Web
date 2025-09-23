@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
-
+import { login } from '../../api/auth';
 export default function LoginStaff() {
   const [formData, setFormData] = useState({
     username: '',
@@ -9,17 +9,38 @@ export default function LoginStaff() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({
+  setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Handle login logic here
-    console.log('Login attempted with:', formData);
-  };
+  const handleSubmit = async (e) => {
+     console.log("Form submitted:", {
+      formData: formData
+    });   
+  e.preventDefault();
+
+  try {
+    const res = await login(formData);
+    if (!res || !res.success) {
+      return; // error toast already shown
+    }
+
+    console.log("Response: ", res);
+
+    if (res.permission === "basic") {
+      window.location.href = `/${res.role.toLowerCase()}/dashboard`;
+    } 
+    else if (res.role === "admin" && res.permission === "admin") {
+      window.location.href = `/${res.role.toLowerCase()}/dashboard`;
+    } 
+
+  } catch (error) {
+    console.error("Error in logging in!, ", error);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex justify-center items-center bg-gradient-to-b from-gray-100 to-gray-200 px-4">
