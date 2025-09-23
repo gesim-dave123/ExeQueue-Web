@@ -2,10 +2,10 @@ import { motion } from "framer-motion";
 import { ArrowLeft, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
-import { getCourseData } from "../../api/course.js";
-import { getRequestType } from "../../api/request.js";
+// import { getCourseData } from "../../api/course.js";
+// import { getRequestType } from "../../api/request.js";
+import { getCourseData, getRequestType, submitQueueDetail } from "../../api/student.js";
 import { showToast } from "../../components/toast/ShowToast";
-
 
 export default function Request() {
   const navigate = useNavigate();
@@ -160,7 +160,7 @@ export default function Request() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async() => {
     // Handle form submission here
 
     try {
@@ -172,9 +172,16 @@ export default function Request() {
       // });
 
       const queueDetails = formatFormData(formData, selectedQueue, selectedServices)
+      const generateQueue = await submitQueueDetail(queueDetails)
+
+      if(!generateQueue){
+        throw new Error("Error in Generating Queue Number")
+      }else{
+        showToast("Queue Generated Successfully!", 'success')
+      }
       console.log(queueDetails)
     } catch (error) {
-      
+      showToast(error.message, "error")      
     }
 
 
@@ -217,7 +224,7 @@ export default function Request() {
       setRequestType(reqWithIcons)
       setCourseData(courses.courseData)
     } catch (error) {
-      showToast(error, "error")
+      showToast(error.message, "error")
     }
 
   }
@@ -227,20 +234,29 @@ export default function Request() {
     fetchData();
   },[])
   // console.log("Course Data: ", courseData)
-  console.log("Reques Type: ", requestType)
+  // console.log("Reques Type: ", requestType)
 
   const formatFormData=(formdata, queueType, selectedServices) =>{
     try {
     const fullName = formdata.middleName ? `${formdata.lastName}, ${formData.firstName} ${formData.middleName}` 
                     : `${formdata.lastName}, ${formData.firstName}`
     const formattedYear = formData.yearLevel.split(" ")[0];
+    const selectedCourse = courseData.find(
+      (c) => c.courseId === Number(formData.courseId)
+    );
     return{
       studentId: formData.studentId,
       fullName: fullName,
-      courseId : formdata.courseId,
+      courseId : Number(formdata.courseId),
+      courseCode: (()=>{
+                  const selectedCourse = courseData.find(c=> c.courseId === Number(formData.courseId));
+                  return selectedCourse
+                  ? `${ selectedCourse.courseCode}`
+                  : 'N/A'
+                })(),
       yearLevel: formattedYear,
       queueType: queueType,
-      requests : selectedServices 
+      serviceRequests : selectedServices 
     }
     } catch (error) {
       console.log(error)
