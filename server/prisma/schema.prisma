@@ -282,7 +282,9 @@ model SasStaff {
 
 model ServiceWindow {
   windowId           Int       @id @default(autoincrement()) @map("window_id")
-  windowName         String    @unique @db.VarChar(30) @map("window_name")
+  windowNo           Int      @unique @map("window_no")
+  windowName         String?  @db.VarChar(50) @map("window_name") // Optional, descriptive
+  displayName        String    @db.VarChar(20) @map("display_name") // "Window 1", "Window 2"
   canServePriority   Boolean   @default(true) @map("can_serve_priority")
   canServeRegular    Boolean   @default(true) @map("can_serve_regular")
   isActive           Boolean   @default(true) @map("is_active")
@@ -291,11 +293,8 @@ model ServiceWindow {
 
   queues Queue[] @relation("WindowQueue")
 
+  @@index([windowNo, isActive], map: "idx_service_window_no_active")
   @@index([isActive, canServePriority, canServeRegular], map: "idx_service_window_capabilities")
-  @@index([windowName, isActive], map: "idx_service_window_name_active")
-  // @@index([isActive], map: "idx_service_window_is_active")
-  // @@index([createdAt], map: "idx_service_window_created_at")
-  // @@index([deletedAt], map: "idx_service_window_deleted_at")
   @@map("service_window")
 }
 model QueueSession {

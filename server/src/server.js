@@ -7,9 +7,10 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import AuthRoute from '../src/routes/auth.route.js';
 import CourseRoute from '../src/routes/course.route.js';
-import QueueRoute from '../src/routes/queue.route.js';
 import RequestRoute from '../src/routes/request.route.js';
+import StaffRoute from '../src/routes/staff.route.js';
 import validateAccess from '../utils/validate.js';
+import StudentRoute from './routes/student.route.js';
 
 
 dotenv.config();
@@ -31,7 +32,8 @@ app.use(helmet())
 
 // Server Routes
 app.use('/api/auth', AuthRoute)
-app.use('/api/queue', QueueRoute)
+app.use('/api/student', StudentRoute)
+app.use('/api/staff', StaffRoute)
 app.use('/api/request', RequestRoute)
 app.use('/api/course', CourseRoute)
 // app.use('/api/student', StudentRoute)

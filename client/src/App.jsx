@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import AboutUs from './pages/AboutUs';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import CallNextTest from './pages/staff/CallNextTest';
 import Request from './pages/students/Request';
 
 function App() {
@@ -22,6 +23,9 @@ function App() {
           <Route path = "/about" element ={<AboutUs/>}></Route>
           <Route path = "/staff/login" element={<Login/>}></Route> 
           <Route path= "/student/request" element={<Request/>}></Route>
+        </Route>
+        <Route>
+          <Route path="/staff/call-next" element={<CallNextTest/>}></Route>
         </Route>
       </Routes>
     </Router>
