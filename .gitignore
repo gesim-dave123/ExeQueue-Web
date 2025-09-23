@@ -20,6 +20,9 @@ node_modules
 
 src/generated/prisma
 server/prisma/seed.js
+seed.js
+
+server/prisma/seed.js
 
 
 # Build outputs
