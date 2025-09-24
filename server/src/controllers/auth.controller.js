@@ -17,7 +17,8 @@ export const loginUser = async (req, res) =>{
         sasStaffId: true,
         hashedPassword: true,
         role: true,
-        isActive: true
+        isActive: true,
+        serving_window_no: true
       }
     })
 
@@ -29,7 +30,8 @@ export const loginUser = async (req, res) =>{
     const token = await jwt.sign({
       id: user.sasStaffId,
       role: user.role,
-      is_active: user.isActive
+      isActive: user.isActive,
+      serving_window_no: user.serving_window_no
 
     }, process.env.JWT_SECRET,
     {expiresIn: user.role === Role.PERSONNEL ? '10h': '5h'}
@@ -46,6 +48,7 @@ export const loginUser = async (req, res) =>{
     success: true,
     message: "Logged In Successfully!",
     role: user.role,
+    serving_window_no: user.serving_window_no,
     token: token
    })
 
