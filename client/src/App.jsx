@@ -3,18 +3,18 @@ import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import './App.css';
 import Layout from './components/Layout';
-import AboutUs from './pages/AboutUs';
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import Request from './pages/students/Request';
-import Dashboard from './pages/Dashboard';
 import LayoutDashboard from './components/LayoutDashboard';
-import Help from './pages/Help';
-import FAQs from './pages/FAQs';
+import AboutUs from './pages/AboutUs';
 import Contact from './pages/Contact';
-import Home from './pages/Home';
-import LoginStaff from './pages/staffs/LoginStaff';
+import Dashboard from './pages/Dashboard';
+import FAQs from './pages/FAQs';
+import Help from './pages/Help';
+import Landing from './pages/Landing';
 import LiveQueue from './pages/LiveQueue';
+import CallNextTest from './pages/staffs/CallNextTest';
+import LoginStaff from './pages/staffs/LoginStaff';
+import SocketTesting from './pages/staffs/SocketTesting';
+import Request from './pages/students/Request';
 
 
 function App() {
@@ -36,9 +36,10 @@ function App() {
           <Route path= "/student/request" element={<Request/>}></Route>
           <Route path="/student/live-queue" element={<LiveQueue/>}></Route>
         </Route>
-        {/* <Route>
+        <Route>
           <Route path="/staff/call-next" element={<CallNextTest/>}></Route>
-        </Route> */}
+          <Route path="/staff/socket-test" element={<SocketTesting/>}></Route>
+        </Route>
       </Routes>
     </Router>
 
