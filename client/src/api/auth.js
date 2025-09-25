@@ -2,30 +2,25 @@ import axios from 'axios';
 import { showToast } from '../components/toast/ShowToast';
 import backendConnection from './backendConnection.js';
 
-export const login= async (formData) =>{
+export const login = async (formData) => {
   try {
-    console.log("?Hereee")
     const response = await axios.post(
-      `${backendConnection()}/api/auth/login`,
+      `${backendConnection()}/api/auth/staff/login`,
       formData,
       {
-        headers:{
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         withCredentials: true
       }
     );
-    if(response.status === 200){
+
+    if (response.status === 200) {  
       showToast(response.data.message, "success");
-
       return {
-        role: response.data.role,
         success: response.data.success,
-        token: response.data.token
-      }
+        token: response.data.token,
+        role: response.data.role,
+      };
     }
-
-
   } catch (error) {
     if (error.response) {
       showToast(error.response.data.message || "Login failed", "error");
@@ -33,24 +28,25 @@ export const login= async (formData) =>{
       showToast("No response from server", "error");
     } else {
       showToast("An unexpected error occurred", "error");
-
     }
+    return null;
   }
-}
+};
 
-export const logout = async() =>{
+export const logout = async () => {
   try {
     const response = await axios.post(
       `${backendConnection()}/api/auth/logout`,
       {},
-      {withCredentials: true}
-    )
-    if(response.status === 200){
-      showToast(response.data.message, "success")
-      return true
+      { withCredentials: true }
+    );
+    if (response.status === 200) {
+      showToast(response.data.message, "success");
+      return true;
     }
   } catch (error) {
-    console.error('Error in logout: ', error.response.data.message)
-    showToast('An error occured when logging out!', "error") 
+    console.error('Error in logout: ', error.response?.data?.message);
+    showToast('An error occurred when logging out!', "error");
+    return false;
   }
-}
+};
