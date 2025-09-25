@@ -257,7 +257,7 @@ model SasStaff {
   middleName     String?   @db.VarChar(50) @map("middle_name")
   email          String    @unique @db.VarChar(100)
   role           Role?      
-  serving_window_no       Int?      @map("window_id")
+  serviceWindowId       Int?      @map("service_window_id")
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      String?   @db.Uuid @map("created_by")
   createdAt      DateTime  @default(now()) @map("created_at")

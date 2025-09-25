@@ -85,17 +85,17 @@ export const generateQueue = async (req, res) => {
       // Get start of day in Manila timezone, converted to UTC for database storage
       const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
       
-      // Debug logs to verify timezone handling
-      const currentManilaTime = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
-      const currentUTCTime = new Date();
+      // // Debug logs to verify timezone handling
+      // const currentManilaTime = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
+      // const currentUTCTime = new Date();
       
-      console.log('=== TIMEZONE DEBUG LOGS ===');
-      console.log('Current UTC Time:', currentUTCTime.toISOString());
-      console.log('Current Manila Time:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
-      console.log('Manila Date Only:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd', 'Asia/Manila'));
-      console.log('Today UTC (start of Manila day):', todayUTC.toISOString());
-      console.log('Today UTC formatted as Manila:', DateAndTimeFormatter.formatInTimeZone(todayUTC, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
-      console.log('=== END DEBUG LOGS ===');
+      // console.log('=== TIMEZONE DEBUG LOGS ===');
+      // console.log('Current UTC Time:', currentUTCTime.toISOString());
+      // console.log('Current Manila Time:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
+      // console.log('Manila Date Only:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd', 'Asia/Manila'));
+      // console.log('Today UTC (start of Manila day):', todayUTC.toISOString());
+      // console.log('Today UTC formatted as Manila:', DateAndTimeFormatter.formatInTimeZone(todayUTC, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
+      // console.log('=== END DEBUG LOGS ===');
 
       const activeSession = await tx.queueSession.findFirst({
         where: {
@@ -115,6 +115,15 @@ export const generateQueue = async (req, res) => {
       if (activeSession) {
         session = activeSession;
       } else {
+        // Reset sequences when creating a new session
+        await tx.queueSession.updateMany({
+          where: { isActive: true },
+          data:{ isActive:false}
+        })
+
+        await tx.$executeRaw`ALTER SEQUENCE queue_priority_seq RESTART WITH 1`;
+        await tx.$executeRaw`ALTER SEQUENCE queue_regular_seq RESTART WITH 1`;
+        
         session = await tx.queueSession.create({
           data: { 
             sessionNo: 1, 
@@ -130,54 +139,30 @@ export const generateQueue = async (req, res) => {
       const sessionId = session.sessionId;
       const sessionNo = session.sessionNo;
       
-      let attempt = 0;
-      let maxRetries = 3;
-      let newQueue = null;
+      // REPLACED: Use PostgreSQL sequences for atomic queue number generation
+      const sequenceName = QUEUETYPE === Queue_Type.PRIORITY ? 'queue_priority_seq' : 'queue_regular_seq';
       
-      while (attempt < maxRetries && !newQueue) {
-        try {
-          const latest = await tx.queue.findFirst({
-            where: {
-              queueType: QUEUETYPE,
-              queueDate: todayUTC,
-              queueSessionId: sessionId
-            },
-            orderBy: {
-              queueNumber: 'desc'
-            },
-            select: {
-              queueNumber: true
-            }
-          });
-          
-          if (!latest) console.log("There is no current queue number, default 0 will be applied");
-          
-          const nextNumber = (latest?.queueNumber ?? 0) + 1;
-          const refNumber = generateReferenceNumber(todayUTC, QUEUETYPE, nextNumber, sessionNo);
-          
-          newQueue = await tx.queue.create({
-            data: {
-              schoolId: studentId,
-              studentFullName: fullName,
-              courseId: courseId,
-              yearLevel: yearLevel,
-              queueNumber: nextNumber,
-              queueType: QUEUETYPE,
-              queueDate: todayUTC,
-              queueSessionId: sessionId,
-              referenceNumber: refNumber 
-            }
-          });
-          
-        } catch (error) {
-          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-            attempt++;
-            console.warn(`Queue conflict detected, retrying... (attempt: ${attempt})`);
-            continue;
-          }
-          throw error;
+      const nextNumberResult = await tx.$queryRaw`
+        SELECT nextval(${sequenceName}) as next_num
+      `;
+
+      const nextNumber = Number(nextNumberResult[0].next_num);
+      const refNumber = generateReferenceNumber(todayUTC, QUEUETYPE, nextNumber, sessionNo);
+
+      // Single atomic create - no retry needed
+      const newQueue = await tx.queue.create({
+        data: {
+          schoolId: studentId,
+          studentFullName: fullName,
+          courseId: courseId,
+          yearLevel: yearLevel,
+          queueNumber: nextNumber,
+          queueType: QUEUETYPE,
+          queueDate: todayUTC,
+          queueSessionId: sessionId,
+          referenceNumber: refNumber 
         }
-      }
+      });
 
       const formattedQueueNumber = formatQueueNumber(QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R', newQueue.queueNumber);
       const reqTypeIds = serviceRequests.map(r => r.requestTypeId);
@@ -208,19 +193,13 @@ export const generateQueue = async (req, res) => {
         )
       );
 
-      if (!newQueue) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to generate queue after multiple retries"
-        });
-      }
-
       if (!requests) {
         return res.status(500).json({
           success: false,
           message: "Failed to generate requests"
         });
       }
+
       return res.status(201).json({
         success: true,
         message: "Queue Generated Successfully!",
@@ -235,7 +214,6 @@ export const generateQueue = async (req, res) => {
       .json({ success: false, message: 'Internal Server Error' });
   }
 };
-
 
 export const getQueue = async (req, res) => {
   try {

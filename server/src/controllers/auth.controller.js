@@ -18,7 +18,7 @@ export const loginUser = async (req, res) =>{
         hashedPassword: true,
         role: true,
         isActive: true,
-        windowId: true
+        serviceWindowId: true
       }
     })
 
@@ -31,7 +31,7 @@ export const loginUser = async (req, res) =>{
       id: user.sasStaffId,
       role: user.role,
       isActive: user.isActive,
-      windowId: user.windowId
+      serviceWindowId: user.serviceWindowId
 
     }, process.env.JWT_SECRET,
     {expiresIn: user.role === Role.PERSONNEL ? '10h': '5h'}
@@ -48,7 +48,7 @@ export const loginUser = async (req, res) =>{
     success: true,
     message: "Logged In Successfully!",
     role: user.role,
-    windowId: user.windowId,
+    serviceWindowId: user.serviceWindowId,
     token: token
    })
 
