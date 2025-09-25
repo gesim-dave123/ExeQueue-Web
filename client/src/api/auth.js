@@ -5,7 +5,7 @@ import backendConnection from './backendConnection.js';
 export const login = async (formData) => {
   try {
     const response = await axios.post(
-      `${backendConnection()}/api/auth/login`,
+      `${backendConnection()}/api/auth/staff/login`,
       formData,
       {
         headers: { "Content-Type": "application/json" },
