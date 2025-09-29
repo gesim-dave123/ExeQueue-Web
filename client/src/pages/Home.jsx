@@ -6,6 +6,13 @@ import { Link } from 'react-router-dom'
 export default function Home() {
 
     const handleRedirect = (destination) =>{
+    setLoading(true);
+
+    // simulate a loading process, then navigate
+    setTimeout(() => {
+      setLoading(false);
+      navigate(destination);
+    }, 2000); 
     if(destination === '/student'){
       window.location.href = "/"; // or use your router
     }

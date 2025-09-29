@@ -35,6 +35,60 @@ export default function Request() {
     { keywords: ["uniform", "exemption"], icon: "fa-solid fa-shirt" },
     { keywords: ["enrollment", "transfer"], icon: "fa-solid fa-right-left" },
   ];
+
+
+  const staticCourseData = [
+    { courseId: 1, courseCode: 'BSCE', courseName: 'Bachelor of Science in Civil Engineering' },
+    { courseId: 2, courseCode: 'BSCpE', courseName: 'Bachelor of Science in Computer Engineering' },
+    { courseId: 3, courseCode: 'BSEE', courseName: 'Bachelor of Science in Electrical Engineering' },
+    { courseId: 4, courseCode: 'BSECE', courseName: 'Bachelor of Science in Electronics Engineering' },
+    { courseId: 5, courseCode: 'BSME', courseName: 'Bachelor of Science in Mechanical Engineering' },
+    { courseId: 6, courseCode: 'BSCS', courseName: 'Bachelor of Science in Computer Science' },
+    { courseId: 7, courseCode: 'BSIT', courseName: 'Bachelor of Science in Information Technology' },
+    { courseId: 8, courseCode: 'BSIS', courseName: 'Bachelor of Science in Information Systems' },
+    { courseId: 9, courseCode: 'BSA', courseName: 'Bachelor of Science in Accountancy' },
+    { courseId: 10, courseCode: 'BSMA', courseName: 'Bachelor of Science in Management Accounting' },
+    { courseId: 11, courseCode: 'BSBA-MM', courseName: 'BSBA Major in Marketing Management' },
+    { courseId: 12, courseCode: 'BSBA-HRM', courseName: 'BSBA Major in Human Resource Management' },
+    { courseId: 13, courseCode: 'BSEd', courseName: 'Bachelor of Secondary Education' },
+    { courseId: 14, courseCode: 'BSN', courseName: 'Bachelor of Science in Nursing' },
+    { courseId: 15, courseCode: 'BSCrim', courseName: 'Bachelor of Science in Criminology' },
+    { courseId: 16, courseCode: 'BSMT', courseName: 'Bachelor of Science in Marine Transportation' },
+    { courseId: 17, courseCode: 'BSMarE', courseName: 'Bachelor of Science in Marine Engineering' },
+    { courseId: 18, courseCode: 'BS-Psych', courseName: 'Bachelor of Science in Psychology' },
+    { courseId: 19,courseCode: 'BSPharm', courseName: 'Bachelor of Science in Pharmacy' },
+  ];
+  const staticRequestTypes = [
+    { requestTypeId: 1, requestName: "Good Moral Certificate", icon: "fa-solid fa-file" },
+    { requestTypeId: 2, requestName: "Insurance Payment", icon: "fa-solid fa-shield-halved" },
+    { requestTypeId: 3, requestName: "Approval/Transmittal Letter", icon: "fa-solid fa-pen-to-square" },
+    { requestTypeId: 4, requestName: "Temporary Gate Pass", icon: "fa-solid fa-id-badge" },
+    { requestTypeId: 5, requestName: "Uniform Exemption", icon: "fa-solid fa-shirt" },
+    { requestTypeId: 6, requestName: "Enrollment / Transfer", icon: "fa-solid fa-right-left" },
+  ];
+
+  // useEffect(() => {
+  //   const fetchCourseData = async () => {
+  //     try {
+  //       setLoading(true);
+  //       const response = await getCourseData();
+  //           // const courses = await getCourseData();
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         setCourseData(data);
+  //       } else {
+  //         throw new Error('Server not available');
+  //       }
+  //     } catch (error) {
+  //       console.warn('Failed to fetch courses, using static data:', error);
+  //       setCourseData(staticCourseData);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //     fetchCourseData();
+  //   }, []);
       
 
   const validateStep1 = () => {
@@ -160,34 +214,31 @@ export default function Request() {
     }
   };
 
-  const handleSubmit = async() => {
-    // Handle form submission here
+ const handleSubmit = async () => {
+  try {
+    const queueDetails = formatFormData(formData, selectedQueue, selectedServices);
+    console.log("Submitting queue details:", queueDetails);
 
-    try {
+    const response = await submitQueueDetail(queueDetails);
+
+    // Check if response exists and has success property
+    if (response && response.success) {
+      showToast(response.message || "Queue Generated Successfully!", 'success');
+      console.log("Queue generated:", response.data);
       
-      // console.log("Form submitted:", {
-      //   queueType: selectedQueue,
-      //   services: selectedServices,
-      //   formData: formData
-      // });
-
-      const queueDetails = formatFormData(formData, selectedQueue, selectedServices)
-      const generateQueue = await submitQueueDetail(queueDetails)
-
-      if(!generateQueue){
-        throw new Error("Error in Generating Queue Number")
-      }else{
-        showToast("Queue Generated Successfully!", 'success')
-      }
-      console.log(queueDetails)
-    } catch (error) {
-      showToast(error.message, "error")      
+      // You can also navigate to success page or reset form here
+      // navigate('/success');
+    } else {
+      throw new Error(response.message || "Error in Generating Queue Number");
     }
-
-
-    setShowConfirmModal(false);
     
-  };
+  } catch (error) {
+    console.error("Submission error:", error);
+    showToast(error.message, "error");
+  }
+  
+  setShowConfirmModal(false);
+};
 
   // Animation variants
   const containerVariants = {
@@ -207,61 +258,125 @@ export default function Request() {
     }
   };
 
-  const fetchData = async ()=>{
-    try {
-      const requestTypes = await getRequestType(); 
-      if(!requestTypes) throw new Error("Error in Fetching Request Type")
+  // const fetchData = async ()=>{
+  //   try {
+  //     const requestTypes = await getRequestType(); 
+  //     if(!requestTypes) throw new Error("Error in Fetching Request Type")
       
 
-      const reqWithIcons = requestTypes.requestType.map(req =>{
-        const lower =req.requestName.toLowerCase();
-        const rule = iconRules.find(r => r.keywords.some(k=> lower.includes(k)))
-        return {...req, icon: rule? rule.icon : "fa-solid fa-question-circle"}
-      })
-      const courses = await getCourseData();
-      if(!courses) throw new Error("Error in Course Data API")
+  //     const reqWithIcons = requestTypes.requestType.map(req =>{
+  //       const lower =req.requestName.toLowerCase();
+  //       const rule = iconRules.find(r => r.keywords.some(k=> lower.includes(k)))
+  //       return {...req, icon: rule? rule.icon : "fa-solid fa-question-circle"}
+  //     })
 
-      setRequestType(reqWithIcons)
-      setCourseData(courses.courseData)
-    } catch (error) {
-      showToast(error.message, "error")
+      
+  //     const courses = await getCourseData();
+
+  //     try{
+  //     // setLoading(true);
+
+  //     if(!courses) throw new Error("Error in Course Data API")
+
+  //     }catch(e){
+  //       console.warn('Failed to fetch courses, using static data:', e);
+  //       setCourseData(staticCourseData);
+
+  //     }finally{
+  //       //  setLoading(false);
+  //     }
+      
+  //     setRequestType(reqWithIcons)
+  //     setCourseData(courses.courseData)
+  //   } catch (error) {
+  //     showToast(error.message, "error")
+  //   }
+
+  // }
+
+const fetchData = async () => {
+  try {
+    console.log("Starting data fetch...");
+
+    // Show static data immediately
+    setCourseData(staticCourseData);
+    setRequestType(staticRequestTypes);
+
+    // Fetch both in background (non-blocking)
+    const [courses, requestTypes] = await Promise.allSettled([
+      getCourseData(),
+      getRequestType()
+    ]);
+
+    // Handle courses
+    if (courses.status === "fulfilled") {
+      const data = courses.value;
+      if (data && data.courseData) {
+        setCourseData(data.courseData);
+      } else if (Array.isArray(data)) {
+        setCourseData(data);
+      }
     }
 
+    // Handle request types
+    if (requestTypes.status === "fulfilled") {
+      const data = requestTypes.value;
+      if (data && data.requestType) {
+        const reqWithIcons = data.requestType.map(req => {
+          const lower = req.requestName.toLowerCase();
+          const rule = iconRules.find(r => r.keywords.some(k => lower.includes(k)));
+          return { ...req, icon: rule ? rule.icon : "fa-solid fa-question-circle" };
+        });
+        setRequestType(reqWithIcons);
+      }
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    showToast(error.message, "error");
+    // Already using static by default, so no need to set again
   }
+};
 
+  
   useEffect (()=>{
+   
     console.log("Remount successfull!")
     fetchData();
   },[])
   // console.log("Course Data: ", courseData)
   // console.log("Reques Type: ", requestType)
 
-  const formatFormData=(formdata, queueType, selectedServices) =>{
-    try {
-    const fullName = formdata.middleName ? `${formdata.lastName}, ${formData.firstName} ${formData.middleName}` 
-                    : `${formdata.lastName}, ${formData.firstName}`
-    const formattedYear = formData.yearLevel.split(" ")[0];
+  const formatFormData = (formdata, queueType, selectedServices) => {
+  try {
+    const fullName = formdata.middleName 
+      ? `${formdata.lastName}, ${formdata.firstName} ${formdata.middleName}` 
+      : `${formdata.lastName}, ${formdata.firstName}`;
+    
+    const formattedYear = formdata.yearLevel.split(" ")[0];
     const selectedCourse = courseData.find(
-      (c) => c.courseId === Number(formData.courseId)
+      (c) => c.courseId === Number(formdata.courseId)
     );
-    return{
-      studentId: formData.studentId,
-      fullName: fullName,
-      courseId : Number(formdata.courseId),
-      courseCode: (()=>{
-                  const selectedCourse = courseData.find(c=> c.courseId === Number(formData.courseId));
-                  return selectedCourse
-                  ? `${ selectedCourse.courseCode}`
-                  : 'N/A'
-                })(),
+
+    if (!selectedCourse) {
+      throw new Error("Selected course not found");
+    }
+
+    return {
+      fullName: fullName.trim(),
+      studentId: formdata.studentId,
+      courseId: Number(formdata.courseId),
+      courseCode: selectedCourse.courseCode,
       yearLevel: formattedYear,
       queueType: queueType,
-      serviceRequests : selectedServices 
-    }
-    } catch (error) {
-      console.log(error)
-    }
+      serviceRequests: selectedServices.map(service => ({
+        requestTypeId: service.requestTypeId
+      }))
+    };
+  } catch (error) {
+    console.error("Error formatting form data:", error);
+    throw error;
   }
+};
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div 
@@ -603,7 +718,7 @@ export default function Request() {
                     <option key={course.courseId} value={course.courseId}>
                       {course.courseCode} ({course.courseName})
                     </option>
-                  ))
+                  ))  
                 };
               </select>
               {errors.course && (
