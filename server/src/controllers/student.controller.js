@@ -13,7 +13,7 @@ export const generateQueue = async (req, res) => {
       courseCode,
       yearLevel, 
       queueType,
-      serviceRequests,
+      serviceRequests, // Should be an array of requests
     } = req.body;
     
     if (
