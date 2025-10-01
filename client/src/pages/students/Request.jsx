@@ -1,38 +1,96 @@
-import React, { useState, useEffect } from "react";
-import { ArrowLeft, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { ArrowLeft, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
+// import { getCourseData } from "../../api/course.js";
+// import { getRequestType } from "../../api/request.js";
+import { getCourseData, getRequestType, submitQueueDetail } from "../../api/student.js";
+import { showToast } from "../../components/toast/ShowToast";
 import Loading from "../../components/Loading";
+import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
 
 export default function Request() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [selectedServices, setSelectedServices] = useState([]);
+  const [requestType, setRequestType] = useState([]);
   const [loading, setLoading] = useState(false);
-const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [courseData, setCourseData] = useState([]);
   const [formData, setFormData] = useState({
     lastName: "",
     middleName: "",
     firstName: "",
     studentId: "",
-    course: "",
+    courseId: "",
     yearLevel: ""
   });
+
   const fullName = `${formData.lastName}, ${formData.firstName} ${formData.middleName}`;
   const [errors, setErrors] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showBackConfirmModal, setShowBackConfirmModal] = useState(false);
   
-  // Track if user has selected a queue
-  useEffect(() => {
-    if (selectedQueue) {
-      sessionStorage.setItem('hasRequestInProgress', 'true');
-    } else {
-      sessionStorage.removeItem('hasRequestInProgress');
-    }
-  }, [selectedQueue]);
 
+  const iconRules = [
+    { keywords: ["certificate"], icon: "fa-solid fa-file" },
+    { keywords: ["insurance", "payment"], icon: "fa-solid fa-shield-halved" },
+    { keywords: ["letter"], icon: "fa-solid fa-pen-to-square" },
+    { keywords: ["gate", "id", "pass"], icon: "fa-solid fa-id-badge" },
+    { keywords: ["uniform", "exemption"], icon: "fa-solid fa-shirt" },
+    { keywords: ["enrollment", "transfer"], icon: "fa-solid fa-right-left" },
+  ];
+
+
+  const staticCourseData = [
+    { courseId: 1, courseCode: "BSIT", courseName: "Bachelor of Science in Information Technology" },
+    { courseId: 2, courseCode: "BSCS", courseName: "Bachelor of Science in Computer Science" },
+    { courseId: 3, courseCode: "BSECE", courseName: "Bachelor of Science in Electronics Engineering" },
+    { courseId: 4, courseCode: "BSCE", courseName: "Bachelor of Science in Civil Engineering" },
+    { courseId: 5, courseCode: "BSEE", courseName: "Bachelor of Science in Electrical Engineering" }
+  ];
+  const staticRequestTypes = [
+    { requestTypeId: 1, requestName: "Good Moral Certificate", icon: "fa-solid fa-file" },
+    { requestTypeId: 2, requestName: "Insurance Payment", icon: "fa-solid fa-shield-halved" },
+    { requestTypeId: 3, requestName: "Approval/Transmittal Letter", icon: "fa-solid fa-pen-to-square" },
+    { requestTypeId: 4, requestName: "Temporary Gate Pass", icon: "fa-solid fa-id-badge" },
+    { requestTypeId: 5, requestName: "Uniform Exemption", icon: "fa-solid fa-shirt" },
+    { requestTypeId: 6, requestName: "Enrollment / Transfer", icon: "fa-solid fa-right-left" },
+  ];
+
+  // useEffect(() => {
+  //   const fetchCourseData = async () => {
+  //     try {
+  //       setLoading(true);
+  //       const response = await getCourseData();
+  //           // const courses = await getCourseData();
+  //       if (response.ok) {
+  //         const data = await response.json();
+  //         setCourseData(data);
+  //       } else {
+  //         throw new Error('Server not available');
+  //       }
+  //     } catch (error) {
+  //       console.warn('Failed to fetch courses, using static data:', error);
+  //       setCourseData(staticCourseData);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //     fetchCourseData();
+  //   }, []);
+      
+  useEffect(() => {
+      if (selectedQueue) {
+        sessionStorage.setItem('hasRequestInProgress', 'true');
+      } else {
+        sessionStorage.removeItem('hasRequestInProgress');
+      }
+    }, [selectedQueue]);
+    
   const validateStep1 = () => {
     if (!selectedQueue) {
       setErrors({ step1: "Please select a queue type" });
@@ -46,8 +104,12 @@ const [progress, setProgress] = useState(0);
     const newErrors = {};
     if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
     if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
-    if (!formData.studentId.trim()) newErrors.studentId = "Student ID is required";
-    if (!formData.course.trim()) newErrors.course = "Course is required";
+    if (!formData.studentId.trim()) {
+      newErrors.studentId = "Student ID is required";
+    } else if (!/^\d{8}$/.test(formData.studentId)) {
+      newErrors.studentId = "Student ID must be exactly 8 digits";
+    }
+    if (!formData.courseId.trim()) newErrors.course = "Course is required";
     if (!formData.yearLevel.trim()) newErrors.yearLevel = "Year level is required";
     
     if (Object.keys(newErrors).length > 0) {
@@ -82,7 +144,9 @@ const [progress, setProgress] = useState(0);
         isValid = validateStep3();
         break;
       case 4:
-        setShowConfirmModal(true);
+        // Show confirmation modal instead of submitting directly
+        setShowModal(true); 
+        // setShowConfirmModal(true);
         return;
       default:
         break;
@@ -111,7 +175,7 @@ const [progress, setProgress] = useState(0);
     }
   };
 
-  const handleBackConfirm = () => {
+   const handleBackConfirm = () => {
     // Clear the session storage
     sessionStorage.removeItem('hasRequestInProgress');
     setShowBackConfirmModal(false);
@@ -121,21 +185,44 @@ const [progress, setProgress] = useState(0);
   const handleBackCancel = () => {
     setShowBackConfirmModal(false);
   };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  
+  // const handleChange = (e) => {
+  //   setFormData({ ...formData, [e.target.name]: e.target.value });
+  //   // Clear error when user starts typing
+  //   if (errors[e.target.name]) {
+  //     setErrors(prev => ({ ...prev, [e.target.name]: "" }));
+  //   }
+  // };
+    const handleChange = (e) => {
+    let value = e.target.value;
+    
+    // Apply special formatting for student ID - only allow numbers and limit to 8 digits
+    if (e.target.name === "studentId") {
+      value = value.replace(/\D/g, ''); // Remove non-digit characters
+      value = value.slice(0, 8); // Limit to 8 characters
+    }
+    
+    setFormData({ ...formData, [e.target.name]: value });
+    
     // Clear error when user starts typing
     if (errors[e.target.name]) {
       setErrors(prev => ({ ...prev, [e.target.name]: "" }));
     }
   };
 
-  const toggleService = (serviceLabel) => {
-    setSelectedServices((prev) =>
-      prev.includes(serviceLabel)
-        ? prev.filter((s) => s !== serviceLabel)
-        : [...prev, serviceLabel]
-    );
+  const toggleService = (service) => {
+    // setSelectedServices((prev) =>
+    //   prev.includes(serviceLabel)
+    //     ? prev.filter((s) => s !== serviceLabel)
+    //     : [...prev, serviceLabel]
+    // );
+    setSelectedServices((prev) =>{
+      const exists = prev.some(s=> s.requestTypeId === service.requestTypeId)
+      if(exists){
+        return prev.filter(s=> s.requestTypeId !== service.requestTypeId)
+      }
+      return [...prev, {requestTypeId: service.requestTypeId, requestName: service.requestName}]
+    })
     // Clear error when user selects a service
     if (errors.step3) {
       setErrors(prev => ({ ...prev, step3: "" }));
@@ -150,8 +237,7 @@ const [progress, setProgress] = useState(0);
     }
   };
 
-
-const handleSubmit = async () => {
+ const handleSubmit = async () => {
   setLoading(true);
   setProgress(0);
 
@@ -170,6 +256,7 @@ const handleSubmit = async () => {
 
     // Clear session storage
     sessionStorage.removeItem("hasRequestInProgress");
+    setShowModal(false);
     setShowConfirmModal(false);
 
     // Optionally reset form here
@@ -179,7 +266,6 @@ const handleSubmit = async () => {
     setLoading(false);
   }
 };
-
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -198,6 +284,135 @@ const handleSubmit = async () => {
     }
   };
 
+  // const fetchData = async ()=>{
+  //   try {
+  //     const requestTypes = await getRequestType(); 
+  //     if(!requestTypes) throw new Error("Error in Fetching Request Type")
+      
+
+  //     const reqWithIcons = requestTypes.requestType.map(req =>{
+  //       const lower =req.requestName.toLowerCase();
+  //       const rule = iconRules.find(r => r.keywords.some(k=> lower.includes(k)))
+  //       return {...req, icon: rule? rule.icon : "fa-solid fa-question-circle"}
+  //     })
+
+      
+  //     const courses = await getCourseData();
+
+  //     try{
+  //     // setLoading(true);
+
+  //     if(!courses) throw new Error("Error in Course Data API")
+
+  //     }catch(e){
+  //       console.warn('Failed to fetch courses, using static data:', e);
+  //       setCourseData(staticCourseData);
+
+  //     }finally{
+  //       //  setLoading(false);
+  //     }
+      
+  //     setRequestType(reqWithIcons)
+  //     setCourseData(courses.courseData)
+  //   } catch (error) {
+  //     showToast(error.message, "error")
+  //   }
+
+  // }
+
+const fetchData = async () => {
+  try {
+    console.log("Starting data fetch...");
+    
+    // Declare variables first
+    let requestTypesToSet;
+    let coursesToSet;
+     
+    // Try to get course data from server, fallback to static
+    try {
+      const courses = await getCourseData();
+      if (courses && courses.courseData) {
+        coursesToSet = courses.courseData;
+      } else if (Array.isArray(courses)) {
+        coursesToSet = courses;
+      } else {
+        throw new Error("Invalid course data format");
+      }
+    } catch (courseError) {
+      console.warn('Using static course data:', courseError);
+      coursesToSet = staticCourseData;
+    }
+    
+    // Get request types from server
+    try {
+      const requestTypes = await getRequestType();
+      if (requestTypes && requestTypes.requestType) {
+        const reqWithIcons = requestTypes.requestType.map(req => {
+          const lower = req.requestName.toLowerCase();
+          const rule = iconRules.find(r => r.keywords.some(k => lower.includes(k)));
+          return {...req, icon: rule ? rule.icon : "fa-solid fa-question-circle"};
+        });
+        requestTypesToSet = reqWithIcons;
+      } else {
+        throw new Error("Invalid request types format");
+      }
+    } catch (requestError) {
+      console.warn('Using static request types:', requestError);
+      requestTypesToSet = staticRequestTypes; // Make sure this variable is defined
+    }
+    
+    // Set both states at the end
+    setRequestType(requestTypesToSet);
+    setCourseData(coursesToSet);
+    
+  } catch (error) {
+    console.error('Error:', error);
+    showToast(error.message, "error");
+    // Final fallback - set both to static data
+    setCourseData(staticCourseData);
+    setRequestType(staticRequestTypes); // Make sure this variable is defined
+  }
+};
+  
+  useEffect (()=>{
+   
+    console.log("Remount successfull!")
+    fetchData();
+  },[])
+  // console.log("Course Data: ", courseData)
+  // console.log("Reques Type: ", requestType)
+
+  const formatFormData = (formdata, queueType, selectedServices) => {
+  try {
+    const fullName = formdata.middleName 
+      ? `${formdata.lastName}, ${formdata.firstName} ${formdata.middleName}` 
+      : `${formdata.lastName}, ${formdata.firstName}`;
+    
+    const formattedYear = formdata.yearLevel.split(" ")[0];
+    const selectedCourse = courseData.find(
+      (c) => c.courseId === Number(formdata.courseId)
+    );
+
+    if (!selectedCourse) {
+      throw new Error("Selected course not found");
+    }
+
+    return {
+      fullName: fullName.trim(),
+      studentId: formdata.studentId,
+      courseId: Number(formdata.courseId),
+      courseCode: selectedCourse.courseCode,
+      yearLevel: formattedYear,
+      queueType: queueType,
+      serviceRequests: selectedServices.map(service => ({
+        requestTypeId: service.requestTypeId
+      }))
+    };
+  } catch (error) {
+    console.error("Error formatting form data:", error);
+    throw error;
+  }
+};
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div 
@@ -207,7 +422,9 @@ const handleSubmit = async () => {
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <div className="mb-6 md:mb-8 px-15">
+        <div 
+          className="mb-6 md:mb-8 px-15"
+        >
           {currentStep === 1 && (
             <>
               <h1 className="text-2xl md:text-3xl text-left font-bold text-blue-600 mb-2 md:mb-4">
@@ -241,6 +458,7 @@ const handleSubmit = async () => {
             </div>
           )}
 
+          
           {currentStep === 4 && (
             <div>
               <h2 className="text-2xl md:text-3xl text-left font-bold text-[#1A73E8] mb-2">
@@ -254,7 +472,9 @@ const handleSubmit = async () => {
         </div>
         
         {/* Step Indicator */}
-        <div className="mb-8 md:mb-10">
+        <div 
+          className="mb-8 md:mb-10"
+        >
           <p className="text-sm text-left text-gray-500 mb-2 px-15">
             Step {currentStep} of 4
           </p>
@@ -277,7 +497,10 @@ const handleSubmit = async () => {
 
         {/* Step 1: Queue Options */}
         {currentStep === 1 && (
-          <div className="space-y-4 mb-8 md:mb-10">
+          <div 
+            className="space-y-4 mb-8 md:mb-10"
+          
+          >
             {errors.step1 && (
               <motion.div 
                 className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm"
@@ -294,7 +517,7 @@ const handleSubmit = async () => {
                   ? "border-blue-500 bg-blue-50 shadow-sm"
                   : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
               } ${errors.step1 ? "border-red-300" : ""}`}
-              onClick={() => handleQueueSelect("Standard")}
+              onClick={() => handleQueueSelect("Regular")}
               variants={itemVariants}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
@@ -302,12 +525,12 @@ const handleSubmit = async () => {
               <div className="flex items-start">
                 <div
                   className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center mr-3 md:mr-4 ${
-                    selectedQueue === "Standard"
+                    selectedQueue === "Regular"
                       ? "border-blue-500 bg-blue-500 text-white"
                       : "border-gray-400"
                   }`}
                 >
-                  {selectedQueue === "Standard" && (
+                  {selectedQueue === "Regular" && (
                     <svg
                       className="w-3 h-3"
                       fill="none"
@@ -325,7 +548,7 @@ const handleSubmit = async () => {
                 </div>
                 <div className="text-left">
                   <h2 className="font-semibold text-gray-800 text-base md:text-lg">
-                    Standard Queue
+                    Regular Queue                                                                                               
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
                     For general inquiries and regular services.
@@ -392,7 +615,10 @@ const handleSubmit = async () => {
             transition={{ duration: 0.5 }}
           >
             {Object.keys(errors).length > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              <div 
+                className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm"
+             
+              >
                 Please fill out all required fields
               </div>
             )}
@@ -470,7 +696,7 @@ const handleSubmit = async () => {
               <label className="block text-sm font-medium text-gray-700">
                 Student ID No. <span className="text-red-500">*</span>
               </label>
-              <input
+              {/* <input
                 type="text"
                 name="studentId"
                 value={formData.studentId}
@@ -482,7 +708,20 @@ const handleSubmit = async () => {
               />
               {errors.studentId && (
                 <p className="mt-1 text-sm text-red-600">{errors.studentId}</p>
-              )}
+              )} */}
+              <input
+                type="text"
+                name="studentId"
+                value={formData.studentId}
+                onChange={handleChange}
+                placeholder="e.g., 23772391"
+                pattern="[0-9]{8}"
+                inputMode="numeric"
+                maxLength="8"
+                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                  errors.studentId ? "border-red-500" : "border-gray-300"
+                }`}
+              />
             </motion.div>
 
             <motion.div
@@ -494,8 +733,8 @@ const handleSubmit = async () => {
                 Course <span className="text-red-500">*</span>
               </label>
               <select
-                name="course"
-                value={formData.course}
+                name="courseId"
+                value={formData.courseId}
                 onChange={handleChange}
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.course ? "border-red-500" : "border-gray-300"
@@ -504,16 +743,16 @@ const handleSubmit = async () => {
                 <option value="" disabled>
                   Select your course
                 </option>
-                <option value="BSIT">BSIT</option>
+                {/* <option value="BSIT">BSIT (Bachelor of Science in Information Technology)</option>
                 <option value="BSCS">BSCS</option>
                 <option value="BSECE">BSECE</option>
                 <option value="BSCE">BSCE</option>
-                <option value="BSEE">BSEE</option> 
+                <option value="BSEE">BSEE</option> */}
 
                 {
                   courseData.map(course =>(
                     <option key={course.courseId} value={course.courseId}>
-                      {course.courseName} - {course.courseCode}
+                      {course.courseCode} ({course.courseName})
                     </option>
                   ))  
                 };
@@ -542,10 +781,12 @@ const handleSubmit = async () => {
                 <option value="" disabled>
                   Select your year level
                 </option>
-                <option value="First Year">First Year</option>
-                <option value="Second Year">Second Year</option>
-                <option value="Third Year">Third Year</option>
-                <option value="Fourth Year">Fourth Year</option>
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="5th Year">5th Year</option>
+                <option value="6th Year">6th Year</option>
                 <option value="Irregular">Irregular</option>
               </select>
 
@@ -558,37 +799,43 @@ const handleSubmit = async () => {
         
         {/* Step 3: Multiple Service Selection */}
         {currentStep === 3 && (
-          <div className="space-y-6 mb-8 md:mb-10">
+          <div 
+            className="space-y-6 mb-8 md:mb-10"
+        
+          >
             {errors.step3 && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              <div 
+                className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm"
+              >
                 {errors.step3}
               </div>
             )}
             
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {[
+            {/* [
               { label: "Good Moral Certificate", icon: "fa-solid fa-file" },
               { label: "Insurance Payment", icon: "fa-solid fa-shield-halved" },
               { label: "Approval/Transmittal Letter", icon: "fa-solid fa-pen-to-square" },
               { label: "Temporary Gate Pass", icon: "fa-solid fa-id-badge" },
               { label: "Uniform Exemption", icon: "fa-solid fa-shirt" },
               { label: "Enrollment / Transfer", icon: "fa-solid fa-right-left" },
-            ].map((service, idx) => (
+            ] */}
+            {requestType.map((service, idx) => (
               <motion.div
                 key={idx}
                 initial={{ opacity: 0, y:0 }}
                 animate={{ opacity: 1, y: 0}}
                 transition={{ 
                   duration: 0.4, 
-                  delay: idx * 0.1,
+                  delay: idx * 0.1, // Stagger delay based on index
                   ease: "easeInOut"
                 }}
                 className={`flex flex-col items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
-                  selectedServices.includes(service.label)
+                  selectedServices.some(s=> s.requestTypeId === service.requestTypeId)
                     ? "border-blue-500 bg-blue-50 shadow-sm"
                     : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
                 } ${errors.step3 ? "border-red-300" : ""}`}
-                onClick={() => toggleService(service.label)}
+                onClick={() => toggleService(service)}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
               >
@@ -596,7 +843,7 @@ const handleSubmit = async () => {
                   className={`${service.icon} text-yellow-500 text-2xl md:text-3xl mb-2 md:mb-3`}
                 ></i>
                 <p className="text-xs md:text-sm font-medium text-gray-700 text-center">
-                  {service.label}
+                  {service.requestName}
                 </p>
               </motion.div>
             ))}
@@ -606,7 +853,10 @@ const handleSubmit = async () => {
 
         {/* Step 4: Review */}
         {currentStep === 4 && (
-          <div className="space-y-6 mb-8 md:mb-10">
+          <div 
+            className="space-y-6 mb-8 md:mb-10"
+       
+          >
             {/* Queue Type */}
             <motion.div 
               className="bg-white shadow-sm rounded-xl p-4 md:p-6 text-left border border-gray-100"
@@ -668,7 +918,17 @@ const handleSubmit = async () => {
                 </div>
 
                 <div>
-                  <p className="text-gray-500 text-xs md:text-sm font-medium">Course: <span className="font-semibold text-gray-800 text-sm md:text-base">{formData.course}</span> </p>
+                  <p className="text-gray-500 text-xs md:text-sm space-x-2 font-medium">
+                    Course:
+                    <span className="font-semibold text-gray-800 text-sm md:text-base">
+                      {(()=>{
+                        const selectedCourse = courseData.find(c=> c.courseId === Number(formData.courseId));
+                        return selectedCourse
+                        ? `${ selectedCourse.courseCode}`
+                        : 'N/A'
+                      })()}
+                    </span> 
+                  </p>
                 </div>
 
                 <div>
@@ -699,23 +959,26 @@ const handleSubmit = async () => {
               </div>
               <div className="mt-2 ml-5">
                 <p className="text-gray-500 text-sm font-medium">Selected Services</p>
-                <ul className="list-disc list-inside mt-1 text-gray-800 font-semibold text-sm md:text-base">
-                  {selectedServices.map((service, index) => (
-                    <li key={index} className="flex items-start py-1">
-                      <svg className="w-4 h-4 text-[#1A73E8] mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                      </svg>
-                      <span>{service}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <ul className="list-disc list-inside mt-1 text-gray-800 font-semibold text-sm md:text-base">
+                    {selectedServices.map((service, index) => (
+                      <li key={index} className="flex items-start py-1">
+                        <svg className="w-4 h-4 text-[#1A73E8] mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>{service.requestName}</span>
+                      </li>
+                    ))}
+                  </ul>
               </div>
             </motion.div>
           </div>
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex justify-between items-center mt-auto pt-4">
+        <div 
+          className="flex justify-between items-center mt-auto pt-4"
+
+        >
           <button
             onClick={handleBack}
             className="flex items-center gap-2 px-4 md:px-7 py-2 md:py-2.5 rounded-3xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition  text-sm md:text-base cursor-pointer"
@@ -734,13 +997,33 @@ const handleSubmit = async () => {
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer"
             }`}
+       
           >
-            {currentStep === 4 ? "Submit" : "Continue"}
+            {currentStep === 4 ? "Submit Request" : "Continue"}
           </button>
         </div>
+        
+        {/* {currentStep === 4 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
 
-        {/* Submit Confirmation Modal */}
-        {showConfirmModal && (
+          </motion.div>
+        )} */}
+
+        {/* Confirmation Modal */}
+        <ConfirmModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleSubmit}
+        loading={loading}
+        progress={progress}
+        showLoading={true}
+        loadingText="Submitting your request..."
+         />
+         {/* {showConfirmModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -759,9 +1042,9 @@ const handleSubmit = async () => {
                 <button
                   onClick={() => setShowConfirmModal(false)}
                   className="text-gray-400 hover:text-gray-600"
-                >
+                > */}
                   {/* <X size={20} className="cursor-pointer"/> */}
-                </button>
+                {/* </button>
               </div>
               
               <div className="py-1">
@@ -774,7 +1057,7 @@ const handleSubmit = async () => {
                <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowConfirmModal(false)}
-                  className="px-4 py-3 border-gray-300 bg-[#F4F8FE] text-gray-700 rounded-xl w-1/2 font-medium cursor-pointer"
+                  className="px-4 py-3 border-gray-300 bg-[#F4F8FE] text-gray-700 hover:bg-gray-300 transition-colors rounded-xl w-1/2 font-medium cursor-pointer"
                 >
                   Cancel
                 </motion.button>
@@ -783,17 +1066,17 @@ const handleSubmit = async () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSubmit}
                   disabled={loading}
-                  className={`px-4 py-3 rounded-xl w-1/2 font-medium cursor-pointer ${
+                  className={`px-4 py-3 rounded-xl w-1/2 font-medium cursor-pointer transition-colors hover:bg-blue-700 ${
                     loading
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                       : "bg-[#1A73E8] text-white"
                   }`}
                 >
                   {loading ? "Submitting..." : "Confirm"}
-                </motion.button>
+                </motion.button> */}
 
                 {/* Overlay Loader */}
-                {loading && (
+                {/* {loading && (
                   <div className="fixed inset-0 flex items-center justify-center bg-[#F5F5F5]/40 bg-opacity-20 z-50">
                     <Loading text="Submitting your request..." progress={progress} />
                   </div>
@@ -802,11 +1085,10 @@ const handleSubmit = async () => {
               </div>
             </motion.div>
           </motion.div>
-        )}
+        )} */}
 
-        {/* Back Confirmation Modal */}
-      {/* Back Confirmation Modal */}
-        {showBackConfirmModal && (
+           {/* Back Confirmation Modal */}
+        {/* {showBackConfirmModal && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">
                 <div className="text-center">
@@ -842,7 +1124,8 @@ const handleSubmit = async () => {
               </div>
             </div>
           </div>
-        )}
+        )} */}
+
       </motion.div>
     </div>
   );
