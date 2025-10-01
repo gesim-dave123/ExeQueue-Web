@@ -2,12 +2,15 @@ import React, { useState, useEffect } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from 'react-router-dom';
+import Loading from "../../components/Loading";
 
 export default function Request() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [selectedServices, setSelectedServices] = useState([]);
+  const [loading, setLoading] = useState(false);
+const [progress, setProgress] = useState(0);
   const [formData, setFormData] = useState({
     lastName: "",
     middleName: "",
@@ -147,24 +150,35 @@ export default function Request() {
     }
   };
 
-  const handleSubmit = () => {
-    // Handle form submission here
+
+const handleSubmit = async () => {
+  setLoading(true);
+  setProgress(0);
+
+  try {
+    // Simulate request with progress updates (10 steps)
+    for (let i = 1; i <= 10; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 200)); // chunk delay
+      setProgress(i * 11); // update progress (10%, 20%, ... 100%)
+    }
+
     console.log("Form submitted:", {
       queueType: selectedQueue,
       services: selectedServices,
-      formData: formData
+      formData: formData,
     });
-    
-    // Clear the session storage when form is submitted
-    sessionStorage.removeItem('hasRequestInProgress');
+
+    // Clear session storage
+    sessionStorage.removeItem("hasRequestInProgress");
     setShowConfirmModal(false);
-    
-    // You can reset the form or redirect the user here
-    // setCurrentStep(1);
-    // setSelectedQueue(null);
-    // setSelectedServices([]);
-    // setFormData({ ... });
-  };
+
+    // Optionally reset form here
+  } catch (error) {
+    console.error("Error submitting form:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Animation variants
   const containerVariants = {
@@ -710,10 +724,10 @@ export default function Request() {
               (currentStep === 1 && !selectedQueue) || 
               (currentStep === 3 && selectedServices.length === 0)
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer"
             }`}
           >
-            {currentStep === 4 ? "Submit Request" : "Continue"}
+            {currentStep === 4 ? "Submit" : "Continue"}
           </button>
         </div>
 
@@ -729,42 +743,54 @@ export default function Request() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full"
+              className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Confirm Submission</h3>
+              <div className="flex justify-center items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Submit Request</h3>
                 <button
                   onClick={() => setShowConfirmModal(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <X size={20} className="cursor-pointer"/>
+                  {/* <X size={20} className="cursor-pointer"/> */}
                 </button>
               </div>
               
               <div className="py-1">
                 <p className="text-gray-600 text-center">
-                  By confirming, your queue request will be submitted.
+                  By confirming, your queue request will be submitted for processing.
                 </p>
               </div>
               
-              <div className="mt-6 flex justify-end space-x-3">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
+              <div className="mt-6 flex justify-end space-x- px-8 gap-4">
+               <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowConfirmModal(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-full font-medium cursor-pointer"
+                  className="px-4 py-3 border-gray-300 bg-[#F4F8FE] text-gray-700 rounded-xl w-1/2 font-medium cursor-pointer"
                 >
                   Cancel
                 </motion.button>
+
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSubmit}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-full font-medium cursor-pointer"
+                  disabled={loading}
+                  className={`px-4 py-3 rounded-xl w-1/2 font-medium cursor-pointer ${
+                    loading
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-[#1A73E8] text-white"
+                  }`}
                 >
-                  Yes, Submit
+                  {loading ? "Submitting..." : "Confirm"}
                 </motion.button>
+
+                {/* Overlay Loader */}
+                {loading && (
+                  <div className="fixed inset-0 flex items-center justify-center bg-[#F5F5F5]/40 bg-opacity-20 z-50">
+                    <Loading text="Submitting your request..." progress={progress} />
+                  </div>
+                )}
+
               </div>
             </motion.div>
           </motion.div>
@@ -773,33 +799,36 @@ export default function Request() {
         {/* Back Confirmation Modal */}
       {/* Back Confirmation Modal */}
         {showBackConfirmModal && (
-          <div className="fixed inset-0  bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <i className="fas fa-exclamation-triangle text-yellow-500 text-2xl"></i>
-                </div>
-                
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Leave Request Page?
-                </h3>
-                
-                <p className="text-gray-600 mb-6">
-                  Are you sure you want to leave this page? Your progress will be lost.
-                </p>
+        <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">
+                <div className="text-center">
+                  <div className="w-10 h-10 bg-orange-400 rounded-[12px] flex items-center justify-center mx-auto mb-4">
+                    <i className="fas fa-exclamation-triangle text-white text-xl"></i>
+                  </div>
+
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6 mt-6">
+                    Leave Request Page?
+                  </h3>
+
+                  <p className="text-gray-600 text-sm">
+                    You have unsaved changes. 
+                  </p>
+                  <p className="text-gray-600 text-sm  mb-6">
+                    Are you sure you want to leave this page?
+                  </p>
                 
                 <div className="flex gap-4 justify-center">
                   <button
                     onClick={handleBackCancel}
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                     className="px-10 py-2 text-gray-700 rounded-lg bg-gray-100 hover:bg-gray-300 transition-colors font-medium"
                   >
-                    Stay on Page
+                    Cancel
                   </button>
                   <button
                     onClick={handleBackConfirm}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    className="px-10 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                   >
-                    Leave Page
+                    Confirm
                   </button>
                 </div>
               </div>
