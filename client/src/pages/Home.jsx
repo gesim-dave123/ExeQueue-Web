@@ -60,7 +60,7 @@ export default function Home() {
 
           {/* Proceed as Staff */}
           <Link to="/student/live-queue">
-          <button className="border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] hover:text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
+          <button className="border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
             onClick={() =>handleRedirect('/staff/login')}
           >
             <FontAwesomeIcon icon={faUserCog} size="lg" />

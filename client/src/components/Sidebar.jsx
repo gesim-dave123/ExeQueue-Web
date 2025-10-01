@@ -16,12 +16,12 @@ export default function Sidebar() {
       )}
       
       <div
-        className={`bg-white shadow-lg h-screen transition-all duration-300 ease-in-out flex flex-col fixed lg:relative z-50 ${
+        className={`bg-white h-full shadow-xs rounded-3xl transition-all duration-300 ease-in-out flex flex-col fixed lg:relative z-50 ${
           isSidebarOpen ? "w-64" : "md:w-64 w-12 lg:w-64"
         }`}
       >
         {/* Top Section */}
-        <div className="flex items-center justify-between pr-4 pt-4 pb-4 shadow-lg">
+        <div className="flex items-center justify-between pr-4 pt-4 pb-4 shadow-xs">
           <div className="flex items-center">
             <img
               src="public/assets/icon.svg"
@@ -84,11 +84,15 @@ export default function Sidebar() {
           </a>
           <a className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-100 transition">
             <i className="fas fa-chart-bar"></i> 
-            <span>Reports</span>
+            <span>Manage Accounts</span>
           </a>
           <a className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-100 transition">
             <i className="fas fa-cog"></i> 
-             <span>Settings</span>
+             <span>Transactions</span>
+          </a>
+           <a className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-blue-100 transition">
+            <i className="fas fa-cog"></i> 
+             <span>Analytics</span>
           </a>
         </div>
       </div>

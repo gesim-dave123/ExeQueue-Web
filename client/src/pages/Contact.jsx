@@ -4,11 +4,11 @@ import { Globe } from "lucide-react";
 
 export default function Contact() {
   return (
-    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-12 rounded-2xl">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10">
+    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-12m rounded-2xl w-full xl:w-6xl 2xl:w-[185vh]">
+      <div className="max-w-8xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10">
         
         {/* Left Section */}
-        <div className="flex flex-col gap-4 max-w-md w-full">
+        <div className="md:mx-10 lg:mx-20 flex flex-col gap-4 max-w-md w-full">
           <div className="flex items-center gap-2">
             {/* Logo */}
             <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full">
@@ -35,7 +35,7 @@ export default function Contact() {
         </div>
 
         {/* Middle - Services */}
-        <div className="grid grid-cols-2 gap-10">
+        <div className="md:mr-20 lg:mr-40 grid grid-cols-2 gap-20">
           <div className="text-left w-full sm:w-auto">
                     <h2 className="text-blue-300 font-semibold mb-3">Service</h2>
                     <ul className="space-y-2 text-gray-300 text-sm md:text-base">
@@ -61,7 +61,7 @@ export default function Contact() {
        
 
       {/* Bottom Note */}
-      <div className="mt-10 text-center text-xs text-gray-400  lg:w-5xl">
+      <div className="mt-10 flex items-center justify-center text-xs text-gray-400  lg:w-8xl">
         © 2025 University of Cebu Main Campus - ExeQueue v1.0.1 | All Rights Reserved.
       </div>
     </footer>
