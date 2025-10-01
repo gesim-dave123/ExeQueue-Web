@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import icon from '/assets/icon.svg'
 import { motion } from 'framer-motion';
@@ -8,7 +8,10 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [targetLink, setTargetLink] = useState('');
+  const [activeSection, setActiveSection] = useState("home");
   const navigate = useNavigate();
+  const menuRef = useRef(null);
+  const buttonRef = useRef(null);
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -20,6 +23,17 @@ export default function Navbar() {
       setIsMenuOpen(false);
     };
 
+    const getActiveClass = (sectionId) => {
+    // If on the Request page, disable active/highlight
+    if (location.pathname === "/student/request") {
+      return "text-gray-700 cursor-pointer hover:text-blue-600";
+    }
+
+    // Normal behavior - compare with activeSection
+    return activeSection === sectionId
+      ? "text-blue-600 cursor-pointer"
+      : "text-gray-700 hover:text-blue-600 cursor-pointer";
+  };
     const handleLinkClick = (link, event) => {
       event.preventDefault();
       
@@ -89,80 +103,177 @@ export default function Navbar() {
       setTargetLink('');
     };
 
+     useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  // 👇 Scroll spy to detect active section
+  useEffect(() => {
+    const sections = document.querySelectorAll("section[id]");
+    
+    const observerOptions = {
+      root: null,
+      rootMargin: "-20% 0px -70% 0px", // Adjust these values to control when section becomes active
+      threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setActiveSection(entry.target.id);
+        }
+      });
+    }, observerOptions);
+
+    sections.forEach(section => {
+      observer.observe(section);
+    });
+
+    return () => {
+      sections.forEach(section => {
+        observer.unobserve(section);
+      });
+    };
+  }, []);
+
+  // Alternative scroll spy using scroll event (if IntersectionObserver doesn't work well)
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = document.querySelectorAll("section[id]");
+      const scrollPos = window.scrollY + 100; // Adjust offset as needed
+
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.offsetHeight;
+        const sectionId = section.getAttribute("id");
+
+        if (scrollPos >= sectionTop && scrollPos < sectionTop + sectionHeight) {
+          setActiveSection(sectionId);
+        }
+      });
+    };
+
+    // Use IntersectionObserver as primary, scroll event as fallback
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   return (
     <>
       <div className='flex justify-between min-h-[10vh] sticky top-0 backdrop-blur-md z-50'>
-        <div className='flex items-center lg:ml-20 ml-0 '>
-          <img src={icon} alt="Exequeue Logo" className='w-[10vh]' />
-          <h1 className='text-2xl font-bold '>ExeQueue</h1>
+         <div className="flex items-center lg:ml-20 ml-0 ">
+          <img src={icon} alt="Exequeue Logo" className="w-[10vh]" />
+          <h1 className="text-2xl font-bold ">ExeQueue</h1>
         </div>
-        
+
         {/* Desktop Navigation */}
-        <div className='hidden lg:flex items-center mr-25 pr-10 gap-7 scroll-smooth'>
-          <button 
-            onClick={() => handleDesktopNavigation('/#')}
-            className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-medium group relative cursor-pointer'
+        <div className="hidden lg:flex items-center mr-25 pr-10 gap-7 scroll-smooth">
+          <button
+            onClick={() => handleDesktopNavigation("/#")}
+            className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
+              "home"
+            )}`}
           >
             Home
           </button>
-          <button 
-            onClick={() => handleDesktopNavigation('/#about')}
-            className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-medium group relative cursor-pointer'
+          <button
+            onClick={() => handleDesktopNavigation("/#about")}
+            className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
+              "about"
+            )}`}
           >
             About
           </button>
-          <button 
-            onClick={() => handleDesktopNavigation('/#help')}
-            className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-medium group relative cursor-pointer'
+          <button
+            onClick={() => handleDesktopNavigation("/#help")}
+            className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
+              "help"
+            )}`}
           >
             Help
           </button>
-          <button 
-            onClick={() => handleDesktopNavigation('/#faq')}
-            className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-medium group relative cursor-pointer'
+          <button
+            onClick={() => handleDesktopNavigation("/#faq")}
+            className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
+              "faq"
+            )}`}
           >
             FAQs
           </button>
         </div>
 
-        <div className="lg:hidden flex items-center mr-10">
-          <button 
+         <div className="lg:hidden flex items-center mr-10">
+          <button
+            ref={buttonRef}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="w-10 min-h-10 text-gray-700 hover:text-blue-600 focus:outline-none cursor-pointer"
+            className="w-10 min-h-10 text-gray-700 hover:text-blue-600"
           >
             {isMenuOpen ? (
-              <i className="in-h-10 fas fa-times text-xl"></i>
+              <i className="fas fa-times text-2xl"></i>
             ) : (
-              <i className="fas fa-bars text-xl"></i>
+              <i className="fas fa-bars text-2xl"></i>
             )}
           </button>
         </div>
 
         {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className='lg:hidden absolute top-14 sm:top-19 right-10 sm:right-9 w-35 border border-gray-200 flex text-start shadow-lg py-4 px-4 z-50 rounded-xl bg-white'>
-            <div className='flex flex-col space-y-4'>
-              <button 
-                onClick={(e) => handleLinkClick('/#', e)} 
-                className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-small text-left'
+       {isMenuOpen && (
+          <div
+            ref={menuRef}
+            className="lg:hidden absolute top-16 right-10 w-40 rounded-xl bg-white shadow-lg border border-gray-100 z-50"
+          >
+            <div className="flex flex-col space-y-4 p-2 font-light">
+              <button
+                onClick={(e) => handleLinkClick("/#", e)}
+                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                  "home"
+                )}`}
               >
                 Home
               </button>
-              <button 
-                onClick={(e) => handleLinkClick('/#about', e)} 
-                className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-small text-left'
+              <button
+                onClick={(e) => handleLinkClick("/#about", e)}
+                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                  "about"
+                )}`}
               >
                 About
               </button>
-              <button 
-                onClick={(e) => handleLinkClick('/#help', e)} 
-                className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-small text-left'
+              <button
+                onClick={(e) => handleLinkClick("/#help", e)}
+                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                  "help"
+                )}`}
               >
                 Help
               </button>
-              <button 
-                onClick={(e) => handleLinkClick('/#faq', e)} 
-                className='px-4 py-2 rounded-lg text-gray-700 hover:text-blue-600 transition-colors font-small text-left'
+              <button
+                onClick={(e) => handleLinkClick("/#faq", e)}
+                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                  "faq"
+                )}`}
               >
                 FAQs
               </button>
@@ -193,7 +304,7 @@ export default function Navbar() {
       />
       {showConfirmation && (
        <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
-              <motion.div 
+              <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}

@@ -52,8 +52,6 @@ export default function Home() {
           <Link to="/student/request">
             <button className="bg-[#1A73E8] hover:bg-[#1557B0] w-full text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
             >
-
-              <FontAwesomeIcon icon={faClipboardList} size="lg" />
             <span className="">Request Service</span>
             </button>
           </Link>
@@ -63,36 +61,18 @@ export default function Home() {
           <button className="border border-[#1A73E8] text-[#1A73E8] hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
             onClick={() =>handleRedirect('/staff/login')}
           >
-            <FontAwesomeIcon icon={faUserCog} size="lg" />
             <span>Proceed as Staff</span>
           </button>
           </Link>
         </div>
         
         <div className='items-center mb-8 text-center text-gray-500 text-sm sm:text-base'>
-          <p>Already have a queue number? <span><button className='cursor-pointer underline'
+          <p>Already have a queue number? <span><button className='cursor-pointer underline '
             onClick={() => handleRedirect('/student')} // change later to url destination for view queue
           >
-          View Queue</button></span></p>
+          Search Queue</button></span></p>
         </div>
-        
-        {/* Feature highlights */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-10 ">
-          {[
-          { icon: 'fa-sharp fa-solid fa-lock text-gray-500', title: 'Secure', desc: 'End-to-end encryption' },
-          { icon: 'fa-sharp fa-solid fa-bolt text-gray-500', title: 'Fast', desc: 'Quick response times' },
-          { icon: 'fa-sharp fa-solid fa-shield-alt text-gray-500', title: 'Reliable', desc: '99.9% uptime guarantee' }
 
-          ].map((feature, index) => (
-            <div key={index} className="flex flex-col items-center md:items-start p-3 bg-white/50 rounded-lg shadow-sm ">
-              <div className="text-xl mb-1">
-                <i className={feature.icon}></i>
-              </div>
-              <h3 className="font-semibold text-gray-800 text-sm sm:text-base">{feature.title}</h3>
-              <p className="text-xs text-gray-600 text-center md:text-left sm:text-sm">{feature.desc}</p>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )

@@ -1088,6 +1088,26 @@ const fetchData = async () => {
         )} */}
 
            {/* Back Confirmation Modal */}
+
+       <ConfirmModal
+        isOpen={showBackConfirmModal}
+        onClose={() => setShowBackConfirmModal(false)}
+        onConfirm={handleBackConfirm}
+        loading={loading}
+        progress={progress}
+        icon="/assets/Caution Icon.png"
+        iconAlt="Warning"
+        iconSize="w-12 h-12"
+        showLoading={true}
+        title='Leave Request Page?'
+        description={
+          <>
+            You have unsaved changes.<br />
+            Are you sure you want to leave this page?
+          </>
+        }
+         />
+
         {/* {showBackConfirmModal && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">
