@@ -508,7 +508,15 @@ const handleSubmit = async () => {
                 <option value="BSCS">BSCS</option>
                 <option value="BSECE">BSECE</option>
                 <option value="BSCE">BSCE</option>
-                <option value="BSEE">BSEE</option>
+                <option value="BSEE">BSEE</option> 
+
+                {
+                  courseData.map(course =>(
+                    <option key={course.courseId} value={course.courseId}>
+                      {course.courseCode} ({course.courseName})
+                    </option>
+                  ))  
+                };
               </select>
               {errors.course && (
                 <p className="mt-1 text-sm text-red-600">{errors.course}</p>
