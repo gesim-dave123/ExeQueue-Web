@@ -513,7 +513,7 @@ const handleSubmit = async () => {
                 {
                   courseData.map(course =>(
                     <option key={course.courseId} value={course.courseId}>
-                      {course.courseCode} ({course.courseName})
+                      {course.courseName} - {course.courseCode}
                     </option>
                   ))  
                 };
