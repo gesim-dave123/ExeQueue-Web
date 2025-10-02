@@ -4,17 +4,22 @@ import { Globe } from "lucide-react";
 
 export default function Contact() {
   return (
-    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-12m rounded-2xl w-full xl:w-6xl 2xl:w-[185vh]">
+    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-10 rounded-2xl w-full xl:w-6xl 2xl:w-[180vh]">
       <div className="max-w-8xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10">
-        
         {/* Left Section */}
-        <div className="md:mx-10 lg:mx-20 flex flex-col gap-4 max-w-md w-full">
+        <div className="md:mx-10 lg:mx-20 flex flex-col max-w-md w-full top-1/2 transform -translate-y-[15%] ">
           <div className="flex items-center gap-2">
             {/* Logo */}
-            <div className="w-10 h-10 flex items-center justify-center bg-white rounded-full">
-              <img src="assets/icon.svg" alt="ExeQueue Logo" className="w-6 h-6" />
+            <div className="w-30 h-30 flex items-center justify-center rounded-full left-1/2 transform -translate-x-[30%] ">
+              <img
+                src="assets/icon.svg"
+                alt="ExeQueue Logo"
+                className="w-30 h-30"
+              />
             </div>
-            <h1 className="text-xl font-bold">ExeQueue</h1>
+            <h1 className="text-2xl font-bold left-1/2 transform -translate-x-[55%]">
+              ExeQueue
+            </h1>
           </div>
 
           <p className="text-sm text-left md:text-base text-gray-300 leading-relaxed">
@@ -26,43 +31,45 @@ export default function Contact() {
             href="https://www.facebook.com/ucmain.sao"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-8 mt-5 h-8 flex items-center justify-center bg-white text-[#0a285f] rounded-full hover:bg-gray-200 transition"
+            className="w-8 mt-5 h-8 flex items-center justify-center text-[#0a285f] rounded-full hover:bg-gray-500 transition"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-            </svg>
+            <img
+              src="/assets/facebook.png"
+              alt="Facebook"
+              className="w-20 h-20 object-contain"
+            />
           </a>
         </div>
 
         {/* Middle - Services */}
         <div className="md:mr-20 lg:mr-40 grid grid-cols-2 gap-20">
           <div className="text-left w-full sm:w-auto">
-                    <h2 className="text-blue-300 font-semibold mb-3">Service</h2>
-                    <ul className="space-y-2 text-gray-300 text-sm md:text-base">
-                      <li>Good Moral</li>
-                      <li>Insurance Payment</li>
-                      <li>Transmittal Letter</li>
-                      <li>Temporary Gate Pass</li>
-                      <li>Uniform Exemption</li>
-                      <li>Enrollment/Transfer</li>
-                    </ul>
-                  </div>
+            <h2 className="text-blue-300 font-semibold mb-3">Service</h2>
+            <ul className="space-y-2 text-gray-300 text-sm md:text-base">
+              <li>Good Moral</li>
+              <li>Insurance Payment</li>
+              <li>Transmittal Letter</li>
+              <li>Temporary Gate Pass</li>
+              <li>Uniform Exemption</li>
+              <li>Enrollment/Transfer</li>
+            </ul>
+          </div>
 
-                  {/* Right - Product */}
-                  <div className="text-left w-full sm:w-auto">
-                    <h2 className="text-blue-300 font-semibold mb-3">Product</h2>
-                    <ul className="space-y-2 text-gray-300 text-sm md:text-base">
-                      <li>Features</li>
-                      <li>Tutorial</li>
-                    </ul>
-                  </div>
-                </div>
+          {/* Right - Product */}
+          <div className="text-left w-full sm:w-auto">
+            <h2 className="text-blue-300 font-semibold mb-3">Product</h2>
+            <ul className="space-y-2 text-gray-300 text-sm md:text-base">
+              <li>Features</li>
+              <li>Tutorial</li>
+            </ul>
+          </div>
         </div>
-       
+      </div>
 
       {/* Bottom Note */}
       <div className="mt-10 flex items-center justify-center text-xs text-gray-400  lg:w-8xl">
-        © 2025 University of Cebu Main Campus - ExeQueue v1.0.1 | All Rights Reserved.
+        © 2025 University of Cebu Main Campus - ExeQueue v1.0.1 | All Rights
+        Reserved.
       </div>
     </footer>
   );
