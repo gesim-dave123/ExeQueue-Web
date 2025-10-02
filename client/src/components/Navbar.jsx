@@ -301,6 +301,8 @@ export default function Navbar() {
         progress={progress}
         showLoading={false}
         loadingText="Submitting your request..."
+        showCloseButton={false}  
+        hideActions={false} 
       />
       {showConfirmation && (
        <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">

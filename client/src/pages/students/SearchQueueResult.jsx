@@ -1,9 +1,40 @@
 import { useState } from "react";
 import { ArrowLeft, Camera, Clock } from "lucide-react";
 
-export default function DisplayQueue() {
+export default function SearchQueueResult() {
+  const [query, setQuery] = useState("");
+
+  const checkQueue = () => {
+    if (!query || query.trim() === "" || query !== "12345") {
+      // If queue not found
+      setShowModal(true);
+    } else {
+      // If queue found, redirect (example: homepage or another page)
+      window.location.href = "/";
+    }
+  };
+
   return (
     <div className="min-h-[90vh] w-full flex justify-center items-center flex-col px-4 py-6 ">
+      <div className="flex w-full max-w-md rounded-full overflow-hidden border border-blue-600 bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-15">
+        {/* Input Field */}
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search Queue"
+          className="flex-1 px-4 py-3 outline-none text-sm sm:text-base font-normal bg-white placeholder-gray-500"
+        />
+
+        {/* Search Button / Icon */}
+        <button
+          onClick={checkQueue} // replace with your search function
+          className="w-18 h-md bg-blue-600 flex items-center justify-center hover:bg-gray-400 transition-colors"
+        >
+          <img src="/assets/Search icon.png" alt="search" className="w-5 h-5" />
+        </button>
+      </div>
+
       {/* Note */}
       <div className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-blue-600 text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2">
         <Camera size={18} className="flex-shrink-0" />
@@ -76,8 +107,8 @@ export default function DisplayQueue() {
       </div>
 
       {/* Footer Button */}
-      <div className="w-full max-w-md flex justify-center">
-        <button className="mt-10 w-full   bg-blue-600 hover:bg-blue-700 text-white   text-sm font-medium px-4 py-4 rounded-xl flex items-center justify-center gap-2">
+      <div className="w-full max-w-md flex justify-end">
+        <button className="mt-10   bg-blue-600 hover:bg-blue-700 text-white   text-sm font-medium px-4 py-4 rounded-xl flex items-center gap-2">
           <ArrowLeft size={17} /> Back to Homepage
         </button>
       </div>
