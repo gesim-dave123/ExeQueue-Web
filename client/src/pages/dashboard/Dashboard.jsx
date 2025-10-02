@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import BarGraph from "../components/graphs/BarGraph";
-import DoughnutChart from "../components/graphs/DoughnutChart";
+import BarGraph from "../../components/graphs/BarGraph";
+import DoughnutChart from "../../components/graphs/DoughnutChart";
 export default function Dashboard() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -70,7 +70,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen py-9 flex bg-transparent lg:w-[100%]">
       {/* Main Content */}
-      <div className="flex-1 pl-10 pr-10 pt-3 ml-12 md:ml-65 sm:ml-12 lg:ml-0 transition-all duration-300 ease-in-out bg-[#F5F5F5]">
+      <div className="flex-1 pl-10 pr-10 pt-3 ml-12 md:ml-65 sm:ml-12 lg:ml-0 transition-all duration-300 ease-in-out ">
         <div className="text-left mb-5 mt-4">
          <h2 className="text-3xl font-semibold text-left text-[#202124]">Dashboard</h2> 
           <span className="text-left text-[#686969]">Your Queue Management Snapshot</span>

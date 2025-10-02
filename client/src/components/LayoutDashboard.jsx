@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Outlet } from 'react-router-dom'
-import Dashboard from '../pages/Dashboard'
+import Dashboard from '../pages/dashboard/Dashboard'
 import Sidebar from './Sidebar'
 export default function LayoutDashboard() {
   return (
@@ -13,7 +13,7 @@ export default function LayoutDashboard() {
         <div className="absolute bottom-12 left-1/3 w-60 h-60 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div> */}
       <div className='flex bg-[#F5F5F5]'>
-        <div className='pl-10 py-10'>
+        <div className='pl-10 py-9 min-h-screen '>
           <Sidebar></Sidebar>
 
         </div>

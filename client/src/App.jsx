@@ -6,7 +6,7 @@ import Layout from './components/Layout';
 import LayoutDashboard from './components/LayoutDashboard';
 import AboutUs from './pages/AboutUs';
 import Contact from './pages/Contact';
-import Dashboard from './pages/Dashboard';
+import Dashboard from './pages/dashboard/Dashboard';
 import FAQs from './pages/FAQs';
 import Help from './pages/Help';
 import Landing from './pages/Landing';
@@ -16,7 +16,8 @@ import LoginStaff from './pages/staffs/LoginStaff';
 import SocketTesting from './pages/staffs/SocketTesting';
 import Request from './pages/students/Request';
 import GenerateQueue from './pages/students/GenerateQueue';
-
+import DisplayQueue from './pages/students/DisplayQueue';
+import Display_Queue from './pages/dashboard/Display_Queue';
 
 
 function App() {
@@ -39,6 +40,7 @@ function App() {
           <Route path = "/student/generate-queue" element={<GenerateQueue/>}></Route>
 
           <Route path="/student/live-queue" element={<LiveQueue/>}></Route>
+          <Route path="/student/display-queue" element={<DisplayQueue/>}></Route>
         </Route>
         <Route>
           <Route path="/staff/call-next" element={<CallNextTest/>}></Route>
@@ -51,7 +53,8 @@ function App() {
       <Routes>
           <Route element = {<LayoutDashboard/>}> 
            <Route path = "/dashboard" element = {<Dashboard/>}></Route>
-           </Route>   
+           <Route path = "/dashboard/display-queue" element = {<Display_Queue/>}></Route>
+          </Route>   
       </Routes>
     </Router>
    </div>
