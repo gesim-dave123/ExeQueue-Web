@@ -1021,6 +1021,8 @@ const fetchData = async () => {
         loading={loading}
         progress={progress}
         showLoading={true}
+        showCloseButton={false}  
+        hideActions={false} 
         loadingText="Submitting your request..."
          />
          {/* {showConfirmModal && (
@@ -1100,6 +1102,8 @@ const fetchData = async () => {
         iconSize="w-12 h-12"
         showLoading={true}
         title='Leave Request Page?'
+        showCloseButton={false}  
+        hideActions={false} 
         description={
           <>
             You have unsaved changes.<br />
