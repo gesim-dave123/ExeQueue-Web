@@ -6,7 +6,7 @@ import Layout from "./components/Layout";
 import LayoutDashboard from "./components/LayoutDashboard";
 import AboutUs from "./pages/AboutUs";
 import Contact from "./pages/Contact";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/dashboard/Dashboard";
 import FAQs from "./pages/FAQs";
 import Help from "./pages/Help";
 import Landing from "./pages/Landing";
@@ -17,10 +17,10 @@ import SocketTesting from "./pages/staffs/SocketTesting";
 import Request from "./pages/students/Request";
 import GenerateQueue from "./pages/students/GenerateQueue";
 import DisplayQueue from "./pages/students/DisplayQueue";
+import Display_Queue from "./pages/dashboard/Display_Queue";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
 import StaffLogin from "./pages/staff/StaffLogin";
-// import LoginStaff from "./pages/staff/LoginStaff";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -72,6 +72,10 @@ function App() {
         <Routes>
           <Route element={<LayoutDashboard />}>
             <Route path="/dashboard" element={<Dashboard />}></Route>
+            <Route
+              path="/dashboard/display-queue"
+              element={<Display_Queue />}
+            ></Route>
           </Route>
         </Routes>
       </Router>
