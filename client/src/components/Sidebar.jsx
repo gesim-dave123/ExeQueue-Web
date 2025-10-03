@@ -112,7 +112,7 @@ export default function Sidebar() {
         animate={{ width: isOpen ? 260 : 64 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className={`
-          fixed top-0 left-0 h-full bg-white shadow-2xl z-40 flex flex-col
+          fixed top-0 left-0 h-full bg-white shadow-xs z-40 flex flex-col
           rounded-r-3xl xl:rounded-3xl overflow-hidden
           ${isMobileView && !isOpen ? "-translate-x-full" : "translate-x-0"}
           md:translate-x-0 xl:static
