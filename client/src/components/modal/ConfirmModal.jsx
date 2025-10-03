@@ -4,15 +4,15 @@ import { X } from 'lucide-react';
 import Loading from '../Loading';
 
 export default function ConfirmModal({
-   isOpen = false,
+  isOpen = false,
   onClose,
   onConfirm,
   loading = false,
   progress = 0,
   title = "Submit Request",
-  titleClassName = "text-2xl font-semibold text-gray-800 text-center mb-4", // ✅ new prop
+  titleClassName = "text-2xl font-semibold text-gray-800 text-center mb-4",
   description = "By confirming, your queue request will be submitted for processing.",
-  descriptionClassName = "text-gray-600 text-center", // ✅ new prop
+  descriptionClassName = "text-gray-600 text-center",
   cancelText = "Cancel",
   confirmText = "Confirm",
   loadingText = "Submitting...",
@@ -23,7 +23,11 @@ export default function ConfirmModal({
   showCloseButton = true,
   icon = null,
   iconAlt = "Icon",
-  iconSize = "w-16 h-16"
+  iconSize = "w-16 h-16",
+  
+  // 🔹 New Props
+  cancelButtonClass = "px-4 py-3 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-xl w-1/2 font-medium cursor-pointer",
+  confirmButtonClass = "px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl w-1/2 font-medium cursor-pointer",
 }) {
   if (!isOpen) return null;
 
@@ -43,7 +47,7 @@ export default function ConfirmModal({
           className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full relative"
           onClick={(e) => e.stopPropagation()}
         >
-         {/* ❌ Close button */}
+          {/* ❌ Close button */}
           {showCloseButton && (
             <button
               onClick={onClose}
@@ -57,22 +61,19 @@ export default function ConfirmModal({
           {/* Icon */}
           {icon && (
             <div className="flex justify-center mb-4">
-              <img 
-                src={icon} 
-                alt={iconAlt} 
-                className={`${iconSize} object-contain`}
-              />
+              <img src={icon} alt={iconAlt} className={`${iconSize} object-contain`} />
             </div>
           )}
 
           {/* Title */}
           <h3 className={titleClassName}>{title}</h3>
+
           {/* Description */}
           <div className="py-1">
             <p className={descriptionClassName}>{description}</p>
           </div>
 
-          {/* Action Buttons (only if not hidden) */}
+          {/* Action Buttons */}
           {!hideActions && (
             <div className="mt-8 px-5 flex justify-end space-x-4 gap-4">
               {cancelText && (
@@ -80,7 +81,7 @@ export default function ConfirmModal({
                   whileTap={{ scale: 0.95 }}
                   onClick={onClose}
                   disabled={loading && showLoading}
-                  className="px-4 py-3 border-gray-300 bg-[#F4F8FE] text-gray-700 hover:bg-gray-300 transition-colors rounded-xl w-1/2 font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`${cancelButtonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {cancelText}
                 </motion.button>
@@ -91,11 +92,7 @@ export default function ConfirmModal({
                   whileTap={{ scale: 0.95 }}
                   onClick={onConfirm}
                   disabled={loading && showLoading}
-                  className={`px-4 py-3 rounded-xl w-1/2 font-medium cursor-pointer transition-colors ${
-                    (loading && showLoading)
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-[#1A73E8] text-white hover:bg-blue-700"
-                  }`}
+                  className={`${confirmButtonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {(loading && showLoading) ? loadingText : confirmText}
                 </motion.button>
