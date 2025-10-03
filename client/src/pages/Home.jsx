@@ -46,7 +46,7 @@ export default function Home() {
         {/* Buttons with improved styling and icons */}
         <div className="flex flex-col sm:flex-row mb-4 gap-5 justify-center ">
           {/* Proceed as Staff */}
-          <Link to="/student/search-queue">
+          <Link to="/staff-login">
             <button
               className="border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
               // onClick={() => handleRedirect("/staff/login")}

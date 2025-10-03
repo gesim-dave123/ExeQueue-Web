@@ -20,7 +20,10 @@ export default function StaffLogin() {
         {/* Logo + Title */}
         <div className="flex items-center justify-center gap-2 top-1/2 transform -translate-y-[30%]">
           <img src={icon} alt="Logo" className="w-25 h-25 sm:w-35 sm:h-35" />
-          <h1 className="left-1/2 transform -translate-x-[20%]  text-2xl sm:text-3xl font-bold font-montserrat text-gray-900">
+          <h1
+            className="left-1/2 transform -translate-x-[20%]  text-2xl sm:text-3xl font-bold text-gray-900"
+            style={{ fontFamily: "Montserrat, sans-serif" }}
+          >
             ExeQueue
           </h1>
         </div>
@@ -87,7 +90,10 @@ export default function StaffLogin() {
 
           {/* Forgot Password */}
           <div className="flex justify-end">
-            <a href="#" className="text-sm text-blue-500 hover:underline">
+            <a
+              href="/student/search-queue"
+              className="text-sm text-blue-500 hover:underline"
+            >
               Forgot Password?
             </a>
           </div>

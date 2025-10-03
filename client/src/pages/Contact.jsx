@@ -17,7 +17,10 @@ export default function Contact() {
                 className="w-30 h-30"
               />
             </div>
-            <h1 className="text-2xl font-bold left-1/2 transform -translate-x-[55%]">
+            <h1
+              className="text-2xl font-bold left-1/2 transform -translate-x-[55%]"
+              style={{ fontFamily: "Montserrat, sans-serif" }}
+            >
               ExeQueue
             </h1>
           </div>
