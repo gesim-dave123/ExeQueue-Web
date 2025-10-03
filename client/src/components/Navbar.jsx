@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import icon from '/assets/icon.svg'
-import { motion } from 'framer-motion';
-import ConfirmModal from './modal/ConfirmModal';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import icon from "/assets/icon.svg";
+import { motion } from "framer-motion";
+import ConfirmModal from "./modal/ConfirmModal";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [targetLink, setTargetLink] = useState('');
+  const [targetLink, setTargetLink] = useState("");
   const [activeSection, setActiveSection] = useState("home");
   const navigate = useNavigate();
   const menuRef = useRef(null);
@@ -17,13 +17,13 @@ export default function Navbar() {
   const [progress, setProgress] = useState(0);
   const [showModal, setShowModal] = useState(false);
 
-    const isRequestPage = location.pathname === '/student/request';
+  const isRequestPage = location.pathname === "/student/request";
 
-    const closeMenu = () => {
-      setIsMenuOpen(false);
-    };
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
 
-    const getActiveClass = (sectionId) => {
+  const getActiveClass = (sectionId) => {
     // If on the Request page, disable active/highlight
     if (location.pathname === "/student/request") {
       return "text-gray-700 cursor-pointer hover:text-blue-600";
@@ -34,76 +34,78 @@ export default function Navbar() {
       ? "text-blue-600 cursor-pointer"
       : "text-gray-700 hover:text-blue-600 cursor-pointer";
   };
-    const handleLinkClick = (link, event) => {
-      event.preventDefault();
-      
-      // Check if user has selected a queue in Request page
-      const hasQueueSelected = sessionStorage.getItem('hasRequestInProgress') === 'true';
-      
-      if (isRequestPage && hasQueueSelected) {
-        setTargetLink(link);
-        setShowModal(true);
-        // setShowConfirmation(true);
+  const handleLinkClick = (link, event) => {
+    event.preventDefault();
+
+    // Check if user has selected a queue in Request page
+    const hasQueueSelected =
+      sessionStorage.getItem("hasRequestInProgress") === "true";
+
+    if (isRequestPage && hasQueueSelected) {
+      setTargetLink(link);
+      setShowModal(true);
+      // setShowConfirmation(true);
+    } else {
+      navigateToLink(link);
+    }
+    closeMenu();
+  };
+
+  const handleDesktopNavigation = (link) => {
+    // Check if user has selected a queue in Request page
+    const hasQueueSelected =
+      sessionStorage.getItem("hasRequestInProgress") === "true";
+
+    // Only show confirmation if we're on Request page AND user selected a queue
+    if (isRequestPage && hasQueueSelected) {
+      setTargetLink(link);
+      setShowModal(true);
+      // setShowConfirmation(true);
+    } else {
+      navigateToLink(link);
+    }
+  };
+
+  const navigateToLink = (link) => {
+    if (link === "/#" || link === "/") {
+      navigate("/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      const hashIndex = link.indexOf("#");
+      if (hashIndex !== -1) {
+        const path = link.substring(0, hashIndex) || "/";
+        const hash = link.substring(hashIndex + 1);
+
+        navigate(path);
+        setTimeout(() => {
+          const element = document.getElementById(hash);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth" });
+          }
+        }, 60);
       } else {
-        navigateToLink(link);
+        navigate(link);
       }
-      closeMenu();
-    };
+    }
+  };
 
-    const handleDesktopNavigation = (link) => {
-      // Check if user has selected a queue in Request page
-      const hasQueueSelected = sessionStorage.getItem('hasRequestInProgress') === 'true';
-      
-      // Only show confirmation if we're on Request page AND user selected a queue
-      if (isRequestPage && hasQueueSelected) {
-        setTargetLink(link);
-        setShowModal(true);
-        // setShowConfirmation(true);
-      } else {
-        navigateToLink(link);
-      }
-    };
+  const confirmNavigation = () => {
+    // Clear the session storage when user confirms navigation
+    sessionStorage.removeItem("hasRequestInProgress");
+    // setShowConfirmation(false);
+    setShowModal(false);
+    if (targetLink) {
+      navigateToLink(targetLink);
+    }
+  };
 
-    const navigateToLink = (link) => {
-      if (link === '/#' || link === '/') {
-        navigate('/');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        const hashIndex = link.indexOf('#');
-        if (hashIndex !== -1) {
-          const path = link.substring(0, hashIndex) || '/';
-          const hash = link.substring(hashIndex + 1);
-          
-          navigate(path);
-          setTimeout(() => {
-            const element = document.getElementById(hash);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth' });
-            }
-          }, 60);
-        } else {
-          navigate(link);
-        }
-      }
-    };
+  const cancelNavigation = () => {
+    setShowModal(false);
+    // setShowConfirmation(false);
+    setTargetLink("");
+  };
 
-    const confirmNavigation = () => {
-      // Clear the session storage when user confirms navigation
-      sessionStorage.removeItem('hasRequestInProgress');
-      // setShowConfirmation(false);
-      setShowModal(false);
-      if (targetLink) {
-        navigateToLink(targetLink);
-      }
-    };
-
-    const cancelNavigation = () => {
-      setShowModal(false);
-      // setShowConfirmation(false);
-      setTargetLink('');
-    };
-
-     useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         menuRef.current &&
@@ -129,27 +131,27 @@ export default function Navbar() {
   // 👇 Scroll spy to detect active section
   useEffect(() => {
     const sections = document.querySelectorAll("section[id]");
-    
+
     const observerOptions = {
       root: null,
       rootMargin: "-20% 0px -70% 0px", // Adjust these values to control when section becomes active
-      threshold: 0
+      threshold: 0,
     };
 
     const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
+      entries.forEach((entry) => {
         if (entry.isIntersecting) {
           setActiveSection(entry.target.id);
         }
       });
     }, observerOptions);
 
-    sections.forEach(section => {
+    sections.forEach((section) => {
       observer.observe(section);
     });
 
     return () => {
-      sections.forEach(section => {
+      sections.forEach((section) => {
         observer.unobserve(section);
       });
     };
@@ -161,7 +163,7 @@ export default function Navbar() {
       const sections = document.querySelectorAll("section[id]");
       const scrollPos = window.scrollY + 100; // Adjust offset as needed
 
-      sections.forEach(section => {
+      sections.forEach((section) => {
         const sectionTop = section.offsetTop;
         const sectionHeight = section.offsetHeight;
         const sectionId = section.getAttribute("id");
@@ -174,7 +176,7 @@ export default function Navbar() {
 
     // Use IntersectionObserver as primary, scroll event as fallback
     window.addEventListener("scroll", handleScroll, { passive: true });
-    
+
     return () => {
       window.removeEventListener("scroll", handleScroll);
     };
@@ -182,10 +184,15 @@ export default function Navbar() {
 
   return (
     <>
-      <div className='flex justify-between min-h-[10vh] sticky top-0 backdrop-blur-md z-50'>
-         <div className="flex items-center lg:ml-20 ml-0 ">
+      <div className="flex justify-between min-h-[10vh] sticky top-0 backdrop-blur-md z-50">
+        <div className="flex items-center lg:ml-20 ml-0 ">
           <img src={icon} alt="Exequeue Logo" className="w-[10vh]" />
-          <h1 className="text-2xl font-bold ">ExeQueue</h1>
+          <h1
+            className="text-2xl font-bold "
+            style={{ fontFamily: "Montserrat, sans-serif" }}
+          >
+            ExeQueue
+          </h1>
         </div>
 
         {/* Desktop Navigation */}
@@ -224,7 +231,7 @@ export default function Navbar() {
           </button>
         </div>
 
-         <div className="lg:hidden flex items-center mr-10">
+        <div className="lg:hidden flex items-center mr-10">
           <button
             ref={buttonRef}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -239,7 +246,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Navigation */}
-       {isMenuOpen && (
+        {isMenuOpen && (
           <div
             ref={menuRef}
             className="lg:hidden absolute top-16 right-10 w-40 rounded-xl bg-white shadow-lg border border-gray-100 z-50"
@@ -288,10 +295,11 @@ export default function Navbar() {
         onClose={() => setShowModal(false)}
         onConfirm={confirmNavigation}
         loading={loading}
-        title='Leave Request Page?'
+        title="Leave Request Page?"
         description={
           <>
-            You have unsaved changes.<br />
+            You have unsaved changes.
+            <br />
             Are you sure you want to leave this page?
           </>
         }
@@ -301,49 +309,48 @@ export default function Navbar() {
         progress={progress}
         showLoading={false}
         loadingText="Submitting your request..."
-        showCloseButton={false}  
-        hideActions={false} 
+        showCloseButton={false}
+        hideActions={false}
       />
       {showConfirmation && (
-       <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
-              <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="bg-white rounded-2xl p-8 w-md sm:w-[45vh] mx-4 shadow-2xl">
-                <div className="text-center">
-                  <div className="w-10 h-10 bg-orange-400 rounded-[12px] flex items-center justify-center mx-auto mb-4">
-                    <i className="fas fa-exclamation-triangle text-white text-xl"></i>
-                  </div>
-
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6 mt-6">
-                    Leave Request Page?
-                  </h3>
-
-                  <p className="text-gray-600 text-sm">
-                    You have unsaved changes. 
-                  </p>
-                  <p className="text-gray-600 text-sm  mb-6">
-                    Are you sure you want to leave this page?
-                  </p>
-                
-                <div className="flex gap-4 justify-center">
-                  <button
-                    onClick={cancelNavigation}
-                     className="px-10 py-2  text-gray-700 rounded-lg bg-[#F4F8FE] hover:bg-gray-300 transition-colors font-medium cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmNavigation}
-                    className="px-10 py-2 bg-[#1A73E8] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium cursor-pointer"
-                  >
-                    Confirm
-                  </button>
-                </div>
+        <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="bg-white rounded-2xl p-8 w-md sm:w-[45vh] mx-4 shadow-2xl"
+          >
+            <div className="text-center">
+              <div className="w-10 h-10 bg-orange-400 rounded-[12px] flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-exclamation-triangle text-white text-xl"></i>
               </div>
-            </motion.div>
-          </div>
+
+              <h3 className="text-xl font-semibold text-gray-900 mb-6 mt-6">
+                Leave Request Page?
+              </h3>
+
+              <p className="text-gray-600 text-sm">You have unsaved changes.</p>
+              <p className="text-gray-600 text-sm  mb-6">
+                Are you sure you want to leave this page?
+              </p>
+
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={cancelNavigation}
+                  className="px-10 py-2  text-gray-700 rounded-lg bg-[#F4F8FE] hover:bg-gray-300 transition-colors font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmNavigation}
+                  className="px-10 py-2 bg-[#1A73E8] text-white rounded-lg hover:bg-blue-700 transition-colors font-medium cursor-pointer"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       )}
     </>
   );
