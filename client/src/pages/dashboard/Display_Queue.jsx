@@ -50,7 +50,7 @@ export default function Display_Queue() {
 
   return (
     <div className="min-h-screen flex flex-col justify-center   lg:w-[100%]">
-    <div ref={containerRef} className=" flex flex-col min-h-[90vh] bg-[#F5F5F5]  justify-center px-9">
+    <div ref={containerRef} className=" flex flex-col min-h-[90vh] bg-[#F5F5F5] pt-6 justify-center px-9">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-semibold text-left text-[#202124]">Display Queue</h1>
