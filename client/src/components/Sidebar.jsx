@@ -3,10 +3,12 @@ import { ChevronDown, ChevronRight, ChevronUp, LayoutDashboard, List, CreditCard
 import icon from '/assets/icon.svg'
 import { Link, NavLink } from "react-router-dom";
 import Display_Queue from "../pages/dashboard/Display_Queue";
+import ManageAccount from "../pages/dashboard/ManageAccount";
+
 export default function Sidebar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isQueueOpen, setIsQueueOpen] = useState(true);
-  const [activeItem, setActiveItem] = useState('queue');
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [activeItem, setActiveItem] = useState('dashboard');
   const [subItem, setSubItem] = useState('');
 
   return (
@@ -153,7 +155,7 @@ export default function Sidebar() {
           </div>
 
           {/* Manage Accounts */}
-          <a 
+          <Link to ="/dashboard/manage-account" 
             href="#" 
             onClick={() => {
               setActiveItem('accounts');
@@ -181,7 +183,7 @@ export default function Sidebar() {
               />
             </div>
             <span className={`pl-1 ${isSidebarOpen ? 'block' : 'hidden md:block'}`}> Manage Accounts</span>
-          </a>
+          </Link>
 
           {/* Transactions */}
           <a 
