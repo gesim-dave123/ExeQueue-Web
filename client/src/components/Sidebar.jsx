@@ -4,6 +4,7 @@ import icon from "/assets/icon.svg";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import ManageAccount from "../pages/dashboard/ManageAccount";
+import Transactions from "../pages/dashboard/Transactions";
 
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
@@ -290,9 +291,14 @@ export default function Sidebar() {
               transactions: "Transactions",
               analytics: "Analytics",
             };
+            const linkMap = {
+              accounts: "/dashboard/manage-account",
+              transactions: "/dashboard/transactions",
+              analytics: "/dashboard/analytics",
+            }
             return (
               <Link
-                to="/dashboard/manage-account"
+                to={linkMap[item]}
                 key={idx}
                 onClick={() => handleItemClick(item)}
                 className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
