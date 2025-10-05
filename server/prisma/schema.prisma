@@ -34,106 +34,87 @@ enum Status {
   SKIPPED
 }
 
+enum ShiftTag {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
 // =================== MODELS ===================
 
 model Course {
   courseId    Int       @id @default(autoincrement()) @map("course_id")
-  courseCode  String    @unique @db.VarChar(10) @map("course_code")
+  courseCode  String    @unique @db.VarChar(15) @map("course_code")
   courseName  String    @db.VarChar(255) @map("course_name")
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
-
-  students Student[]
-  queues   Queue[] @relation("CourseQueue")
 
   @@index([isActive], map: "idx_course_is_active")
   @@index([courseCode, isActive], map: "idx_course_code_active")
   @@map("course")
 }
 
-model Student {
-  studentId        Int      @id @default(autoincrement()) @map("student_id")
-  schoolId         String   @db.VarChar(20) @map("school_id")
-  studentFullName  String   @db.VarChar(255) @map("student_full_name")
-  courseId         Int      @map("course_id")
-  yearLevel        String   @db.VarChar(20) @map("year_level")
-  isActive         Boolean  @default(true) @map("is_active")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
-  deletedAt        DateTime? @map("deleted_at")
-
-  course           Course   @relation(fields: [courseId], references: [courseId])
-  queue            Queue[]
-
-  @@index([courseId], map: "idx_student_course_id")
-  @@map("student")
-}
-
 model WindowAssignment {
-  assignmentId   Int      @id @default(autoincrement()) @map("assignment_id")
-  sasStaffId     String   @db.Uuid @map("sas_staff_id")
-  windowId       Int      @map("window_id")
-  sessionId      Int      @map("session_id")
-  assignedAt     DateTime @default(now()) @map("assigned_at")
-  unassignedAt   DateTime? @map("unassigned_at")
-  isActive       Boolean  @default(true) @map("is_active")
+  assignmentId   Int       @id @default(autoincrement())
+  sasStaffId     String    @db.Uuid
+  windowId       Int
+  assignedAt     DateTime  @default(now())
+  releasedAt     DateTime? // NULL = still assigned
+  lastHeartbeat  DateTime? // updated from frontend
+  shiftTag       ShiftTag  @default(MORNING)
 
-  staff         SasStaff      @relation("StaffAssignments", fields: [sasStaffId], references: [sasStaffId], onDelete: Cascade, map: "fk_assignment_staff")
-  serviceWindow ServiceWindow @relation("WindowAssignments", fields: [windowId], references: [windowId], onDelete: Cascade, map: "fk_assignment_window")
-  session       QueueSession  @relation("SessionAssignments", fields: [sessionId], references: [sessionId], onDelete: Cascade, map: "fk_assignment_session_id")
+  staff          SasStaff      @relation("StaffAssignments", fields: [sasStaffId], references: [sasStaffId], onDelete: Cascade)
+  serviceWindow  ServiceWindow @relation("WindowAssignments", fields: [windowId], references: [windowId], onDelete: Cascade)
 
-  @@index([sasStaffId, isActive], map: "idx_assignment_staff_active")
-  @@index([windowId, isActive], map: "idx_assignment_window_active")
-  @@index([sessionId, isActive], map: "idx_assignment_session_active")
-  @@map("window_assignment")
+  @@index([windowId, releasedAt], map: "idx_window_released")
+  @@index([sasStaffId, releasedAt], map: "idx_staff_released")
+  @@index([shiftTag, releasedAt], map: "idx_shift_released")
 }
+
 
 model SasStaff {
   sasStaffId     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("sas_staff_id")
   username       String    @unique @db.VarChar(100)
   hashedPassword String    @db.VarChar(255) @map("hashed_password")
-  firstName      String    @db.VarChar(50) @map("first_name")
-  lastName       String    @db.VarChar(50) @map("last_name")
-  middleName     String?   @db.VarChar(50) @map("middle_name")
-  email          String    @unique @db.VarChar(100)
-  role           Role?     
+  firstName      String    @db.VarChar(100) @map("first_name")
+  lastName       String    @db.VarChar(100) @map("last_name")
+  middleName     String?   @db.VarChar(100) @map("middle_name")
+  email          String    @unique @db.VarChar(150)
+  role           Role      @default(WORKING_SCHOLAR)
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      String?   @db.Uuid @map("created_by")
   createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
 
-  creator              SasStaff?            @relation("StaffCreatedBy", fields: [createdBy], references: [sasStaffId], onDelete: SetNull, map: "fk_sas_staff_created_by")
+  creator              SasStaff?            @relation("StaffCreatedBy", fields: [createdBy], references: [sasStaffId], onDelete: SetNull)
   createdStaff         SasStaff[]           @relation("StaffCreatedBy")
   processedRequests    Request[]            @relation("ProcessedBy")
   transactionHistories TransactionHistory[] @relation("PerformedBy")
-  assignments  WindowAssignment[] @relation("StaffAssignments")
+  assignments          WindowAssignment[]   @relation("StaffAssignments")
 
   @@index([username, isActive], map: "idx_sas_staff_username_active")
   @@index([email, isActive], map: "idx_sas_staff_email_active")
   @@index([role, isActive], map: "idx_sas_staff_role_active")
-  @@index([isActive, createdAt], map: "idx_sas_staff_active_created")
-  @@index([createdBy], map: "idx_sas_staff_created_by")
   @@map("sas_staff")
 }
 
 model ServiceWindow {
-  windowId           Int       @id @default(autoincrement()) @map("window_id")
-  windowNo           Int       @unique @map("window_no")
-  windowName         String?   @db.VarChar(50) @map("window_name")
-  displayName        String?   @db.VarChar(20) @map("display_name")
-  canServePriority   Boolean   @default(true) @map("can_serve_priority")
-  canServeRegular    Boolean   @default(true) @map("can_serve_regular")
-  isActive           Boolean   @default(true) @map("is_active")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
-  deletedAt          DateTime? @map("deleted_at")
+  windowId         Int       @id @default(autoincrement()) @map("window_id")
+  windowNo         Int       @unique @map("window_no")
+  windowName       String    @db.VarChar(50) @map("window_name")
+  displayName      String?   @db.VarChar(20) @map("display_name")
+  canServePriority Boolean   @default(true) @map("can_serve_priority")
+  canServeRegular  Boolean   @default(true) @map("can_serve_regular")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
 
-  
-  assignments  WindowAssignment[] @relation("WindowAssignments")
-  queues       Queue[]            @relation("WindowQueue")
+  assignments WindowAssignment[] @relation("WindowAssignments")
+  queues      Queue[]            @relation("WindowQueue")
 
   @@index([windowNo, isActive], map: "idx_service_window_no_active")
   @@index([isActive, canServePriority, canServeRegular], map: "idx_service_window_capabilities")
@@ -141,52 +122,69 @@ model ServiceWindow {
 }
 
 model QueueSession {
-  sessionId       Int       @id @default(autoincrement()) @map("session_id")
-  sessionNo       Int       @map("session_no")
-  sessionDate     DateTime  @map("session_date") 
-  maxQueueNumber  Int       @default(0) @map("max_queue_number")
-  isActive        Boolean   @default(true) @map("is_active")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  sessionId          Int       @id @default(autoincrement()) @map("session_id")
+  sessionDate        DateTime  @db.Date @map("session_date")
+  sessionNumber      Int       @map("session_number")
+  maxQueueNo         Int       @default(500) @map("max_queue_no")
+  currentQueueCount  Int       @default(0) @map("current_queue_count")
+  regularCount       Int       @default(0) @map("regular_count")
+  priorityCount      Int       @default(0) @map("priority_count")
+  isAcceptingNew     Boolean   @default(true) @map("is_accepting_new")
+  isServing          Boolean   @default(true) @map("is_serving")
+  isActive           Boolean   @default(true) @map("is_active")
 
-  queues          Queue[]  @relation("SessionQueues") 
-  assignments   WindowAssignment[] @relation("SessionAssignments")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  @@unique([sessionDate, sessionNo], map: "unq_sessions_same_date")
-  @@index([sessionDate, isActive], map:"idx_today_active_session")
+  queues      Queue[]              @relation("SessionQueues")
+  // assignments WindowAssignment[]   @relation("SessionAssignments")
+  @@unique([sessionDate, sessionNumber], name: "sessionDate_sessionNumber")
+  @@unique([sessionDate, sessionNumber], map: "unq_session_date_number")
+  @@index([sessionDate, isAcceptingNew], map: "idx_session_accepting")
+  @@index([sessionDate, isServing], map: "idx_session_serving")
   @@map("queue_session")
 }
 
 model Queue {
-  queueId          Int        @id @default(autoincrement()) @map("queue_id")
+  queueId         Int        @id @default(autoincrement()) @map("queue_id")
+  sessionId       Int        @map("session_id")
+  
+  // Student snapshot (not FK)
+  studentId        String    @db.VarChar(20) @map("student_id")
+  studentFullName  String    @db.VarChar(255) @map("student_full_name")
+  courseCode       String    @db.VarChar(15) @map("course_code")
+  courseName       String    @db.VarChar(255) @map("course_name")
+  yearLevel        String    @db.VarChar(20) @map("year_level")
+  
+  // Queue details
   queueNumber      Int        @map("queue_number")
   sequenceNumber   Int        @map("sequence_number")
-  referenceNumber  String     @db.VarChar(255) @map("reference_number")
-  queueStatus      Status     @default(WAITING) @map("queue_status")
-  queueDate        DateTime   @map("queue_date")
+  resetIteration   Int        @default(0) @map("reset_iteration")
+  referenceNumber  String     @unique @db.VarChar(50) @map("reference_number")
   queueType        Queue_Type @default(REGULAR) @map("queue_type")
-  queueSessionId   Int        @map("queue_session_id")
-  windowId         Int?       @map("window_id")
-  studentId        Int        @map("student_id")
-  courseId         Int        @map("course_id")
-  isActive         Boolean    @default(true) @map("is_active")
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @default(now()) @updatedAt @map("updated_at")
-  deletedAt        DateTime?  @map("deleted_at")
+  queueStatus      Status     @default(WAITING) @map("queue_status")
 
-  student          Student      @relation(fields: [studentId], references: [studentId], onDelete: Cascade, map: "fk_queue_student")
-  course           Course       @relation("CourseQueue", fields: [courseId], references: [courseId])
-  session          QueueSession @relation("SessionQueues", fields: [queueSessionId], references: [sessionId])
-  serviceWindow    ServiceWindow? @relation("WindowQueue", fields: [windowId], references: [windowId], onDelete: SetNull, map: "fk_queue_service_window")
-  requests      Request[]         @relation("QueueRequest")
+  // Service tracking
+  windowId        Int?       @map("window_id")
+  servedByStaff   String?    @db.Uuid @map("served_by_staff")
+  calledAt        DateTime?  @map("called_at")
+  completedAt     DateTime?  @map("completed_at")
+  
+  isActive        Boolean    @default(true) @map("is_active")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  deletedAt       DateTime?  @map("deleted_at")
+
+  session              QueueSession       @relation("SessionQueues", fields: [sessionId], references: [sessionId])
+  serviceWindow        ServiceWindow?     @relation("WindowQueue", fields: [windowId], references: [windowId], onDelete: SetNull)
+  requests             Request[]          @relation("QueueRequest")
   transactionHistories TransactionHistory[] @relation("QueueTransaction")
 
-  @@unique([queueType, queueNumber, queueDate, queueSessionId], map: "unq_queue_number_created")
-  @@index([queueStatus, queueType, windowId], map: "idx_queue_status_type_window")
-  @@index([queueStatus, isActive], map: "idx_queue_status_active")
-  @@index([windowId, queueStatus], map: "idx_queue_window_status")
-  @@index([referenceNumber], map: "idx_queue_reference_number")
-  @@index([isActive, createdAt], map: "idx_queue_active_created")
+  @@index([studentId], map: "idx_queue_school_id")
+  @@index([queueStatus, queueType, sessionId], map: "idx_queue_status_type_session")
+  @@index([sessionId, queueNumber], map: "idx_queue_session_number")
+  @@unique([sessionId, sequenceNumber, queueType]) // unique only within session
+  @@index([referenceNumber], map: "idx_queue_reference")
   @@map("queue")
 }
 
@@ -195,11 +193,12 @@ model Request {
   queueId         Int       @map("queue_id")
   requestTypeId   Int       @map("request_type_id")
   processedBy     String?   @db.Uuid @map("processed_by")
-  requestStatus   Status   @default(WAITING) @map("request_status")
+  requestStatus   Status    @default(WAITING) @map("request_status")
   processedAt     DateTime? @map("processed_at")
+
   isActive        Boolean   @default(true) @map("is_active")
   createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
   queue         Queue     @relation("QueueRequest", fields: [queueId], references: [queueId], onDelete: Cascade, map: "fk_request_queue")
@@ -220,11 +219,11 @@ model Request {
 
 model RequestType {
   requestTypeId Int       @id @default(autoincrement()) @map("request_type_id")
-  requestName   String    @db.VarChar(50) @map("request_name")
+  requestName   String    @db.VarChar(100) @map("request_name")
   description   String    @db.VarChar(255)
   isActive      Boolean   @default(true) @map("is_active")
   createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
   deletedAt     DateTime? @map("deleted_at")
 
   requests Request[] @relation("TypeRequest")
@@ -239,7 +238,7 @@ model TransactionHistory {
   requestId            Int?     @map("request_id")
   performedById        String   @db.Uuid @map("performed_by_id")
   performedByRole      Role     @map("performed_by_role")
-  transactionStatus   Status    @default(WAITING) 
+  transactionStatus    Status   @default(WAITING) 
   createdAt            DateTime @default(now()) @map("created_at")
 
   queue     Queue     @relation("QueueTransaction", fields: [queueId], references: [queueId], onDelete: Cascade, map: "fk_transaction_queue")
