@@ -21,6 +21,8 @@ import Display_Queue from "./pages/dashboard/Display_Queue";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
 import StaffLogin from "./pages/staff/StaffLogin";
+import ManageAccount from "./pages/dashboard/ManageAccount";
+import Transactions from "./pages/dashboard/Transactions";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -76,6 +78,13 @@ function App() {
               path="/dashboard/display-queue"
               element={<Display_Queue />}
             ></Route>
+            <Route
+              path="/dashboard/manage-account"
+              element={<ManageAccount />}
+            ></Route>
+            <Route path="/dashboard/transactions" element={<Transactions/>}></Route>
+          </Route>
+          <Route path="*" element={<div>404 Not Found</div>}>
           </Route>
         </Routes>
       </Router>
