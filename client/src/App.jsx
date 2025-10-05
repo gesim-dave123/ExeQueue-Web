@@ -7,22 +7,22 @@ import LayoutDashboard from "./components/LayoutDashboard";
 import AboutUs from "./pages/AboutUs";
 import Contact from "./pages/Contact";
 import Dashboard from "./pages/dashboard/Dashboard";
+import Display_Queue from "./pages/dashboard/Display_Queue";
+import ManageAccount from "./pages/dashboard/ManageAccount";
+import Transactions from "./pages/dashboard/Transactions";
 import FAQs from "./pages/FAQs";
 import Help from "./pages/Help";
 import Landing from "./pages/Landing";
 import LiveQueue from "./pages/LiveQueue";
+import StaffLogin from "./pages/staff/StaffLogin";
 import CallNextTest from "./pages/staffs/CallNextTest";
 import LoginStaff from "./pages/staffs/LoginStaff";
 import SocketTesting from "./pages/staffs/SocketTesting";
-import Request from "./pages/students/Request";
-import GenerateQueue from "./pages/students/GenerateQueue";
 import DisplayQueue from "./pages/students/DisplayQueue";
-import Display_Queue from "./pages/dashboard/Display_Queue";
+import GenerateQueue from "./pages/students/GenerateQueue";
+import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
-import StaffLogin from "./pages/staff/StaffLogin";
-import ManageAccount from "./pages/dashboard/ManageAccount";
-import Transactions from "./pages/dashboard/Transactions";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -32,6 +32,7 @@ function App() {
       <Toaster richColors position="top-right" expand limit={2} />
       <Router>
         <Routes>
+          {/* P */}
           <Route element={<Layout />}>
             <Route path="/" element={<Landing />}></Route>
             <Route path="/about" element={<AboutUs />}></Route>
@@ -68,9 +69,7 @@ function App() {
             <Route path="/staff-login" element={<StaffLogin />}></Route>
           </Route>
         </Routes>
-      </Router>
 
-      <Router>
         <Routes>
           <Route element={<LayoutDashboard />}>
             <Route path="/dashboard" element={<Dashboard />}></Route>
@@ -82,12 +81,20 @@ function App() {
               path="/dashboard/manage-account"
               element={<ManageAccount />}
             ></Route>
-            <Route path="/dashboard/transactions" element={<Transactions/>}></Route>
-          </Route>
-          <Route path="*" element={<div>404 Not Found</div>}>
+            <Route
+              path="/dashboard/transactions"
+              element={<Transactions />}
+            ></Route>
           </Route>
         </Routes>
+        <Routes>
+          <Route path="/not-found" element={<div>404 Not Found</div>}></Route>
+        </Routes>
       </Router>
+
+      {/* <Router>
+
+      </Router> */}
     </div>
   );
 }
