@@ -1,43 +1,75 @@
-import React, { useState } from "react";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { login } from "../../api/auth";
+import { useAuth } from "../../context/AuthProvider";
+import { useLoading } from "../../context/LoadingProvider";
 export default function LoginStaff() {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-
+  const [loading, setLoading] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+  // const [progress, setProgress] = useState(0);
+  const navigate = useNavigate();
+  const { refreshAuth } = useAuth();
+  const { setIsLoading, setProgress, setLoadingText } = useLoading();
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
-
   const handleSubmit = async (e) => {
-    console.log("Form submitted:", {
-      formData: formData,
-    });
     e.preventDefault();
 
-    try {
-      const res = await login(formData);
-      if (!res || !res.success) {
-        return; // error toast already shown
-      }
+    setIsLoading(true);
+    setLoadingText("Logging In...");
+    setProgress(0);
 
-      console.log("Response: ", res);
-
-      if (res.permission === "basic") {
-        window.location.href = `/${res.role.toLowerCase()}/dashboard`;
-      } else if (res.role === "admin" && res.permission === "admin") {
-        window.location.href = `/${res.role.toLowerCase()}/dashboard`;
-      }
-    } catch (error) {
-      console.error("Error in logging in!, ", error);
+    const res = await login(formData);
+    if (!res?.success) {
+      setIsLoading(false);
+      return;
     }
+
+    // Simulate progress
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    setProgress(100);
+
+    // Wait a bit for the user to see full progress
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Refresh auth and navigate
+    await refreshAuth();
+    navigate("/staff/dashboard", { replace: true });
+
+    // Give Framer Motion time to animate fade out
+    setTimeout(() => setIsLoading(false), 500); // match your exit duration
   };
+
+  // const handleRedirect = async (response) => {
+  //   try {
+  //     await refreshAuth();
+  //     navigate("/staff/dashboard", { replace: true });
+  //   } catch (error) {
+  //     console.error("Error redirecting after login:", error);
+  //   } finally {
+  //     setLoading(false);
+  //     setShowLoading(false);
+  //   }
+  // };
+
+  // // Render conditionally
+  // if (loading && showLoading) {
+  //   return (
+  //     <div className="fixed inset-0 z-50">
+  //       <Loading text="Logging In..." progress={progress} />
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="min-h-screen flex justify-center items-center bg-gradient-to-b from-gray-100 to-gray-200 px-4">
@@ -121,9 +153,15 @@ export default function LoginStaff() {
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md"
+              disabled={loading}
+              className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-md 
+                  ${
+                    loading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
             >
-              Login
+              {loading ? "Please wait..." : "Login"}
             </button>
           </form>
         </div>

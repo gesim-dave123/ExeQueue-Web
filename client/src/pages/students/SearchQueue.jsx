@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 
 export default function SearchQueue() {
@@ -11,11 +11,11 @@ export default function SearchQueue() {
   const checkQueue = () => {
     if (!query || query.trim() === "" || query !== "12345") {
       // If queue not found
-      window.location.href = "/student/search-queue-result";
+      window.location.href = "/student/queue/search/result"; // redirect to "not found" page
       // setShowModal(true);
     } else {
       // If queue found, redirect (example: homepage or another page)
-      window.location.href = "/student/display-queue"; // replace with actual page
+      window.location.href = "/student/queue/display"; // replace with actual page
     }
   };
 
