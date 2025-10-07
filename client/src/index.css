@@ -1,16 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Lobster&family=Dancing+Script:wght@400;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Lobster&family=Dancing+Script:wght@400;700&display=swap");
 @import "tailwindcss";
-
-
-
 
 /* Apply Poppins globally */
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
   /* background: linear-gradient(to bottom right, #eff6ff, #ffffff, #fef3c7); */
-    /* margin-left: 20px; */
+  /* margin-left: 20px; */
 }
-html{
-    scroll-behavior: smooth;
-
+html {
+  scroll-behavior: smooth;
 }

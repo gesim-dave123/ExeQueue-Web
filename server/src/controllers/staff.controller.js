@@ -2,6 +2,9 @@ import { Queue_Type, Status } from '@prisma/client';
 import prisma from '../../prisma/prisma.js';
 import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
 
+
+const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila')
+
 export const viewQueues = async (req, res) => {
   try {
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
@@ -94,12 +97,13 @@ export const viewQueues = async (req, res) => {
   }
 };
 
-
 export const determineNextQueue = async (req, res) => {
   try {
     const { sasStaffId, role, serviceWindowId } = req.user;
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-
+    if(!serviceWindowId || serviceWindowId === null){
+      return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."});
+    }
     // Get window rules
     const windowRule = await prisma.serviceWindow.findUnique({
       where: { windowId: serviceWindowId, isActive: true },
@@ -240,6 +244,135 @@ export const determineNextQueue = async (req, res) => {
   }
 };
 
+export const getQueueList = async (req, res) => {
+  try {
+    // const {sasStaffId, role, serviceWindowId} = req.user;
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
+    // if(!serviceWindowId || serviceWindowId === null){
+    //   return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."});
+    // }
+
+    const activeWindow = await prisma.serviceWindow.findMany({
+      where: {isActive: true},
+      select: {
+        windowNo: true,
+        windowName: true,
+        isActive: true
+      }
+    })
+
+    if(activeWindow.length === 0 || !activeWindow){
+      return res.status(400).json({
+        success: false,
+        message: "There are no active windows currently"
+      })
+    }
+    const regularQueue = await prisma.queue.findMany({
+      where:{
+        queueDate: todayUTC,
+        queueStatus: { in: [Status.WAITING, Status.IN_SERVICE]},
+        queueType:Queue_Type.REGULAR,
+        isActive: true
+      },
+      orderBy: [
+        {queueType: 'desc'},
+        {queueNumber: "asc"}
+      ]
+    })
+    const priorityQueue = await prisma.queue.findMany({
+      where:{
+        queueDate: todayUTC,
+        queueStatus: { in: [Status.WAITING, Status.IN_SERVICE]},
+        queueType:  Queue_Type.PRIORITY,
+        isActive: true
+      },
+      orderBy: [
+        {queueType: 'desc'},
+        {queueNumber: "asc"}
+      ]
+    })
+
+    const queues = [{
+      regularQueue,
+      priorityQueue
+    }]
+    if(!queues){
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request, Error in queue list"
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: queues.length === 0 ? "There are no queues currently in the system, please wait a moment" 
+      :"Queues successfully retrieved!",
+      queues : queues
+    })
+
+
+
+  } catch (error) {
+    console.error("Error in getting queue list: ", error);
+    return res.status(500).json({
+      success:false,
+      message: "Internal Server Error!"
+    })
+    
+  }
+}
+
+
+export const getRequest = async (req,res) =>{
+  try {
+    const {sasStaffId, role} = req.user
+    const {queueType} = req.body
+    if(!serviceWindowId || serviceWindowId === null){
+      return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."});
+    }
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila')
+
+
+  } catch (error) {
+    
+  }
+}
+
+export const setRequestStatus = async (req,res) =>{
+  try {
+    const {sasStaffId, role} = req.user
+    const {requestId, requestStatus, status} = req.body
+    if(!serviceWindowId || serviceWindowId === null){
+      return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."})
+    }
+
+    if(![Status.STALLED, Status.COMPLETED, Status.CANCELLED, Status.SKIPPED].includes(status)){
+      return res.status(400).json({success: false, message: "Invalid status update. Please provide a valid status."}``)
+    }
+
+    const requestTransaction = await prisma.$transaction(async (tx)=>{
+      const request = await tx.request.update({
+        where: {
+          requestId: requestId,
+          requestStatus: {not: Status.COMPLETED},
+          isActive: true
+        },
+        data:{
+
+        }
+      })
+    })
+    
+    
+
+
+    
+
+
+  } catch (error) {
+    
+  }
+}
 export const createQueueSession = async (req, res) => {
   // const { sessionName } = req.body;
 
@@ -286,3 +419,54 @@ export const createQueueSession = async (req, res) => {
     });
   }
 };
+
+export const assignServiceWindow = async (req, res) => {
+  try {
+    const {sasStaffId, role} = req.user;
+    const { serviceWindowNumber } = req.body; 
+    if(!serviceWindowNumber || serviceWindowNumber === null){
+      return res.status(400).json({
+        success: false,
+        message: "No service window selected. Please select a valid service window from the available options.",
+      })
+    } 
+    const windowId = await prisma.serviceWindow.findUnique({
+      where:{windowNo: serviceWindowNumber, isActive: true},
+      select:{ windowId: true}
+    })
+    if(!windowId|| windowId === null){
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service window selected.",
+      })
+    }
+    console.log("Matched Window ID:", windowId); 
+    const assignWindow = await prisma.sasStaff.update({
+      where:{
+        sasStaffId: sasStaffId,
+      },
+      data:{
+        serviceWindowId: windowId.windowId
+      }
+    })
+    if(!assignWindow){
+      return res.status(400).json({
+        success: false,
+        message: "Failed to assign service window."
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Service window assigned successfully.",
+      windowId: assignWindow.serviceWindowId
+    })
+  
+  } catch (error) {
+    console.error('Error assigning service window:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!"
+    });
+  }
+}
