@@ -5,7 +5,7 @@ import { authenticateToken, authorizeRoles } from '../middlewares/auth.middlewar
 // import { authorizeRoles } from '../middlewares/role.middleware.js';
 const router = express.Router();
 
-router.post('/login', loginUser)
+router.post('/staff/login', loginUser)
 router.post('/create-account', authenticateToken, authorizeRoles(Role.PERSONNEL),createUser)
 router.post('/logout', logoutUser)
 

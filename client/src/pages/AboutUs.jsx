@@ -3,7 +3,7 @@ import { Shield, Zap, CheckCircle2, Folder, BadgeCheck } from 'lucide-react'
 
 export default function AboutUs() {
   return (
-    <div className="w-full min-h-screen gap-10 flex flex-col lg:flex-row justify-center items-center mt-7 py-16 px-10 sm:px-8">
+    <div className="w-full min-h-screen sm:gap-10 flex flex-col lg:flex-row justify-center items-center mt-20 sm:mt-7 py-16 px-10 sm:px-8">
      {/* Left side */}
       <div className="w-full lg:w-1/2 flex justify-center  ml-7 mr-7 relative mb-12 lg:mb-0">
         <div className="absolute -top-13  w-70 h-40 sm:w-100 sm:h-70 bg-[#F9AB00]/25 rounded-full  filter blur-xl opacity-20"></div>
@@ -19,14 +19,14 @@ export default function AboutUs() {
           </div>
 
           {/* Floating tags */}
-          <div className="absolute font-semibold top-12 -left-7 sm:top-17 sm:-left-7 md:top-17 md:-left-11 bg-white shadow-xs rounded-xl 
+          <div className="absolute font-semibold top-12 -left-4 sm:top-17 sm:-left-7 md:top-17 md:-left-11 bg-white shadow-xs rounded-xl 
                           border border-[#E2E3E4] px-3 py-2 text-[10px] sm:text-xs md:text-sm 
                           flex items-center gap-2">
             <img src="assets/check.svg" alt="" />
              Enrollment/Transfer
           </div>
 
-          <div className="absolute font-semibold top-22 -left-2 sm:top-27 sm:-left-1 md:top-28 md:-left-3 bg-white shadow-xs rounded-xl 
+          <div className="absolute font-semibold top-22 -left-1 sm:top-27 sm:-left-1 md:top-28 md:-left-3 bg-white shadow-xs rounded-xl 
                           border border-[#E2E3E4] px-3 py-2 text-[10px] sm:text-xs md:text-sm 
                           flex items-center gap-2">
             <img src="assets/check.svg" alt="" />Temporary Gate Pass
@@ -68,7 +68,7 @@ export default function AboutUs() {
         </p>
 
         {/* Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-18">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-10 sm:mt-18">
           <div className="gap-4">
             <div className="inline-block bg-[#DDEAFC]/55 p-2 rounded-xl mb-2">
               <Shield className="text-yellow-500 w-5 h-5 sm:w-6 sm:h-6 mt-1" />

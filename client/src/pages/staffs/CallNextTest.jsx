@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
+import backendConnection from '../../api/backendConnection';
 
 const CallNextTest = () => {
   // Mock user data - replace with your actual auth context
@@ -39,6 +41,29 @@ const CallNextTest = () => {
       }
     ]);
   }, []);
+
+  useEffect(() => {
+    const socket = io(backendConnection(), {
+      withCredentials: true,
+    })
+    socket.on('connect',()=>{
+      console.log('🟢 Connected to server via WebSocket:', socket.id);
+    })
+
+    socket.emit("custom-event", 32, 'tae', { a: 1, b: 2 });
+    
+
+        // Listen for disconnect
+    socket.on("disconnect", () => {
+      console.log("❌ Disconnected from server");
+    });
+
+    // Cleanup
+    return () => {
+      socket.disconnect();
+    };
+
+  },[])
 
   // Assign staff to window
   const handleAssignWindow = async (windowNo) => {

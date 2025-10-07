@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import prisma from '../../prisma/prisma.js';
 // import { PrismaClient } from '../generated/prisma/index.js'
@@ -12,7 +13,7 @@ export const authenticateToken = async(req,res,next) =>{
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    console.log("Decoded Token:", decoded); // Debugging line
+    // console.log("Decoded Token:", decoded); // Debugging line
     const user = await prisma.sasStaff.findUnique({
       where:{
         sasStaffId : decoded.id
@@ -20,8 +21,9 @@ export const authenticateToken = async(req,res,next) =>{
     })
     if(!user)return res.status(404).json({success: false, message: "Account not found!"})
     delete user.hashedPassword
-    console.log("Authenticated User:", user); // Debugging line
+    // console.log("Authenticated User:", user); // Debugging line
     req.user = user;
+    // console.log(user);
     next();
 
   } catch (error) {
