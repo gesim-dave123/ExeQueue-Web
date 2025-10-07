@@ -1,25 +1,44 @@
-import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
-export default function Loading({ text = "Loading...", progress = 0 }) {
+export default function Loading({
+  text = "Loading...",
+  progress = 0,
+  isVisible = true,
+}) {
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gray-50">
-      {/* Logo */}
-      <div className="mb-6">
-        <div className="w-16 h-16 flex items-center justify-center rounded-full">
-          <img src="/assets/icon.svg" alt="Queue Logo" className="w-30 h-30" />
-        </div>
-      </div>
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          key="loading"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+          onAnimationComplete={() => {
+            if (!isVisible) setIsLoading(false);
+          }}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-50"
+        >
+          <div className="mb-6">
+            <div className="w-16 h-16 flex items-center justify-center rounded-full">
+              <img
+                src="/assets/icon.svg"
+                alt="Queue Logo"
+                className="w-30 h-30"
+              />
+            </div>
+          </div>
 
-      {/* Progress Bar */}
-      <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className="h-2 bg-blue-500 transition-all duration-200"
-          style={{ width: `${progress}%` }}
-        ></div>
-      </div>
+          <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-2 bg-blue-500 transition-[width] duration-[2000ms] ease-in-out"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
 
-      {/* Loading Text */}
-      <p className="mt-4 text-gray-700 font-medium">{text}</p>
-    </div>
+          <p className="mt-4 text-gray-700 font-medium">{text}</p>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
