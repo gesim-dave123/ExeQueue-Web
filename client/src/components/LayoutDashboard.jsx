@@ -1,19 +1,22 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { Outlet } from 'react-router-dom'
-import Dashboard from '../pages/Dashboard'
+import Dashboard from '../pages/dashboard/Dashboard'
 import Sidebar from './Sidebar'
 export default function LayoutDashboard() {
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 '>
+    <div className='min-h-screen  bg-gradient-to-br from-blue-50 via-white to-amber-50 '>
         {/* Animated background elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
+      {/* <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
         <div className="absolute -top-12 -left-12 w-60 h-60 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
         <div className="absolute top-1/4 -right-12 w-60 h-60 bg-amber-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
         <div className="absolute bottom-12 left-1/3 w-60 h-60 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-      <div className='flex bg-transparent'>
+      </div> */}
+      <div className='flex bg-[#F5F5F5]'>
+        <div className='pl-10 py-9  '>
           <Sidebar></Sidebar>
+
+        </div>
             <main className="flex-2 ">
                 <Outlet />
             </main>

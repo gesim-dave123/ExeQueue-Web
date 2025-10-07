@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import prisma from '../../prisma/prisma.js';
 // import { PrismaClient } from '../generated/prisma/index.js'
