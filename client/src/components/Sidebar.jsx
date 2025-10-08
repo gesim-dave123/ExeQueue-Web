@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Menu, X } from "lucide-react";
-import icon from "/assets/icon.svg";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import ManageAccount from "../pages/dashboard/ManageAccount";
-import Transactions from "../pages/dashboard/Transactions";
+import { useAuth } from "../context/AuthProvider";
+import icon from "/assets/icon.svg";
 
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
@@ -13,7 +12,71 @@ export default function Sidebar() {
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 1024); // mobile + tablet + lg
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280); // open only for xl and up
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [userFullName, setUserFullName] = useState("Staff");
+  const [userRole, setUserRole] = useState("Unknown");
+  const { user } = useAuth();
 
+  const commonNavItems = [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      icon: "/assets/dashboard/dashboard bnw.png",
+      link: "/staff/dashboard",
+    },
+    {
+      key: "queue",
+      label: "Queue",
+      icon: "/assets/dashboard/queue.png",
+      subItems: [
+        {
+          key: "manage-queue",
+          label: "Manage Queue",
+          link: "/staff/queue/manage",
+        },
+        {
+          key: "display-queue",
+          label: "Display Queue",
+          link: "/staff/queue/display",
+        },
+      ],
+    },
+  ];
+  // Role-specific items
+  const roleBasedItems = {
+    PERSONNEL: [
+      {
+        key: "accounts",
+        label: "Manage Accounts",
+        icon: "/assets/dashboard/manage.png",
+        link: "/staff/manage/account",
+      },
+      {
+        key: "transactions",
+        label: "Transactions",
+        icon: "/assets/dashboard/transactions.png",
+        link: "/staff/transaction/history",
+      },
+      {
+        key: "analytics",
+        label: "Analytics",
+        icon: "/assets/dashboard/analytics.png",
+        link: "/staff/analytics",
+      },
+    ],
+    WORKING_SCHOLAR: [
+      {
+        key: "transactions",
+        label: "Transactions",
+        icon: "/assets/dashboard/transactions.png",
+        link: "/staff/transaction/history",
+      },
+    ],
+  };
+
+  const sidebarItems = [
+    ...commonNavItems,
+    ...(roleBasedItems[user?.role] || []),
+  ];
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
@@ -55,6 +118,22 @@ export default function Sidebar() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const fullName = user.middleName
+      ? `${user.lastName}, ${user.firstName} ${user.middleName}`
+      : `${user.lastName}, ${user.firstName}`;
+    setUserFullName(fullName);
+
+    const formattedRole = user?.role
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+
+    setUserRole(formattedRole);
+  }, [user]);
 
   const handleItemClick = (item) => {
     setActiveItem(item);
@@ -167,165 +246,113 @@ export default function Sidebar() {
 
         {/* Nav Items */}
         <div className="flex flex-col gap-2 px-3">
-          {/* Dashboard */}
-          <Link
-            to="/dashboard"
-            onClick={() => handleItemClick("dashboard")}
-            className={`flex items-center  rounded-lg transition-colors duration-300 py-2.5
-    ${
-      activeItem === "dashboard"
-        ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
-        : "text-black hover:bg-blue-50"
-    }
-  `}
-          >
-            <div className="w-6 h-6 flex items-center justify-center">
-              <img
-                src="/assets/dashboard/dashboard bnw.png"
-                alt="Dashboard"
-                className="w-6 h-6 transform  translate-x-[35%]"
-              />
-            </div>
-            <motion.span
-              className="ml-4 whitespace-nowrap overflow-hidden"
-              initial={false}
-              animate={{
-                opacity: isOpen ? 1 : 0,
-                x: isOpen ? 0 : -20,
-                width: isOpen ? "auto" : 0,
-              }}
-              transition={{ duration: 0.2 }}
-            >
-              Dashboard
-            </motion.span>
-          </Link>
-          {/* Queue */}
-          <div className="flex flex-col w-full">
-            <button
-              onClick={() => {
-                setIsSidebarOpen(true);
-                setIsQueueOpen(!isQueueOpen);
-                setActiveItem("queue");
-              }}
-              className={`w-full flex items-center pr-2 justify-between cursor-pointer py-2.5 rounded-lg transition-colors duration-300
-              ${
-                activeItem === "queue"
-                  ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
-                  : "text-black hover:bg-blue-50"
-              }`}
-            >
-              <div className={`flex items-center ${isOpen ? "gap-4" : ""}`}>
-                <img
-                  src="/assets/dashboard/queue.png"
-                  alt="Queue"
-                  className="w-6 h-6 transform translate-x-[35%]"
-                />
-                <motion.span
-                  className="whitespace-nowrap overflow-hidden"
-                  initial={false}
-                  animate={{
-                    opacity: isOpen ? 1 : 0,
-                    x: isOpen ? 0 : -20,
-                    width: isOpen ? "auto" : 0,
-                  }}
-                  transition={{ duration: 0.2 }}
-                >
-                  Queue
-                </motion.span>
-              </div>
-              {isOpen &&
-                (isQueueOpen ? (
-                  <ChevronUp size={16} />
-                ) : (
-                  <ChevronDown size={16} />
-                ))}
-            </button>
-
-            <AnimatePresence>
-              {isQueueOpen && isOpen && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4"
-                >
-                  <Link
-                    to="/dashboard/manage-queue"
-                    onClick={() => setSubItem("manage-queue")}
-                    className={`block py-2 text-sm transition
-              ${
-                subItem === "manage-queue"
-                  ? "text-[#1A73E8] font-medium"
-                  : "text-gray-600 hover:text-blue-600"
-              }`}
+          {sidebarItems.map((item) => {
+            if (item.key === "queue") {
+              return (
+                <div key={item.key} className="flex flex-col w-full">
+                  <button
+                    onClick={() => {
+                      setIsSidebarOpen(true);
+                      setIsQueueOpen(!isQueueOpen);
+                      setActiveItem("queue");
+                    }}
+                    className={`w-full flex items-center pr-2 justify-between cursor-pointer py-2.5 rounded-lg transition-colors duration-300
+                      ${
+                        activeItem === "queue"
+                          ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
+                          : "text-black hover:bg-blue-50"
+                      }`}
                   >
-                    Manage Queue
-                  </Link>
-                  <Link
-                    to="/dashboard/display-queue"
-                    onClick={() => setSubItem("display-queue")}
-                    className={`block py-2 text-sm transition
-              ${
-                subItem === "display-queue"
-                  ? "text-[#1A73E8] font-medium"
-                  : "text-gray-600 hover:text-blue-600"
-              }`}
-                  >
-                    Display Queue
-                  </Link>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                    <div
+                      className={`flex items-center ${isOpen ? "gap-4" : ""}`}
+                    >
+                      <img
+                        src={item.icon}
+                        alt={item.label}
+                        className="w-6 h-6 transform translate-x-[35%]"
+                      />
+                      <motion.span
+                        className="whitespace-nowrap overflow-hidden"
+                        initial={false}
+                        animate={{
+                          opacity: isOpen ? 1 : 0,
+                          x: isOpen ? 0 : -20,
+                          width: isOpen ? "auto" : 0,
+                        }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {item.label}
+                      </motion.span>
+                    </div>
+                    {isOpen &&
+                      (isQueueOpen ? (
+                        <ChevronUp size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      ))}
+                  </button>
 
-          {/* Other nav items */}
-          {["accounts", "transactions", "analytics"].map((item, idx) => {
-            const iconMap = {
-              accounts: "/assets/dashboard/manage.png",
-              transactions: "/assets/dashboard/transactions.png",
-              analytics: "/assets/dashboard/analytics.png",
-            };
-            const labelMap = {
-              accounts: "Manage Accounts",
-              transactions: "Transactions",
-              analytics: "Analytics",
-            };
-            const linkMap = {
-              accounts: "/dashboard/manage-account",
-              transactions: "/dashboard/transactions",
-              analytics: "/dashboard/analytics",
+                  <AnimatePresence>
+                    {isQueueOpen && isOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4"
+                      >
+                        {item.subItems.map((sub) => (
+                          <div
+                            key={sub.key}
+                            className="flex justify-center w-full"
+                          >
+                            <Link
+                              to={sub.link}
+                              onClick={() => setSubItem(sub.key)}
+                              className={`block w-[80%] text-left py-2 text-sm rounded-md transition ${
+                                subItem === sub.key
+                                  ? "text-[#1A73E8] font-medium"
+                                  : "text-gray-700 hover:text-[#1A73E8]"
+                              }`}
+                            >
+                              {sub.label}
+                            </Link>
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
             }
             return (
-              <Link
-                to={linkMap[item]}
-                key={idx}
-                onClick={() => handleItemClick(item)}
-                className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
-                ${
-                  activeItem === item
-                    ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
-                    : "text-black hover:bg-blue-50"
-                }`}
-              >
-                <img
-                  src={iconMap[item]}
-                  alt={labelMap[item]}
-                  className="w-6 h-6"
-                />
-                <motion.span
-                  className="whitespace-nowrap overflow-hidden"
-                  initial={false}
-                  animate={{
-                    opacity: isOpen ? 1 : 0,
-                    x: isOpen ? 0 : -20,
-                    width: isOpen ? "auto" : 0,
-                  }}
-                  transition={{ duration: 0.2 }}
+              <div className="flex flex-col w-full">
+                <Link
+                  key={item.key}
+                  to={item.link}
+                  onClick={() => handleItemClick(item.key)}
+                  className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
+                  ${
+                    activeItem === item.key
+                      ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
+                      : "text-black hover:bg-blue-50"
+                  }`}
                 >
-                  {labelMap[item]}
-                </motion.span>
-              </Link>
+                  <img src={item.icon} alt={item.label} className="w-6 h-6" />
+                  <motion.span
+                    className="whitespace-nowrap overflow-hidden"
+                    initial={false}
+                    animate={{
+                      opacity: isOpen ? 1 : 0,
+                      x: isOpen ? 0 : -20,
+                      width: isOpen ? "auto" : 0,
+                    }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {item.label}
+                  </motion.span>
+                </Link>
+              </div>
             );
           })}
         </div>
@@ -349,9 +376,9 @@ export default function Sidebar() {
           {isOpen && (
             <div>
               <div className="text-sm font-medium text-gray-900">
-                Lance Timothy Satorre
+                {userFullName}
               </div>
-              <div className="text-xs text-gray-500 text-start">Personnel</div>
+              <div className="text-xs text-gray-500 text-start">{userRole}</div>
             </div>
           )}
         </div>
