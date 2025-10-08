@@ -250,8 +250,8 @@ export default function Sidebar() {
                   transition={{ duration: 0.3 }}
                   className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4"
                 >
-                  <a
-                    href="#"
+                  <Link
+                    to="/dashboard/manage-queue"
                     onClick={() => setSubItem("manage-queue")}
                     className={`block py-2 text-sm transition
               ${
@@ -261,7 +261,7 @@ export default function Sidebar() {
               }`}
                   >
                     Manage Queue
-                  </a>
+                  </Link>
                   <Link
                     to="/dashboard/display-queue"
                     onClick={() => setSubItem("display-queue")}
