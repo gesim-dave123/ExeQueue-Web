@@ -11,6 +11,8 @@ export default function Manage_Queue() {
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [lastAnnounceTime, setLastAnnounceTime] = useState(0);
+  const ANNOUNCE_COOLDOWN = 3000; 
 
 
   const [currentQueue, setCurrentQueue] = useState({
@@ -163,6 +165,122 @@ export default function Manage_Queue() {
     setSelectedQueue(null);
   };
 
+  // Voice selection utility
+  const getVoice = (voices) => {
+    const ziraVoice = voices.find(voice => 
+      voice.name.toLowerCase().includes('zira') ||
+      voice.name === 'Microsoft Zira Desktop' ||
+      voice.name === 'Microsoft Zira'
+    );
+    
+    if (ziraVoice) {
+      return ziraVoice;
+    }
+
+    const fallbackVoice = voices.find(voice => 
+      voice.lang.includes('en') && 
+      voice.name.includes('Microsoft')
+    ) || voices.find(voice => voice.lang.includes('en-US'));
+    
+    if (fallbackVoice) {
+      return fallbackVoice;
+    }
+    
+    throw new Error('No suitable voice found');
+  };
+
+
+  const configureSpeech = (text, voice) => {
+    const speech = new SpeechSynthesisUtterance();
+    speech.text = text;
+    speech.volume = 1;
+    speech.rate = 0.8;
+    speech.pitch = 1;
+    speech.voice = voice;
+    return speech;
+  };
+
+ 
+  const loadVoices = async () => {
+    let voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      await new Promise(resolve => {
+        window.speechSynthesis.onvoiceschanged = resolve;
+      });
+      voices = window.speechSynthesis.getVoices();
+    }
+    return voices;
+  };
+
+
+  const speak = (speech) => {
+    return new Promise((resolve, reject) => {
+      speech.onend = resolve;
+      speech.onerror = reject;
+      window.speechSynthesis.speak(speech);
+    });
+  };
+
+
+  const canAnnounce = () => {
+    const now = Date.now();
+    if (isAnnouncing || (now - lastAnnounceTime < ANNOUNCE_COOLDOWN)) {
+      return false;
+    }
+    
+    if (!('speechSynthesis' in window)) {
+      alert('Speech synthesis not supported in this browser');
+      return false;
+    }
+    
+    return true;
+  };
+
+
+  const handleAnnounce = async () => {
+    if (!canAnnounce()) {
+      return;
+    }
+    const now = Date.now();
+    setIsAnnouncing(true);
+    setLastAnnounceTime(now);
+    try {
+      window.speechSynthesis.cancel();
+      const voices = await loadVoices();
+      const selectedVoice = getVoice(voices);
+      const speechText = `Queue number ${currentQueue.queueNo}, please proceed to Window 1`;
+      const speech = configureSpeech(speechText, selectedVoice);
+      await speak(speech);
+
+    } catch (error) {
+      console.error('Announcement failed:', error);
+    } finally {
+      setIsAnnouncing(false);
+    }
+  };
+  //For the next queue announcement
+  const handleAnnounceWithParams = async (nextQueueNo) => {
+    if (!canAnnounce()) {
+      return;
+    }
+    const now = Date.now();
+    setIsAnnouncing(true);
+    setLastAnnounceTime(now);
+    try {
+      window.speechSynthesis.cancel();
+      const voices = await loadVoices();
+      const selectedVoice = getVoice(voices);
+      const speechText = `Queue number ${nextQueueNo}, please proceed to Window 1`;
+      const speech = configureSpeech(speechText, selectedVoice);
+      await speak(speech);
+
+    } catch (error) {
+      console.error('Announcement failed:', error);
+    } finally {
+      setIsAnnouncing(false);
+    }
+  };
+
   const handleCallNext = () => {
     if (nextInLine.length === 0) {
       alert('No one in queue');
@@ -206,31 +324,12 @@ export default function Manage_Queue() {
     });
 
     setNextInLine(prev => prev.slice(1));
+    handleAnnounceWithParams(nextPerson.queueNo);
+
+     
   };
 
-  const handleAnnounce = () => {
-  if ('speechSynthesis' in window) {
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-    
-    const speech = new SpeechSynthesisUtterance();
-    speech.text = `Queue number ${currentQueue.queueNo}, please proceed to Window 1`;
-    speech.volume = 1;
-    speech.rate = 0.8;
-    speech.pitch = 1;
-    
-    // Optional: Select a voice
-    const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(voice => voice.lang.includes('en'));
-    if (englishVoice) {
-      speech.voice = englishVoice;
-    }
-    
-    window.speechSynthesis.speak(speech);
-  } else {
-    alert('Speech synthesis not supported in this browser');
-  }
-};
+  
 
   const handleDonePanel = () => {
     // alert('Queue completed and closed');
@@ -404,8 +503,10 @@ export default function Manage_Queue() {
 
                 <div className="flex gap-3  mt-15 justify-end">
                   <button 
-                    onClick={handleCallNext}
-                    disabled={currentQueue.requests.some(request => request.status === 'In Progress')}
+                    onClick={ handleCallNext }
+                    
+                    disabled={currentQueue.requests.some(request => request.status === 'In Progress') || isAnnouncing}
+                 
                     className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                       currentQueue.requests.some(request => request.status === 'In Progress') 
                         ? 'bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed' 
@@ -417,10 +518,24 @@ export default function Manage_Queue() {
                   </button>
                   <button 
                     onClick={handleAnnounce}
-                    className="flex items-center gap-2 px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors cursor-pointer"
+                    disabled={isAnnouncing}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                      isAnnouncing 
+                        ? 'bg-[#FACC15]/50 cursor-not-allowed text-gray-200' 
+                        : 'bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer'
+                    }`}
                   >
-                    <img src="/assets/manage_queue/Announcement.png" alt="Edit" />
-                    Announce
+                    {isAnnouncing ? (
+                      <> 
+                        <img src="/assets/manage_queue/Announcement.png" alt="Announcing" />        
+                        Announce
+                      </>
+                    ) : (
+                      <>
+                        <img src="/assets/manage_queue/Announcement.png" alt="Announce" />
+                        Announce
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
