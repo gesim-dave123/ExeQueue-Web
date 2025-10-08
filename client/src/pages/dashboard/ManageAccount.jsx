@@ -169,66 +169,61 @@ const handleSave = (formData) => {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto w-full text-left ">
-          <table className="w-full">
-            <thead>
-           
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">Username</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">Name</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">Role</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">Email</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">Actions</th>
-             
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAccounts.map((account) => (
-                <tr key={account.id} className="border-b text-left border-gray-100 hover:bg-gray-50 transition">
-                  <td className="py-4 px-4 text-[#202124] text-left">{account.username}</td>
-                  <td className="py-4 px-4 text-[#202124] text-left">{account.fullName}</td>
-                  <td className="py-4 px-4 text-[#202124] text-left">{account.role}</td>
-                  <td className="py-4 px-4 text-[#202124] text-left">{account.email}</td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center justify-start gap-2">
-                      <button 
-                        onClick={() => {handleEdit(account);
-                          setIsModalOpen(true);
-                          setSelectedAccount(account);
-                        }}
-                        className="p-2 bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition cursor-pointer"
-                      >
-                             <div className="">
-                                  <img src="/assets/manage_acc/update.png" alt="" />
-                              </div>
-                      </button>
-                        
-                      <button 
-                        onClick={() => {
-                           setAccountToDelete(account);
-                           setShowBackConfirmModal(true);
-                        }}
-                        
-                        className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer"
-                      >
-                             <div className=" ">
-                                  <img src="/assets/manage_acc/trashcan.png" alt="" />
-                              </div>
-                      </button>
-                    </div>
-                  </td>
+      {/* Table Container */}
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50 sticky top-0">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-48">Username</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-64">Name</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-40">Role</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-80">Email</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-40">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredAccounts.map((account) => (
+                  <tr key={account.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                    <td className="text-left py-4 px-4 text-[#202124] ">{account.username}</td>
+                    <td className="text-left py-4 px-4 text-[#202124] ">{account.fullName}</td>
+                    <td className="text-left py-4 px-4 text-[#202124] ">{account.role}</td>
+                    <td className="text-left py-4 px-4 text-[#202124] ">{account.email}</td>
+                    <td className="text-left py-4 px-4 w-40">
+                      <div className="flex items-center justify-start gap-2">
+                        <button 
+                          onClick={() => {
+                            handleEdit(account);
+                            setIsModalOpen(true);
+                            setSelectedAccount(account);
+                          }}
+                          className="p-2 bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition cursor-pointer"
+                        >
+                          <img src="/assets/manage_acc/update.png" alt="Edit" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setAccountToDelete(account);
+                            setShowBackConfirmModal(true);
+                          }}
+                          className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer"
+                        >
+                          <img src="/assets/manage_acc/trashcan.png" alt="Delete" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          {/* No Results */}
-          {filteredAccounts.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No accounts found matching your search.</p>
-            </div>
-          )}
+            {/* No Results */}
+            {filteredAccounts.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No accounts found matching your search.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

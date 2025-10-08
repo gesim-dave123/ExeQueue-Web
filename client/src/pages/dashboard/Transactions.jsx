@@ -400,45 +400,45 @@ export default function Transactions() {
         </div>
 
         <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex flex-col min-h-[500px]">
-          <div className="overflow-x-auto flex-1">
-            <table className="min-w-full divide-y divide-gray-200 h-full">
-              <thead className="">
-                <tr>
-                  <th className="px-4  sm:px-6 py-7 text-left text-xs font-medium text-gray-500   ">Student ID</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 ">Name</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500  ">Course</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500  ">Request</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500  ">Status</th>
-                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 ">Date</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentTransactions.length > 0 ? (
-                  currentTransactions.map((transaction) => (
-                    <tr key={transaction.id} className="hover:bg-gray-50">
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left">{transaction.studentId}</td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left">{transaction.name}</td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left">{transaction.course}</td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left">{transaction.request}</td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
-                          {transaction.status}
-                        </span>
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left">{transaction.date}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-4 sm:px-6 py-8 text-center text-sm text-gray-500">
-                      No transactions found matching your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+  <div className="overflow-x-auto flex-1">
+    <table className="min-w-full divide-y divide-gray-200 h-full">
+      <thead className="bg-gray-50 sticky top-0">
+        <tr>
+          <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 w-32">Student ID</th>
+          <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 w-48">Name</th>
+          <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 w-40">Course</th>
+          <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 w-56">Request</th>
+          <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 w-32">Status</th>
+          <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 w-36">Date</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {currentTransactions.length > 0 ? (
+          currentTransactions.map((transaction) => (
+            <tr key={transaction.id} className="hover:bg-gray-50">
+              <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-32">{transaction.studentId}</td>
+              <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-48">{transaction.name}</td>
+              <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-40">{transaction.course}</td>
+              <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-56">{transaction.request}</td>
+              <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left w-32">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
+                  {transaction.status}
+                </span>
+              </td>
+              <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-36">{transaction.date}</td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="6" className="px-4 sm:px-6 py-8 text-center text-sm text-gray-500">
+              No transactions found matching your filters.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
 
         <div className="bg-transparent mt-4 mb-6">
           <div className="py-3 flex flex-col sm:flex-row items-center  gap-4">
