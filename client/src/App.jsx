@@ -23,6 +23,7 @@ import GenerateQueue from "./pages/students/GenerateQueue";
 import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
+import Manage_Queue from "./pages/dashboard/Manage_Queue";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -85,6 +86,12 @@ function App() {
               path="/dashboard/transactions"
               element={<Transactions />}
             ></Route>
+            <Route 
+            path="/dashboard/manage-queue"
+            element = {<Manage_Queue/>}
+            >
+
+            </Route>
           </Route>
         </Routes>
         <Routes>
