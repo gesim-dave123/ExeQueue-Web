@@ -3,7 +3,6 @@ import { ChevronDown, ChevronUp, Menu, X } from "lucide-react";
 import icon from "/assets/icon.svg";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider";
-import icon from "/assets/icon.svg";
 import ConfirmModal from "../components/modal/ConfirmModal";
 import { motion, AnimatePresence } from "framer-motion";
 import ManageAccount from "../pages/dashboard/ManageAccount";
