@@ -23,6 +23,7 @@ import GenerateQueue from "./pages/students/GenerateQueue";
 import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
+import Manage_Queue from "./pages/dashboard/Manage_Queue";
 
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
@@ -77,7 +78,7 @@ function App() {
             path="queue/manage"
             element={
               <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <div>Manage Queue Page</div>
+                <Manage_Queue/>
               </ProtectedRoute>
             }
           />
