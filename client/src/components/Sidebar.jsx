@@ -1,17 +1,36 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthProvider";
+import React, { useState, useEffect } from "react";
+import { ChevronDown, ChevronUp, Menu, X } from "lucide-react";
 import icon from "/assets/icon.svg";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthProvider";
+import ConfirmModal from "../components/modal/ConfirmModal";
+import { motion, AnimatePresence } from "framer-motion";
+import ManageAccount from "../pages/dashboard/ManageAccount";
+import Transactions from "../pages/dashboard/Transactions";
 
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
   const [activeItem, setActiveItem] = useState("dashboard");
   const [subItem, setSubItem] = useState("");
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 1024); // mobile + tablet + lg
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280); // open only for xl and up
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 1024);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSystemSettingsOpen, setIsSystemSettingsOpen] = useState(false);
+  const [activeDropdownItem, setActiveDropdownItem] = useState("");
+  const navigate = useNavigate();
+
+  const handleCloseModal = () => {
+    setShowLogoutModal(false);
+  };
+  
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userData');
+    navigate('/');
+  };
+
   const [userFullName, setUserFullName] = useState("Staff");
   const [userRole, setUserRole] = useState("Unknown");
   const { user } = useAuth();
@@ -82,22 +101,19 @@ export default function Sidebar() {
       const width = window.innerWidth;
 
       if (width < 1024) {
-        // Mobile or tablet
         setIsMobileView(true);
         setIsSidebarOpen(false);
         setIsMobileOpen(false);
       } else if (width >= 1024 && width < 1280) {
-        // lg screens → sidebar closed by default
         setIsMobileView(false);
         setIsSidebarOpen(false);
       } else {
-        // xl and above → sidebar open
         setIsMobileView(false);
         setIsSidebarOpen(true);
       }
     };
 
-    handleResize(); // run once on mount
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -107,11 +123,10 @@ export default function Sidebar() {
       const mobile = window.innerWidth < 768;
       setIsMobileView(mobile);
 
-      // Reset overlays when switching between views
       if (mobile) {
-        setIsSidebarOpen(false); // ensure desktop sidebar is closed
+        setIsSidebarOpen(false);
       } else {
-        setIsMobileOpen(false); // ensure mobile sidebar is closed
+        setIsMobileOpen(false);
       }
     };
 
@@ -137,12 +152,48 @@ export default function Sidebar() {
 
   const handleItemClick = (item) => {
     setActiveItem(item);
+    if (item === "logout") {
+      setShowLogoutModal(true);
+      // setIsProfileOpen(false);
+      // setIsSystemSettingsOpen(false);
+      return;
+    }
+
+  if (["queue-reset", "release-window", "profile-settings"].includes(item)) {
+  setActiveDropdownItem(item);
+  }
+
+  if (item === "profile") {
+    setIsProfileOpen(!isProfileOpen);
+    setIsSystemSettingsOpen(false);
+  } else if (item === "system-settings") {
+    setIsSystemSettingsOpen(!isSystemSettingsOpen);
+  } else {
+    setIsProfileOpen(false);
+    setIsSystemSettingsOpen(false);
+  }
+
+  setSubItem("");
+  setIsQueueOpen(false);
+  if (isMobileView) setIsMobileOpen(false);
+
+    if (item === "profile") {
+      setIsProfileOpen(!isProfileOpen);
+      setIsSystemSettingsOpen(false);
+    }
+     else if (item === "system-settings") {
+    setIsSystemSettingsOpen(!isSystemSettingsOpen);
+     }
+    else {
+      setIsProfileOpen(false);
+      setIsSystemSettingsOpen(false);
+    }
+
     setSubItem("");
     setIsQueueOpen(false);
     if (isMobileView) setIsMobileOpen(false);
   };
 
-  // Unified "open" state
   const isOpen = isMobileView ? isMobileOpen : isSidebarOpen;
 
   return (
@@ -153,7 +204,7 @@ export default function Sidebar() {
           className="fixed top-4 z-50"
           initial={false}
           animate={{
-            x: isMobileOpen ? 260 : 0, // follow sidebar width
+            x: isMobileOpen ? 260 : 0,
           }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
@@ -193,7 +244,7 @@ export default function Sidebar() {
         transition={{ duration: 0.3, ease: "easeInOut" }}
         className={`
           fixed top-0 left-0 h-full bg-white shadow-xs z-40 flex flex-col
-          rounded-r-3xl xl:rounded-3xl overflow-hidden
+          rounded-r-3xl xl:rounded-3xl 
           ${isMobileView && !isOpen ? "-translate-x-full" : "translate-x-0"}
           md:translate-x-0 xl:static
         `}
@@ -220,10 +271,10 @@ export default function Sidebar() {
           <img
             src={icon}
             alt="Exequeue Logo"
-            className="w-[70px] h-[70px]  transform -translate-y-[20%]"
+            className="w-[70px] h-[70px] transform -translate-y-[20%]"
           />
           <motion.h1
-            className="text-xl font-bold ml-2 overflow-hidden transform -translate-y-[50%] -translate-x-[10%] "
+            className="text-xl font-bold ml-2 overflow-hidden transform -translate-y-[50%] -translate-x-[10%]"
             style={{ fontFamily: "Montserrat, sans-serif" }}
             initial={false}
             animate={{
@@ -239,7 +290,7 @@ export default function Sidebar() {
 
         {!isMobileView && !isSidebarOpen && (
           <div
-            className=" w-full h-10 cursor-pointer"
+            className="w-full h-10 cursor-pointer"
             onClick={() => setIsSidebarOpen(true)}
           ></div>
         )}
@@ -364,25 +415,160 @@ export default function Sidebar() {
           ></div>
         )}
 
-        {/* Bottom User Section */}
-        <div
-          className={`pb-4 mt-auto flex ${
-            isOpen ? "items-center gap-3 px-3" : "justify-center"
-          }`}
-        >
-          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
-            <img src="/assets/dashboard/personnel.png" alt="User" />
-          </div>
-          {isOpen && (
-            <div>
-              <div className="text-sm font-medium text-gray-900">
-                {userFullName}
-              </div>
-              <div className="text-xs text-gray-500 text-start">{userRole}</div>
+        {/* Bottom User Section with Dropdown */}
+        <div className={`pb-4 mt-auto ${isOpen ? "px-3" : ""} relative`}>
+          {/* Profile Button */}
+          <div
+            onClick={() => handleItemClick("profile")}
+            className={`flex items-center gap-3 rounded-lg transition-colors duration-300 cursor-pointer py-2.5 ${
+              isOpen ? "px-2" : "justify-center"
+            } ${
+              activeItem === "profile"
+                ? "bg-white   font-medium"
+                : "text-black"
+            }`}
+          >
+            <div className="w-10 h-15 rounded-full flex items-center justify-center flex-shrink-0">
+              <img src="/assets/dashboard/personnel.png" alt="User" />
             </div>
-          )}
+            {isOpen && (
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  {userFullName}
+                </div>
+                <div className="text-xs text-gray-500 text-start">{userRole}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Dropdown Menu */}
+          <AnimatePresence>
+            {isProfileOpen && isOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col p-1.5 absolute w-[260px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-100px]"
+              >
+                {/* New Button at Top */}
+                <div className="relative">
+                  <div 
+                    onClick={() => handleItemClick("system-settings")}
+                    className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
+                      ${
+                        activeItem === "system-settings"
+                          ? "bg-[#DDEAFC] font-medium"
+                          : "text-gray-700"
+                      }`}
+                  >
+                    <img
+                      src="/assets/dashboard/system_setting.png"
+                      alt="System Setting"
+                      className="w-5 h-5"
+                    />
+                    <span className="text-sm font-medium">System Settings</span>
+                    <img
+                      src="/assets/dashboard/system_settings_arrow.png"
+                      alt="arrow"
+                      className={`w-5 h-5 ml-auto`}
+                    />
+                  </div>
+
+                  {/* System Settings Dropdown */}
+                  <AnimatePresence>
+                    {isSystemSettingsOpen && isOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-40px] left-full -ml-4"
+                      >
+                        {/* Add your system settings options here */}
+                        <div 
+                          onClick={() => handleItemClick("queue-reset")}
+                          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
+                            ${
+                              activeDropdownItem === "queue-reset"
+                                ? "bg-[#DDEAFC]   font-medium"
+                                : "text-gray-700"
+                            }`}
+                        >                          <img
+                            src="/assets/dashboard/system_settings_dropdown/reset-icon.png"
+                            alt="reset"
+                            className="w-5 h-5"
+                          />
+                          <span className="text-sm font-medium">Queue Reset Settings</span>
+                        </div>
+                        <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl mb-1.5">
+                          <img
+                            src="/assets/dashboard/system_settings_dropdown/window.png"
+                            alt="window"
+                            className="w-5 h-5"
+                          />
+                          <span className="text-sm font-medium">Release Window</span>
+                        </div>
+                        <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl">
+                          <img
+                            src="/assets/dashboard/system_settings_dropdown/profilee.png"
+                            alt="profile"
+                            className="w-5 h-5"
+                          />
+                          <span className="text-sm font-medium">Profile</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Log Out Button at Bottom */}
+                <div 
+                onClick={() => handleItemClick("logout")}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer
+                  ${
+                    activeItem === "logout"
+                      ? "bg-[#DDEAFC]   font-medium"
+                      : "text-gray-700"
+                  }`}
+              >
+                  <img
+                    src="/assets/dashboard/logout.png"
+                    alt="Log Out"
+                    className="w-5 h-5"
+                  />
+                  <span className="text-sm font-medium">Log Out</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
       </motion.div>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showLogoutModal}
+        onClose={handleCloseModal}
+        onConfirm={handleLogout}
+        icon="/assets/user_dropdown/caution_logout.png"
+        iconAlt="Warning"
+        iconSize="w-12 h-12"
+        showLoading={true}
+        title="Log out"
+        cancelText="Cancel"
+        confirmText="Logout"
+        showCloseButton={false}  
+        hideActions={false} 
+        cancelButtonClass="px-4 py-3 bg-[#E2E3E4] text-black hover:bg-[#c6c7c8] rounded-xl w-1/2 font-medium cursor-pointer"
+        confirmButtonClass="px-4 py-3 bg-[#1A73E8] text-white hover:bg-blue-700 rounded-xl cursor-pointeed-xl w-1/2 font-medium cursor-pointer"
+        description={
+          <>
+            Ready to log out?<br />
+            You can always sign back in anytime.
+          </>
+        }
+      />
     </>
   );
 }
