@@ -24,6 +24,7 @@ import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
 import Manage_Queue from "./pages/dashboard/Manage_Queue";
+import Analytics from "./pages/dashboard/Analytics";
 
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
@@ -110,7 +111,7 @@ function App() {
             path="analytics"
             element={
               <ProtectedRoute allowedRoles={["PERSONNEL"]}>
-                <div>Analytics Page</div>
+                <Analytics/>
               </ProtectedRoute>
             }
           />
