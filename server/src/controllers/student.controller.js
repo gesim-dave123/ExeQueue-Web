@@ -1,6 +1,7 @@
 import { Queue_Type, Status } from "@prisma/client";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { SocketEvents } from "../services/enums/SocketEvents.js";
 import generateReferenceNumber from "../services/queue/generateReferenceNumber.js";
 import { formatQueueNumber } from "../services/queue/QueueNumber.js";
 // export const generateQueue = async (req, res) => {
@@ -1295,7 +1296,47 @@ export const generateQueue = async (req, res) => {
           QUEUETYPE === Queue_Type.PRIORITY ? "P" : "R",
           queueNumber
         );
-        io.emit("queue:refetch");
+        const newQueueData = {
+          queueId: newQueue.queueId,
+          sessionId: session.sessionId,
+          studentId: newQueue.studentId,
+          studentFullName: newQueue.studentFullName,
+          courseCode: newQueue.courseCode,
+          courseName: newQueue.courseName,
+          yearLevel: newQueue.yearLevel,
+          queueNumber: newQueue.queueNumber,
+          sequenceNumber: currentCount,
+          resetIteration: resetIteration,
+          queueType: newQueue.queueType,
+          queueStatus: newQueue.queueStatus,
+          referenceNumber: newQueue.referenceNumber,
+          isActive: newQueue.isActive,
+          windowId: null,
+          servedByStaff: null,
+          calledAt: null,
+          completedAt: null,
+          deletedAt: null,
+          createdAt: newQueue.createdAt,
+          updatedAt: newQueue.updatedAt,
+
+          // Match the exact structure from fetch
+          requests: requests.map((req) => ({
+            requestId: req.requestId,
+            queueId: newQueue.queueId,
+            requestTypeId: req.requestTypeId,
+            requestStatus: req.requestStatus,
+            isActive: req.isActive,
+            createdAt: req.createdAt,
+            updatedAt: req.updatedAt,
+            // Nested requestType object - this is what was missing!
+            requestType: {
+              requestTypeId: req.requestType.requestTypeId,
+              requestName: req.requestType.requestName,
+            },
+          })),
+        };
+
+        io.emit(SocketEvents.QUEUE_CREATED, newQueueData);
         return res.status(201).json({
           success: true,
           message: "Queue Generated Successfully!",
