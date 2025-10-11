@@ -6,7 +6,7 @@ import prisma from "../../prisma/prisma.js";
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token =
-    req.cookies?.token ||
+    req.cookies?.access_token ||
     (req.headers["authorization"] &&
       req.headers["authorization"].split(" ")[1]);
   if (!token)
