@@ -17,6 +17,9 @@ import {
   formatQueueNextItem,
 } from "../../utils/QueueDetailsFormatter";
 
+import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents.js";
+import { Queue_Type } from "../../constants/queueEnums.js";
+
 export default function Manage_Queue() {
   const [deferredOpen, setDeferredOpen] = useState(true);
   const [nextInLineOpen, setNextInLineOpen] = useState(true);
@@ -37,81 +40,7 @@ export default function Manage_Queue() {
 
   const { socket, isConnected } = useSocket();
   const [loading, setLoading] = useState(false);
-  const handleFormatQueueData = async (queueData) => {
-    try {
-      const formattedQueue = queueData.map((item) => {
-        const formatted = formatQueueData(item);
-        return formatted;
-      });
 
-      // Set the full queue list
-      setQueueList(formattedQueue);
-
-      // Set first item as current queue
-      if (formattedQueue.length > 0) {
-        setCurrentQueue(formattedQueue[0]);
-      }
-
-      // Format next in line (all items for display)
-      const formatNextInLine = formattedQueue.map((item) => {
-        return formatQueueNextItem(item);
-      });
-
-      console.log("Formatted Queue Data: ", formattedQueue[0]);
-      console.log("(Simplified) Formatted Queue Data: ", formatNextInLine[0]);
-
-      setNextInLine(formatNextInLine);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-  const fetchQueueList = useCallback(() => {
-    if (!socket || !isConnected) return;
-
-    console.log("📡 Fetching queue list...");
-    setLoading(true);
-    socket.emit("fetch-queue-list");
-  }, [socket, isConnected]);
-
-  useEffect(() => {
-    if (!socket || !isConnected) return;
-    fetchQueueList();
-
-    socket.on("queue:refetch", () => {
-      fetchQueueList();
-    });
-
-    socket.on("queue-list-data", (data) => {
-      console.log("Raw Queue Data:", data[0]);
-      handleFormatQueueData(data);
-      setLoading(false);
-    });
-
-    socket.on("error", (error) => {
-      console.error("❌ Error:", error);
-      setLoading(false);
-    });
-
-    return () => {
-      socket.off("queue:refetch");
-      socket.off("queue-list-data");
-      socket.off("error");
-    };
-  }, [socket, isConnected, fetchQueueList]);
-
-  const handleRefresh = () => {
-    // manual refresh
-    fetchQueueList();
-  };
-  const [currentQueue, setCurrentQueue] = useState({
-    queueNo: "",
-    type: "",
-    name: "",
-    studentId: "",
-    course: "",
-    time: "",
-    requests: [],
-  });
   const [queueList, setQueueList] = useState([]);
 
   const [deferredQueue, setDeferredQueue] = useState([
@@ -187,6 +116,181 @@ export default function Manage_Queue() {
     },
   ]);
   const [nextInLine, setNextInLine] = useState([]);
+
+  const sortByPriorityPattern = useCallback((queues) => {
+    console.log("🔢 Starting sort with queues:", queues?.length);
+
+    if (!queues || queues.length === 0) {
+      console.log("⚠️ No queues to sort");
+      return [];
+    }
+    if (queues.length > 0) {
+      console.log(
+        "🔍 Available properties on first queue:",
+        Object.keys(queues[0])
+      );
+    }
+    // Debug: Log all queue types
+    queues.forEach((q, index) => {
+      console.log(
+        `Queue ${index}: id=${q.queueId}, type=${
+          q.type
+        }, upper=${q.type?.toUpperCase()}`
+      );
+    });
+
+    // More flexible filtering with fallbacks
+    const priority = queues.filter((q) => {
+      const type = q.type?.toUpperCase();
+      return type === "PRIORITY";
+    });
+    // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
+
+    const regular = queues.filter((q) => {
+      const type = q.type?.toUpperCase();
+      return type === Queue_Type.REGULAR.toString().toUpperCase();
+    });
+    // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
+
+    console.log("📊 Priority count:", priority.length);
+    console.log("📊 Regular count:", regular.length);
+
+    const sorted = [];
+    let pIndex = 0;
+    let rIndex = 0;
+
+    while (pIndex < priority.length || rIndex < regular.length) {
+      if (pIndex < priority.length) {
+        sorted.push(priority[pIndex]);
+        pIndex++;
+      }
+
+      if (rIndex < regular.length) {
+        sorted.push(regular[rIndex]);
+        rIndex++;
+      }
+    }
+
+    console.log("✅ Final sorted count:", sorted.length);
+    return sorted;
+  }, []);
+  const handleAddNewQueue = useCallback(
+    (newQueueData) => {
+      try {
+        const formattedNewQueue = formatQueueData(newQueueData);
+        const simplifiedNewQueue = formatQueueNextItem(formattedNewQueue);
+
+        setQueueList((prev) => {
+          const exists = prev.some(
+            (q) => q.queueId === formattedNewQueue.queueId
+          );
+          console.log("Prev length:", prev.length, "Exists:", exists);
+
+          if (exists) {
+            console.log(
+              "🟡 Skipped duplicate queue:",
+              formattedNewQueue.queueId
+            );
+            return prev;
+          }
+
+          // ✅ Merge and apply your alternating sort
+          const merged = [...prev, formattedNewQueue];
+          const updated = sortByPriorityPattern(merged);
+
+          console.log("✅ Updating queue list to new length:", updated.length);
+          return updated;
+        });
+
+        setNextInLine((prev) => {
+          if (prev.some((q) => q.queueId === simplifiedNewQueue.queueId))
+            return prev;
+
+          const merged = [...prev, simplifiedNewQueue];
+          const updated = sortByPriorityPattern(merged); // ✅ same pattern for next in line
+          return updated;
+        });
+      } catch (error) {
+        console.error("Error adding new queue:", error);
+      }
+    },
+    [sortByPriorityPattern]
+  );
+
+  const handleFormatQueueData = useCallback((queueData) => {
+    try {
+      const formattedQueue = queueData.map(formatQueueData);
+      const simplifiedQueue = formattedQueue.map(formatQueueNextItem);
+
+      setQueueList(formattedQueue);
+      if (formattedQueue.length > 0) setCurrentQueue(formattedQueue[0]);
+      setNextInLine(simplifiedQueue);
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
+  const fetchQueueList = useCallback(() => {
+    if (!socket || !isConnected) return;
+    setLoading(true);
+    socket.emit("fetch-queue-list");
+  }, [socket, isConnected]);
+
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    fetchQueueList();
+
+    const handleQueueCreated = (newQueueData) => {
+      console.log("🔔 QUEUE_CREATED event received:", newQueueData);
+      handleAddNewQueue(newQueueData);
+    };
+
+    const handleQueueListData = (data) => {
+      console.log("Raw Queue Data:", data[0]);
+      handleFormatQueueData(data);
+      setLoading(false);
+    };
+
+    const handleError = (error) => {
+      console.error("❌ Error:", error);
+      setLoading(false);
+    };
+
+    socket.on("queue-list-data", handleQueueListData);
+    socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
+    socket.on("error", handleError);
+
+    return () => {
+      socket.off("queue-list-data", handleQueueListData);
+      socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
+      socket.off("error", handleError);
+    };
+  }, [
+    socket,
+    isConnected,
+    fetchQueueList,
+    handleAddNewQueue,
+    handleFormatQueueData,
+  ]);
+
+  useEffect(() => {
+    console.log("🟢 Queue list updated:", queueList);
+  }, [queueList]);
+  const handleRefresh = () => {
+    // manual refresh
+    fetchQueueList();
+  };
+  const [currentQueue, setCurrentQueue] = useState({
+    queueNo: "",
+    type: "",
+    name: "",
+    studentId: "",
+    course: "",
+    time: "",
+    requests: [],
+  });
+
   // const [nextInLine, setNextInLine] = useState([
   //   {
   //     queueNo: "P005",
