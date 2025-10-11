@@ -1,4 +1,5 @@
 import { Role } from "@prisma/client";
+import { SocketEvents } from "../../services/enums/SocketEvents.js";
 import QueueService from "../../services/queue/queue.service.js";
 import { checkRole } from "../socket.auth.js";
 export const queueSocket = (io, socket) => {};
@@ -9,14 +10,13 @@ export const displayQueueSocket = (io, socket) => {
   console.log(`Live Queue Connected! Id: ${socket.id} (${socket.user.role})`);
 
   // Both PERSONNEL and WORKING_SCHOLAR can view the display
-  socket.on("fetch-queue-list", async () => {
+  socket.on(SocketEvents.QUEUE_LIST_FETCH, async () => {
     if (!checkRole(socket.user, [Role.PERSONNEL, Role.WORKING_SCHOLAR])) {
       console.log("Invalid Role");
       return; // checkRole already emits error
     }
 
     try {
-      console.log("Hellooo");
       const data = await QueueService.getTodayQueues();
       // console.log("data: ", data);
       if (!data || data.length === 0) {
@@ -24,7 +24,7 @@ export const displayQueueSocket = (io, socket) => {
         return;
       }
 
-      socket.emit("queue-list-data", data);
+      socket.emit(SocketEvents.QUEUE_LIST_DATA, data);
       console.log(
         `Sent current queue list to ${socket.id} (${socket.user.role})`
       );
