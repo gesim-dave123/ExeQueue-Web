@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { checkAvailableWindow, getWindowData } from "../../api/staff.api";
+import { AnnounceQueue, handleButtonClick, useAnnounceQueueStates } from  '../staffs/Announce_Queue'; 
 import DynamicModal from "../../components/modal/DynamicModal";
 import { showToast } from "../../components/toast/ShowToast";
 import "../../index.css";
@@ -20,6 +21,7 @@ import {
 import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents.js";
 import { Queue_Type } from "../../constants/queueEnums.js";
 
+
 export default function Manage_Queue() {
   const [deferredOpen, setDeferredOpen] = useState(true);
   const [nextInLineOpen, setNextInLineOpen] = useState(true);
@@ -27,10 +29,9 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);
-  const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
-  const [lastAnnounceTime, setLastAnnounceTime] = useState(0);
-  const ANNOUNCE_COOLDOWN = 3000;
+  
+
 
   // Add these states for the new flow
   const [isLoading, setIsLoading] = useState(true);
@@ -40,8 +41,81 @@ export default function Manage_Queue() {
 
   const { socket, isConnected } = useSocket();
   const [loading, setLoading] = useState(false);
+  const { lastAnnounceTime, setLastAnnounceTime, disabledForSeconds, setDisabledForSeconds } = useAnnounceQueueStates();
 
-  const [queueList, setQueueList] = useState([]);
+  const [queueList, setQueueList] = useState([
+    {
+      queueNo: "R009",
+      studentId: "23921845",
+      name: "John Doe",
+      course: "BSHM- 1st Year",
+      type: "Regular",
+      time: "11:21 AM",
+      requests: [
+        { id: 1, name: "Transmittal Letter", status: "In Progress" },
+        { id: 2, name: "Good Moral Certificate", status: "In Progress" },
+      ],
+    },
+    {
+      queueNo: "R020",
+      studentId: "23219823",
+      name: "Kevin Durant",
+      course: "BSIT - 2nd Year",
+      type: "Regular",
+      time: "9:05 AM",
+      requests: [{ id: 1, name: "Insurance Payment", status: "In Progress" }],
+    },
+    {
+      queueNo: "R021",
+      studentId: "2323003",
+      name: "Stephen Curry",
+      course: "BSA - 3rd Year",
+      type: "Regular",
+      time: "9:07 AM",
+      requests: [
+        { id: 1, name: "Temporary Gate Pass", status: "In Progress" },
+        { id: 2, name: "Good Moral Certificate", status: "In Progress" },
+        { id: 3, name: "Insurance Payment", status: "In Progress" },
+      ],
+    },
+    {
+      queueNo: "R022",
+      studentId: "23844352",
+      name: "Lebron James",
+      course: "BSCS - 4th Year",
+      type: "Regular",
+      time: "9:07 AM",
+      requests: [{ id: 1, name: "Insurance Payment", status: "In Progress" }],
+    },
+    {
+      queueNo: "R023",
+      studentId: "23844362",
+      name: "Dwayne Wade",
+      course: "BSN - 2nd Year",
+      type: "Regular",
+      time: "9:08 AM",
+      requests: [{ id: 1, name: "Transmittal Letter", status: "In Progress" }],
+    },
+    {
+      queueNo: "R022",
+      studentId: "23844352",
+      name: "Lebron James",
+      course: "BSCS - 4th Year",
+      type: "Regular",
+      time: "9:07 AM",
+      requests: [{ id: 1, name: "Insurance Payment", status: "In Progress" }],
+    },
+    {
+      queueNo: "R023",
+      studentId: "23844362",
+      name: "Dwayne Wade",
+      course: "BSN - 2nd Year",
+      type: "Regular",
+      time: "9:08 AM",
+      requests: [{ id: 1, name: "Transmittal Letter", status: "Stalled" }],
+    },
+    
+  ]);
 
   const [deferredQueue, setDeferredQueue] = useState([
     {
@@ -485,166 +559,54 @@ export default function Manage_Queue() {
     setSelectedQueue(null);
   };
 
-  // Voice selection utility
-  const getVoice = (voices) => {
-    const ziraVoice = voices.find(
-      (voice) =>
-        voice.name.toLowerCase().includes("zira") ||
-        voice.name === "Microsoft Zira Desktop" ||
-        voice.name === "Microsoft Zira"
-    );
-
-    if (ziraVoice) {
-      return ziraVoice;
-    }
-
-    const fallbackVoice =
-      voices.find(
-        (voice) => voice.lang.includes("en") && voice.name.includes("Microsoft")
-      ) || voices.find((voice) => voice.lang.includes("en-US"));
-
-    if (fallbackVoice) {
-      return fallbackVoice;
-    }
-
-    throw new Error("No suitable voice found");
-  };
-
-  const configureSpeech = (text, voice) => {
-    const speech = new SpeechSynthesisUtterance();
-    speech.text = text;
-    speech.volume = 1;
-    speech.rate = 0.8;
-    speech.pitch = 1;
-    speech.voice = voice;
-    return speech;
-  };
-
-  const loadVoices = async () => {
-    let voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      await new Promise((resolve) => {
-        window.speechSynthesis.onvoiceschanged = resolve;
-      });
-      voices = window.speechSynthesis.getVoices();
-    }
-    return voices;
-  };
-
-  const speak = (speech) => {
-    return new Promise((resolve, reject) => {
-      speech.onend = resolve;
-      speech.onerror = reject;
-      window.speechSynthesis.speak(speech);
-    });
-  };
-
-  const canAnnounce = () => {
-    const now = Date.now();
-    if (isAnnouncing || now - lastAnnounceTime < ANNOUNCE_COOLDOWN) {
-      return false;
-    }
-
-    if (!("speechSynthesis" in window)) {
-      alert("Speech synthesis not supported in this browser");
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleAnnounce = async () => {
-    if (!canAnnounce()) {
-      return;
-    }
-    const now = Date.now();
-    setIsAnnouncing(true);
-    setLastAnnounceTime(now);
-    try {
-      window.speechSynthesis.cancel();
-      const voices = await loadVoices();
-      const selectedVoice = getVoice(voices);
-      const speechText = `Queue number ${currentQueue.queueNo}, please proceed to Window 1`;
-      const speech = configureSpeech(speechText, selectedVoice);
-      await speak(speech);
-    } catch (error) {
-      console.error("Announcement failed:", error);
-    } finally {
-      setIsAnnouncing(false);
-    }
-  };
-  //For the next queue announcement
-  const handleAnnounceWithParams = async (nextQueueNo) => {
-    if (!canAnnounce()) {
-      return;
-    }
-    const now = Date.now();
-    setIsAnnouncing(true);
-    setLastAnnounceTime(now);
-    try {
-      window.speechSynthesis.cancel();
-      const voices = await loadVoices();
-      const selectedVoice = getVoice(voices);
-      const speechText = `Queue number ${nextQueueNo}, please proceed to Window 1`;
-      const speech = configureSpeech(speechText, selectedVoice);
-      await speak(speech);
-    } catch (error) {
-      console.error("Announcement failed:", error);
-    } finally {
-      setIsAnnouncing(false);
-    }
-  };
-
   const handleCallNext = () => {
-    try {
-      // Remove current queue from the list
-      const updatedQueueList = queueList.slice(1);
+  try {
+    // Remove current queue from the list
+    const updatedQueueList = queueList.slice(1);
 
-      if (updatedQueueList.length === 0) {
-        alert("No more people in queue");
-        setQueueList([]);
-        setNextInLine([]);
-        // Optionally reset current queue to empty state
-        setCurrentQueue({
-          queueNo: "",
-          type: "",
-          name: "",
-          studentId: "",
-          course: "",
-          time: "",
-          requests: [],
-        });
-        return;
-      }
-
-      // Get the next person (now first in updated list)
-      const nextPerson = updatedQueueList[0];
-
-      // Update current queue to next person
+    if (updatedQueueList.length === 0) {
+      alert("No more people in queue");
+      setQueueList([]);
+      setNextInLine([]);
       setCurrentQueue({
-        queueNo: nextPerson.queueNo,
-        type: nextPerson.type,
-        name: nextPerson.name,
-        studentId: nextPerson.studentId,
-        course: nextPerson.course,
-        time: nextPerson.time,
-        requests: nextPerson.requests || [],
+        queueNo: "",
+        type: "",
+        name: "",
+        studentId: "",
+        course: "",
+        time: "",
+        requests: [],
       });
-
-      // Update queue list (remove the old current)
-      setQueueList(updatedQueueList);
-
-      // Update next in line (remove the old current)
-      setNextInLine((prev) => prev.slice(1));
-
-      // Announce the new current queue
-      handleAnnounceWithParams(nextPerson.queueNo);
-    } catch (error) {
-      console.error("Error in handleCallNext:", error);
-      alert("An error occurred while calling the next person");
+      return;
     }
-  };
 
+    // Get the next person (now first in updated list)
+    const nextPerson = updatedQueueList[0];
+
+    // Update current queue to next person
+    setCurrentQueue({
+      queueNo: nextPerson.queueNo,
+      type: nextPerson.type,
+      name: nextPerson.name,
+      studentId: nextPerson.studentId,
+      course: nextPerson.course,
+      time: nextPerson.time,
+      requests: nextPerson.requests || [],
+    });
+
+    // Update queue list (remove the old current)
+    setQueueList(updatedQueueList);
+
+    // Update next in line (remove the old current)
+    setNextInLine((prev) => prev.slice(1));
+    
+    // Announce the new current queue
+    AnnounceQueue(nextPerson.queueNo);
+  } catch (error) {
+    console.error("Error in handleCallNext:", error);
+    alert("An error occurred while calling the next person");
+  }
+};
   const handleDonePanel = () => {
     // alert('Queue completed and closed');
     closeActionPanel();
@@ -1062,15 +1024,17 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3  mt-15 justify-end">
+                  <div className="flex gap-3 mt-15 justify-end">
                       <button
-                        onClick={handleCallNext}
+                        onClick={() => handleButtonClick(handleCallNext, disabledForSeconds, lastAnnounceTime, setDisabledForSeconds, setLastAnnounceTime)}
                         disabled={
+                          disabledForSeconds ||
                           currentQueue.requests.some(
                             (request) => request.status === "In Progress"
-                          ) || isAnnouncing
+                          ) 
                         }
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                          disabledForSeconds ||
                           currentQueue.requests.some(
                             (request) => request.status === "In Progress"
                           )
@@ -1078,38 +1042,26 @@ export default function Manage_Queue() {
                             : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
                         }`}
                       >
-                        <img
-                          src="/assets/manage_queue/Announcement-1.png"
-                          alt="Edit"
-                        />
+                        <img src="/assets/manage_queue/Announcement-1.png" alt="Edit" />
                         Call Next
                       </button>
                       <button
-                        onClick={handleAnnounce}
-                        disabled={isAnnouncing}
+                        onClick={() => handleButtonClick(
+                          () => AnnounceQueue(currentQueue.queueNo), //Announce the current queue
+                          disabledForSeconds,
+                          lastAnnounceTime,
+                          setDisabledForSeconds,
+                          setLastAnnounceTime
+                        )}
+                        disabled={disabledForSeconds || queueList.length === 0}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                          isAnnouncing
+                          disabledForSeconds
                             ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
                             : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
                         }`}
                       >
-                        {isAnnouncing ? (
-                          <>
-                            <img
-                              src="/assets/manage_queue/Announcement.png"
-                              alt="Announcing"
-                            />
-                            Announce
-                          </>
-                        ) : (
-                          <>
-                            <img
-                              src="/assets/manage_queue/Announcement.png"
-                              alt="Announce"
-                            />
-                            Announce
-                          </>
-                        )}
+                        <img src="/assets/manage_queue/Announcement.png" alt="Announce" />
+                        Announce
                       </button>
                     </div>
                   </div>
