@@ -769,10 +769,22 @@ export default function Manage_Queue() {
                   {/* left side */}
                   <div className="border-2 flex-1  border-[#E2E3E4] rounded-lg p-6 h-full">
                     <div className=" text-left mb-4 ">
-                      <div className="text-7xl text-center border border-[#1A73E8] rounded-xl py-4 font-bold text-[#1A73E8] mb-2">
+                      <div
+                        className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
+                          currentQueue.type === "Priority"
+                            ? "text-[#F9AB00] border-[#F9AB00]"
+                            : "text-[#1A73E8] border-[#1A73E8]"
+                        }`}
+                      >
                         {currentQueue.queueNo}
                       </div>
-                      <span className="  bg-blue-100 text-[#1A73E8] font-medium text-sm px-3 py-1 rounded-full">
+                      <span
+                        className={`"font-medium text-sm px-3 py-1 rounded-full ${
+                          currentQueue.type === "Priority"
+                            ? "bg-[#FEF2D9] text-[#F9AB00]"
+                            : "bg-[#DDEAFC] text-[#1A73E8]"
+                        }`}
+                      >
                         {currentQueue.type}
                       </span>
                     </div>
