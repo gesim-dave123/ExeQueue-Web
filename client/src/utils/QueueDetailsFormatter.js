@@ -24,8 +24,10 @@ export function formatQueueNextItem(formattedQueue) {
     formattedQueue.requests?.map((r) => r.name).filter(Boolean) || [];
 
   return {
+    queueId: formattedQueue.queueId, // ✅ Preserve the ID
     queueNo: formattedQueue.queueNo, // Already formatted
     studentId: formattedQueue.studentId,
+    queueStatus: formattedQueue.queueStatus,
     name: formattedQueue.name,
     course: formattedQueue.course, // Already formatted
     type: formattedQueue.type, // Already formatted
@@ -36,10 +38,12 @@ export function formatQueueNextItem(formattedQueue) {
 
 export const formatQueueData = (queueData) => {
   return {
+    queueId: queueData.queueId, // ✅ Preserve the ID
     queueNo: `${queueData.queueType === "PRIORITY" ? "P" : "R"}${String(
       queueData.queueNumber
     ).padStart(3, "0")}`,
     type: queueData.queueType === "PRIORITY" ? "Priority" : "Regular",
+    queueStatus: queueData.queueStatus,
     name: queueData.studentFullName,
     studentId: queueData.studentId,
     course: `${queueData.courseCode} - ${queueData.yearLevel} Year`,
