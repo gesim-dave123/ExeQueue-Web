@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { checkAvailableWindow, getWindowData } from "../../api/staff.api";
-import { AnnounceQueue, handleButtonClick, useAnnounceQueueStates } from  '../staffs/Announce_Queue'; 
 import DynamicModal from "../../components/modal/DynamicModal";
 import { showToast } from "../../components/toast/ShowToast";
 import "../../index.css";
@@ -17,10 +16,15 @@ import {
   formatQueueData,
   formatQueueNextItem,
 } from "../../utils/QueueDetailsFormatter";
+import {
+  AnnounceQueue,
+  handleButtonClick,
+  useAnnounceQueueStates,
+} from "../staffs/Announce_Queue";
 
 import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents.js";
-import { Queue_Type } from "../../constants/queueEnums.js";
-
+import { getQueueListByStatus } from "../../api/staff.queue.api.js";
+import { Queue_Type, Status } from "../../constants/queueEnums.js";
 
 export default function Manage_Queue() {
   const [deferredOpen, setDeferredOpen] = useState(true);
@@ -30,8 +34,6 @@ export default function Manage_Queue() {
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
-  
-
 
   // Add these states for the new flow
   const [isLoading, setIsLoading] = useState(true);
@@ -41,7 +43,12 @@ export default function Manage_Queue() {
 
   const { socket, isConnected } = useSocket();
   const [loading, setLoading] = useState(false);
-  const { lastAnnounceTime, setLastAnnounceTime, disabledForSeconds, setDisabledForSeconds } = useAnnounceQueueStates();
+  const {
+    lastAnnounceTime,
+    setLastAnnounceTime,
+    disabledForSeconds,
+    setDisabledForSeconds,
+  } = useAnnounceQueueStates();
 
   const [queueList, setQueueList] = useState([
     {
@@ -114,7 +121,6 @@ export default function Manage_Queue() {
       time: "9:08 AM",
       requests: [{ id: 1, name: "Transmittal Letter", status: "Stalled" }],
     },
-    
   ]);
 
   const [deferredQueue, setDeferredQueue] = useState([
@@ -204,14 +210,14 @@ export default function Manage_Queue() {
         Object.keys(queues[0])
       );
     }
-    // Debug: Log all queue types
-    queues.forEach((q, index) => {
-      console.log(
-        `Queue ${index}: id=${q.queueId}, type=${
-          q.type
-        }, upper=${q.type?.toUpperCase()}`
-      );
-    });
+    // // Debug: Log all queue types
+    // queues.forEach((q, index) => {
+    //   console.log(
+    //     `Queue ${index}: id=${q.queueId}, type=${
+    //       q.type
+    //     }, upper=${q.type?.toUpperCase()}`
+    //   );
+    // });
 
     // More flexible filtering with fallbacks
     const priority = queues.filter((q) => {
@@ -226,8 +232,8 @@ export default function Manage_Queue() {
     });
     // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
 
-    console.log("📊 Priority count:", priority.length);
-    console.log("📊 Regular count:", regular.length);
+    // console.log("📊 Priority count:", priority.length);
+    // console.log("📊 Regular count:", regular.length);
 
     const sorted = [];
     let pIndex = 0;
@@ -245,7 +251,7 @@ export default function Manage_Queue() {
       }
     }
 
-    console.log("✅ Final sorted count:", sorted.length);
+    // console.log("✅ Final sorted count:", sorted.length);
     return sorted;
   }, []);
   const handleAddNewQueue = useCallback(
@@ -258,13 +264,13 @@ export default function Manage_Queue() {
           const exists = prev.some(
             (q) => q.queueId === formattedNewQueue.queueId
           );
-          console.log("Prev length:", prev.length, "Exists:", exists);
+          // console.log("Prev length:", prev.length, "Exists:", exists);
 
           if (exists) {
-            console.log(
-              "🟡 Skipped duplicate queue:",
-              formattedNewQueue.queueId
-            );
+            // console.log(
+            //   "🟡 Skipped duplicate queue:",
+            //   formattedNewQueue.queueId
+            // );
             return prev;
           }
 
@@ -272,7 +278,7 @@ export default function Manage_Queue() {
           const merged = [...prev, formattedNewQueue];
           const updated = sortByPriorityPattern(merged);
 
-          console.log("✅ Updating queue list to new length:", updated.length);
+          // console.log("✅ Updating queue list to new length:", updated.length);
           return updated;
         });
 
@@ -300,15 +306,23 @@ export default function Manage_Queue() {
       if (formattedQueue.length > 0) setCurrentQueue(formattedQueue[0]);
       setNextInLine(simplifiedQueue);
     } catch (error) {
-      console.error(error);
+      console.error("An error occured while formatting queue details: ", error);
     }
   }, []);
 
-  const fetchQueueList = useCallback(() => {
-    if (!socket || !isConnected) return;
-    setLoading(true);
-    socket.emit("fetch-queue-list");
-  }, [socket, isConnected]);
+  const fetchQueueList = useCallback(async () => {
+    try {
+      setLoading(true);
+      const queueData = await getQueueListByStatus(Status.WAITING);
+      if (queueData && Array.isArray(queueData)) {
+        handleFormatQueueData(queueData);
+      }
+    } catch (error) {
+      console.error("Error in fetching queue data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [handleFormatQueueData]);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -320,37 +334,25 @@ export default function Manage_Queue() {
       handleAddNewQueue(newQueueData);
     };
 
-    const handleQueueListData = (data) => {
-      console.log("Raw Queue Data:", data[0]);
-      handleFormatQueueData(data);
-      setLoading(false);
-    };
-
     const handleError = (error) => {
       console.error("❌ Error:", error);
       setLoading(false);
     };
 
-    socket.on("queue-list-data", handleQueueListData);
+    // socket.on("queue-list-data", handleQueueListData);
     socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
     socket.on("error", handleError);
 
     return () => {
-      socket.off("queue-list-data", handleQueueListData);
+      // socket.off("queue-list-data", handleQueueListData);
       socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
       socket.off("error", handleError);
     };
-  }, [
-    socket,
-    isConnected,
-    fetchQueueList,
-    handleAddNewQueue,
-    handleFormatQueueData,
-  ]);
+  }, [socket, isConnected, fetchQueueList, handleAddNewQueue]);
 
-  useEffect(() => {
-    console.log("🟢 Queue list updated:", queueList);
-  }, [queueList]);
+  // useEffect(() => {
+  //   console.log("🟢 Queue list updated:", queueList);
+  // }, [queueList]);
   const handleRefresh = () => {
     // manual refresh
     fetchQueueList();
@@ -364,94 +366,6 @@ export default function Manage_Queue() {
     time: "",
     requests: [],
   });
-
-  // const [nextInLine, setNextInLine] = useState([
-  //   {
-  //     queueNo: "P005",
-  //     studentId: "23219652",
-  //     name: "John Doe",
-  //     course: "BSIT - 4th Year",
-  //     type: "Priority",
-  //     requests: ["Insurance Payment", "Transmittal Letter"],
-  //     time: "9:06 AM",
-  //   },
-  //   {
-  //     queueNo: "R020",
-  //     studentId: "23219823",
-  //     name: "Kevin Durant",
-  //     course: "BSA - 2nd Year",
-  //     type: "Regular",
-  //     requests: [
-  //       "Insurance Payment",
-  //       "Transmittal Letter",
-  //       "Good Moral Certificate",
-  //     ],
-  //     time: "9:05 AM",
-  //   },
-  //   {
-  //     queueNo: "R021",
-  //     studentId: "2323003",
-  //     name: "Stephen Curry",
-  //     course: "BSCS - 3rd Year",
-  //     type: "Regular",
-  //     request: "Temporary Gate Pass",
-  //     time: "9:07 AM",
-  //   },
-  //   {
-  //     queueNo: "R022",
-  //     studentId: "23844352",
-  //     name: "Lebron James",
-  //     course: "BSN - 1st Year",
-  //     type: "Regular",
-  //     request: "Insurance Payment",
-  //     time: "9:07 AM",
-  //   },
-  //   {
-  //     queueNo: "R023",
-  //     studentId: "23844363",
-  //     name: "Chris Paul",
-  //     course: "BSHM - 2nd Year",
-  //     type: "Regular",
-  //     request: "Transmittal Letter",
-  //     time: "9:08 AM",
-  //   },
-  //   {
-  //     queueNo: "R024",
-  //     studentId: "23844364",
-  //     name: "James Harden",
-  //     course: "BSIT - 3rd Year",
-  //     type: "Priority",
-  //     request: "Good Moral Certificate",
-  //     time: "9:09 AM",
-  //   },
-  //   {
-  //     queueNo: "R022",
-  //     studentId: "23844352",
-  //     name: "Lebron James",
-  //     course: "BSN - 1st Year",
-  //     type: "Regular",
-  //     request: "Insurance Payment",
-  //     time: "9:07 AM",
-  //   },
-  //   {
-  //     queueNo: "R023",
-  //     studentId: "23844363",
-  //     name: "Chris Paul",
-  //     course: "BSHM - 2nd Year",
-  //     type: "Regular",
-  //     request: "Transmittal Letter",
-  //     time: "9:08 AM",
-  //   },
-  //   {
-  //     queueNo: "R024",
-  //     studentId: "23844364",
-  //     name: "James Harden",
-  //     course: "BSIT - 3rd Year",
-  //     type: "Regular",
-  //     request: "Good Moral Certificate",
-  //     time: "9:09 AM",
-  //   },
-  // ]);
 
   const filteredNextInLine = (nextInLine || []).filter((item) => {
     const search = searchTerm?.toLowerCase() || "";
@@ -560,53 +474,53 @@ export default function Manage_Queue() {
   };
 
   const handleCallNext = () => {
-  try {
-    // Remove current queue from the list
-    const updatedQueueList = queueList.slice(1);
+    try {
+      // Remove current queue from the list
+      const updatedQueueList = queueList.slice(1);
 
-    if (updatedQueueList.length === 0) {
-      alert("No more people in queue");
-      setQueueList([]);
-      setNextInLine([]);
+      if (updatedQueueList.length === 0) {
+        alert("No more people in queue");
+        setQueueList([]);
+        setNextInLine([]);
+        setCurrentQueue({
+          queueNo: "",
+          type: "",
+          name: "",
+          studentId: "",
+          course: "",
+          time: "",
+          requests: [],
+        });
+        return;
+      }
+
+      // Get the next person (now first in updated list)
+      const nextPerson = updatedQueueList[0];
+
+      // Update current queue to next person
       setCurrentQueue({
-        queueNo: "",
-        type: "",
-        name: "",
-        studentId: "",
-        course: "",
-        time: "",
-        requests: [],
+        queueNo: nextPerson.queueNo,
+        type: nextPerson.type,
+        name: nextPerson.name,
+        studentId: nextPerson.studentId,
+        course: nextPerson.course,
+        time: nextPerson.time,
+        requests: nextPerson.requests || [],
       });
-      return;
+
+      // Update queue list (remove the old current)
+      setQueueList(updatedQueueList);
+
+      // Update next in line (remove the old current)
+      setNextInLine((prev) => prev.slice(1));
+
+      // Announce the new current queue
+      AnnounceQueue(nextPerson.queueNo);
+    } catch (error) {
+      console.error("Error in handleCallNext:", error);
+      alert("An error occurred while calling the next person");
     }
-
-    // Get the next person (now first in updated list)
-    const nextPerson = updatedQueueList[0];
-
-    // Update current queue to next person
-    setCurrentQueue({
-      queueNo: nextPerson.queueNo,
-      type: nextPerson.type,
-      name: nextPerson.name,
-      studentId: nextPerson.studentId,
-      course: nextPerson.course,
-      time: nextPerson.time,
-      requests: nextPerson.requests || [],
-    });
-
-    // Update queue list (remove the old current)
-    setQueueList(updatedQueueList);
-
-    // Update next in line (remove the old current)
-    setNextInLine((prev) => prev.slice(1));
-    
-    // Announce the new current queue
-    AnnounceQueue(nextPerson.queueNo);
-  } catch (error) {
-    console.error("Error in handleCallNext:", error);
-    alert("An error occurred while calling the next person");
-  }
-};
+  };
   const handleDonePanel = () => {
     // alert('Queue completed and closed');
     closeActionPanel();
@@ -1024,14 +938,22 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                  <div className="flex gap-3 mt-15 justify-end">
+                    <div className="flex gap-3 mt-15 justify-end">
                       <button
-                        onClick={() => handleButtonClick(handleCallNext, disabledForSeconds, lastAnnounceTime, setDisabledForSeconds, setLastAnnounceTime)}
+                        onClick={() =>
+                          handleButtonClick(
+                            handleCallNext,
+                            disabledForSeconds,
+                            lastAnnounceTime,
+                            setDisabledForSeconds,
+                            setLastAnnounceTime
+                          )
+                        }
                         disabled={
                           disabledForSeconds ||
                           currentQueue.requests.some(
                             (request) => request.status === "In Progress"
-                          ) 
+                          )
                         }
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                           disabledForSeconds ||
@@ -1042,17 +964,22 @@ export default function Manage_Queue() {
                             : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
                         }`}
                       >
-                        <img src="/assets/manage_queue/Announcement-1.png" alt="Edit" />
+                        <img
+                          src="/assets/manage_queue/Announcement-1.png"
+                          alt="Edit"
+                        />
                         Call Next
                       </button>
                       <button
-                        onClick={() => handleButtonClick(
-                          () => AnnounceQueue(currentQueue.queueNo), //Announce the current queue
-                          disabledForSeconds,
-                          lastAnnounceTime,
-                          setDisabledForSeconds,
-                          setLastAnnounceTime
-                        )}
+                        onClick={() =>
+                          handleButtonClick(
+                            () => AnnounceQueue(currentQueue.queueNo), //Announce the current queue
+                            disabledForSeconds,
+                            lastAnnounceTime,
+                            setDisabledForSeconds,
+                            setLastAnnounceTime
+                          )
+                        }
                         disabled={disabledForSeconds || queueList.length === 0}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                           disabledForSeconds
@@ -1060,7 +987,10 @@ export default function Manage_Queue() {
                             : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
                         }`}
                       >
-                        <img src="/assets/manage_queue/Announcement.png" alt="Announce" />
+                        <img
+                          src="/assets/manage_queue/Announcement.png"
+                          alt="Announce"
+                        />
                         Announce
                       </button>
                     </div>
