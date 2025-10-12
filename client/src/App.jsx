@@ -120,10 +120,11 @@ function App() {
 
         {/* Catch-all Not Found */}
         <Route path="/not-found" element={<NotFound />} />
+        {/*layuout profile path is not yet connected to the sidebar */}
+        <Route path="profile" element={<LayoutProfile />}></Route>
+
       </Routes>
-      <Routes>
-        <Route element={<LayoutProfile />}></Route>
-      </Routes>
+      
     </Router>
   );
 }
