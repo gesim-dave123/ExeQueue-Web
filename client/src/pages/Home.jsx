@@ -74,7 +74,7 @@ export default function Home() {
             <Link to="/student/queue/search">
               <span>
                 <button
-                  className="cursor-pointer underline "
+                  className="cursor-pointer underline text-[#1A73E8] hover:text-blue-700 transition-colors"
                   onClick={() => handleRedirect("/student")} // change later to url destination for view queue
                 >
                   Search Queue
