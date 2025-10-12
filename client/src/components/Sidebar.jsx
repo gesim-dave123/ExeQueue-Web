@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Menu, X } from "lucide-react";
-import icon from "/assets/icon.svg";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthProvider";
 import ConfirmModal from "../components/modal/ConfirmModal";
-import { motion, AnimatePresence } from "framer-motion";
-import ManageAccount from "../pages/dashboard/ManageAccount";
-import Transactions from "../pages/dashboard/Transactions";
+import { useAuth } from "../context/AuthProvider";
+import icon from "/assets/icon.svg";
+import { showToast } from "./toast/ShowToast";
 
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
@@ -15,20 +14,26 @@ export default function Sidebar() {
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 1024);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSystemSettingsOpen, setIsSystemSettingsOpen] = useState(false);
   const [activeDropdownItem, setActiveDropdownItem] = useState("");
   const navigate = useNavigate();
+  const { logoutOperation } = useAuth();
 
   const handleCloseModal = () => {
     setShowLogoutModal(false);
   };
-  
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userData');
-    navigate('/');
+
+  const handleLogout = async () => {
+    try {
+      await logoutOperation();
+      showToast("Logged Out Successfully!", "success");
+      navigate("/");
+    } catch (error) {
+      console.error("There was a problem logging out:", error)
+      showToast("There was a problem logging out", "error")
+    }
   };
 
   const [userFullName, setUserFullName] = useState("Staff");
@@ -51,6 +56,7 @@ export default function Sidebar() {
           key: "manage-queue",
           label: "Manage Queue",
           link: "/staff/queue/manage",
+          requiresWindow: true,
         },
         {
           key: "display-queue",
@@ -159,32 +165,30 @@ export default function Sidebar() {
       return;
     }
 
-  if (["queue-reset", "release-window", "profile-settings"].includes(item)) {
-  setActiveDropdownItem(item);
-  }
-
-  if (item === "profile") {
-    setIsProfileOpen(!isProfileOpen);
-    setIsSystemSettingsOpen(false);
-  } else if (item === "system-settings") {
-    setIsSystemSettingsOpen(!isSystemSettingsOpen);
-  } else {
-    setIsProfileOpen(false);
-    setIsSystemSettingsOpen(false);
-  }
-
-  setSubItem("");
-  setIsQueueOpen(false);
-  if (isMobileView) setIsMobileOpen(false);
+    if (["queue-reset", "release-window", "profile-settings"].includes(item)) {
+      setActiveDropdownItem(item);
+    }
 
     if (item === "profile") {
       setIsProfileOpen(!isProfileOpen);
       setIsSystemSettingsOpen(false);
+    } else if (item === "system-settings") {
+      setIsSystemSettingsOpen(!isSystemSettingsOpen);
+    } else {
+      setIsProfileOpen(false);
+      setIsSystemSettingsOpen(false);
     }
-     else if (item === "system-settings") {
-    setIsSystemSettingsOpen(!isSystemSettingsOpen);
-     }
-    else {
+
+    setSubItem("");
+    setIsQueueOpen(false);
+    if (isMobileView) setIsMobileOpen(false);
+
+    if (item === "profile") {
+      setIsProfileOpen(!isProfileOpen);
+      setIsSystemSettingsOpen(false);
+    } else if (item === "system-settings") {
+      setIsSystemSettingsOpen(!isSystemSettingsOpen);
+    } else {
       setIsProfileOpen(false);
       setIsSystemSettingsOpen(false);
     }
@@ -423,9 +427,7 @@ export default function Sidebar() {
             className={`flex items-center gap-3 rounded-lg transition-colors duration-300 cursor-pointer py-2.5 ${
               isOpen ? "px-2" : "justify-center"
             } ${
-              activeItem === "profile"
-                ? "bg-white   font-medium"
-                : "text-black"
+              activeItem === "profile" ? "bg-white   font-medium" : "text-black"
             }`}
           >
             <div className="w-10 h-15 rounded-full flex items-center justify-center flex-shrink-0">
@@ -436,7 +438,9 @@ export default function Sidebar() {
                 <div className="text-sm font-medium text-gray-900">
                   {userFullName}
                 </div>
-                <div className="text-xs text-gray-500 text-start">{userRole}</div>
+                <div className="text-xs text-gray-500 text-start">
+                  {userRole}
+                </div>
               </div>
             )}
           </div>
@@ -453,7 +457,7 @@ export default function Sidebar() {
               >
                 {/* New Button at Top */}
                 <div className="relative">
-                  <div 
+                  <div
                     onClick={() => handleItemClick("system-settings")}
                     className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
                       ${
@@ -486,7 +490,7 @@ export default function Sidebar() {
                         className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-40px] left-full -ml-4"
                       >
                         {/* Add your system settings options here */}
-                        <div 
+                        <div
                           onClick={() => handleItemClick("queue-reset")}
                           className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
                             ${
@@ -494,12 +498,16 @@ export default function Sidebar() {
                                 ? "bg-[#DDEAFC]   font-medium"
                                 : "text-gray-700"
                             }`}
-                        >                          <img
+                        >
+                          {" "}
+                          <img
                             src="/assets/dashboard/system_settings_dropdown/reset-icon.png"
                             alt="reset"
                             className="w-5 h-5"
                           />
-                          <span className="text-sm font-medium">Queue Reset Settings</span>
+                          <span className="text-sm font-medium">
+                            Queue Reset Settings
+                          </span>
                         </div>
                         <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl mb-1.5">
                           <img
@@ -507,7 +515,9 @@ export default function Sidebar() {
                             alt="window"
                             className="w-5 h-5"
                           />
-                          <span className="text-sm font-medium">Release Window</span>
+                          <span className="text-sm font-medium">
+                            Release Window
+                          </span>
                         </div>
                         <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl">
                           <img
@@ -523,15 +533,15 @@ export default function Sidebar() {
                 </div>
 
                 {/* Log Out Button at Bottom */}
-                <div 
-                onClick={() => handleItemClick("logout")}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer
+                <div
+                  onClick={() => handleItemClick("logout")}
+                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer
                   ${
                     activeItem === "logout"
                       ? "bg-[#DDEAFC]   font-medium"
                       : "text-gray-700"
                   }`}
-              >
+                >
                   <img
                     src="/assets/dashboard/logout.png"
                     alt="Log Out"
@@ -543,7 +553,6 @@ export default function Sidebar() {
             )}
           </AnimatePresence>
         </div>
-
       </motion.div>
 
       {/* Logout Confirmation Modal */}
@@ -558,13 +567,14 @@ export default function Sidebar() {
         title="Log out"
         cancelText="Cancel"
         confirmText="Logout"
-        showCloseButton={false}  
-        hideActions={false} 
+        showCloseButton={false}
+        hideActions={false}
         cancelButtonClass="px-4 py-3 bg-[#E2E3E4] text-black hover:bg-[#c6c7c8] rounded-xl w-1/2 font-medium cursor-pointer"
         confirmButtonClass="px-4 py-3 bg-[#1A73E8] text-white hover:bg-blue-700 rounded-xl cursor-pointeed-xl w-1/2 font-medium cursor-pointer"
         description={
           <>
-            Ready to log out?<br />
+            Ready to log out?
+            <br />
             You can always sign back in anytime.
           </>
         }
