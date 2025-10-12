@@ -25,6 +25,7 @@ import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
 import Manage_Queue from "./pages/dashboard/Manage_Queue";
 import Analytics from "./pages/dashboard/Analytics";
+import LayoutProfile from "./components/LayoutProfile";
 
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
@@ -79,7 +80,7 @@ function App() {
             path="queue/manage"
             element={
               <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <Manage_Queue/>
+                <Manage_Queue />
               </ProtectedRoute>
             }
           />
@@ -111,15 +112,19 @@ function App() {
             path="analytics"
             element={
               <ProtectedRoute allowedRoles={["PERSONNEL"]}>
-                <Analytics/>
+                <Analytics />
               </ProtectedRoute>
             }
           />
         </Route>
 
         {/* Catch-all Not Found */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="/not-found" element={<NotFound />} />
+        {/*layuout profile path is not yet connected to the sidebar */}
+        <Route path="profile" element={<LayoutProfile />}></Route>
+
       </Routes>
+      
     </Router>
   );
 }
