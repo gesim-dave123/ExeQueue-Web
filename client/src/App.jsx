@@ -23,6 +23,8 @@ import GenerateQueue from "./pages/students/GenerateQueue";
 import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
+import Notfound from "./components/Notfound";
+import LayoutProfile from "./components/LayoutProfile";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -87,14 +89,15 @@ function App() {
             ></Route>
           </Route>
         </Routes>
+
         <Routes>
-          <Route path="/not-found" element={<div>404 Not Found</div>}></Route>
+          <Route element={<LayoutProfile />}></Route>
+        </Routes>
+
+        <Routes>
+          <Route path="/not-found" element={<Notfound />}></Route>
         </Routes>
       </Router>
-
-      {/* <Router>
-
-      </Router> */}
     </div>
   );
 }
