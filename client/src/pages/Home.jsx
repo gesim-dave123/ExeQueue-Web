@@ -1,9 +1,4 @@
-import React from "react";
-import { faClipboardList, faUserCog } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Request from "./students/Request";
 import { Link } from "react-router-dom";
-import { ClipboardList, UserCheck } from "lucide-react";
 export default function Home() {
   const handleRedirect = (destination) => {
     setLoading(true);
@@ -46,7 +41,7 @@ export default function Home() {
         {/* Buttons with improved styling and icons */}
         <div className="flex flex-col sm:flex-row mb-4 gap-5 justify-center ">
           {/* Proceed as Staff */}
-          <Link to="/staff-login">
+          <Link to="/staff/login">
             <button
               className="border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
               // onClick={() => handleRedirect("/staff/login")}
@@ -76,14 +71,16 @@ export default function Home() {
         <div className="items-center mb-8 text-center text-gray-500 text-sm sm:text-base">
           <p>
             Already have a queue number?{" "}
-            <span>
-              <button
-                className="cursor-pointer underline "
-                onClick={() => handleRedirect("/student")} // change later to url destination for view queue
-              >
-                Search Queue
-              </button>
-            </span>
+            <Link to="/student/queue/search">
+              <span>
+                <button
+                  className="cursor-pointer underline text-[#1A73E8] hover:text-blue-700 transition-colors"
+                  onClick={() => handleRedirect("/student")} // change later to url destination for view queue
+                >
+                  Search Queue
+                </button>
+              </span>
+            </Link>
           </p>
         </div>
       </div>

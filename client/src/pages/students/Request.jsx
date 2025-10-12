@@ -563,10 +563,10 @@ export default function Request() {
 
             {/* Standard Queue */}
             <motion.div
-              className={`border rounded-xl p-4 md:p-5 cursor-pointer transition-all duration-200 ${
+              className={`border rounded-xl p-4 md:p-5  cursor-pointer transition-all duration-200 ${
                 selectedQueue === "Standard"
                   ? "border-blue-500 bg-blue-50 shadow-sm"
-                  : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                  : "border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50"
               } ${errors.step1 ? "border-red-300" : ""}`}
               onClick={() => handleQueueSelect("Regular")}
               variants={itemVariants}
@@ -575,7 +575,7 @@ export default function Request() {
             >
               <div className="flex items-start">
                 <div
-                  className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center mr-3 md:mr-4 ${
+                  className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center  mr-3 md:mr-4 ${
                     selectedQueue === "Regular"
                       ? "border-blue-500 bg-blue-500 text-white"
                       : "border-gray-400"
@@ -613,7 +613,7 @@ export default function Request() {
               className={`border rounded-xl p-4 md:p-5 cursor-pointer transition-all duration-200 ${
                 selectedQueue === "Priority"
                   ? "border-blue-500 bg-blue-50 shadow-sm"
-                  : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                  : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
               } ${errors.step1 ? "border-red-300" : ""}`}
               onClick={() => handleQueueSelect("Priority")}
               variants={itemVariants}
@@ -871,12 +871,12 @@ export default function Request() {
                     delay: idx * 0.1, // Stagger delay based on index
                     ease: "easeInOut",
                   }}
-                  className={`flex flex-col items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
+                  className={`flex flex-col   items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
                     selectedServices.some(
                       (s) => s.requestTypeId === service.requestTypeId
                     )
-                      ? "border-blue-500 bg-blue-50 shadow-sm"
-                      : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                      ? "border-[#1456AE] bg-[#DDEAFC] shadow-sm"
+                      : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
                   } ${errors.step3 ? "border-red-300" : ""}`}
                   onClick={() => toggleService(service)}
                   whileHover={{ scale: 1.03 }}
@@ -1054,7 +1054,7 @@ export default function Request() {
         <div className="flex justify-between items-center mt-auto pt-4">
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 px-4 md:px-7 py-2 md:py-2.5 rounded-3xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition  text-sm md:text-base cursor-pointer"
+            className="flex items-center gap-2 px-4 md:px-7 py-2 md:py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition  text-sm md:text-base cursor-pointer"
           >
             <ArrowLeft size={16} />
             Back
@@ -1066,14 +1066,14 @@ export default function Request() {
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
             }
-            className={`px-5 md:px-6 py-2 md:py-2.5 rounded-3xl font-medium transition-colors duration-200 text-sm md:text-base ${
+            className={`px-6 md:px-7 py-3 md:py-3.5 rounded-xl font-medium transition-colors duration-200 text-sm md:text-base ${
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer"
+                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer transition-colors"
             }`}
           >
-            {currentStep === 4 ? "Submit Request" : "Continue"}
+            {currentStep === 4 ? "Confirm" : "Continue"}
           </button>
         </div>
 

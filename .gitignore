@@ -13,6 +13,7 @@ pnpm-debug.log*
 .env.production.local
 .env.online
 
+/Documentation
 
 node_modules
 # Keep environment variables out of version control
