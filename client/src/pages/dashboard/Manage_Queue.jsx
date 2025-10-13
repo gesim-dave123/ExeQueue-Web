@@ -7,7 +7,12 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { checkAvailableWindow, getWindowData } from "../../api/staff.api";
+import {
+  assignServiceWindow,
+  checkAvailableWindow,
+  getMyWindowAssignment,
+  getWindowData,
+} from "../../api/staff.api";
 import DynamicModal from "../../components/modal/DynamicModal";
 import { showToast } from "../../components/toast/ShowToast";
 import "../../index.css";
@@ -16,9 +21,15 @@ import {
   formatQueueData,
   formatQueueNextItem,
 } from "../../utils/QueueDetailsFormatter";
+import {
+  AnnounceQueue,
+  handleButtonClick,
+  useAnnounceQueueStates,
+} from "../staffs/Announce_Queue";
 
 import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents.js";
-import { Queue_Type } from "../../constants/queueEnums.js";
+import { getQueueListByStatus } from "../../api/staff.queue.api.js";
+import { Queue_Type, Status } from "../../constants/queueEnums.js";
 
 export default function Manage_Queue() {
   const [deferredOpen, setDeferredOpen] = useState(true);
@@ -27,10 +38,7 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);
-  const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
-  const [lastAnnounceTime, setLastAnnounceTime] = useState(0);
-  const ANNOUNCE_COOLDOWN = 3000;
 
   // Add these states for the new flow
   const [isLoading, setIsLoading] = useState(true);
@@ -40,8 +48,85 @@ export default function Manage_Queue() {
 
   const { socket, isConnected } = useSocket();
   const [loading, setLoading] = useState(false);
+  const {
+    lastAnnounceTime,
+    setLastAnnounceTime,
+    disabledForSeconds,
+    setDisabledForSeconds,
+  } = useAnnounceQueueStates();
 
-  const [queueList, setQueueList] = useState([]);
+  const [queueList, setQueueList] = useState([
+    {
+      queueNo: "R009",
+      studentId: "23921845",
+      name: "John Doe",
+      course: "BSHM- 1st Year",
+      type: "Regular",
+      time: "11:21 AM",
+      requests: [
+        { id: 1, name: "Transmittal Letter", status: "In Progress" },
+        { id: 2, name: "Good Moral Certificate", status: "In Progress" },
+      ],
+    },
+    {
+      queueNo: "R020",
+      studentId: "23219823",
+      name: "Kevin Durant",
+      course: "BSIT - 2nd Year",
+      type: "Regular",
+      time: "9:05 AM",
+      requests: [{ id: 1, name: "Insurance Payment", status: "In Progress" }],
+    },
+    {
+      queueNo: "R021",
+      studentId: "2323003",
+      name: "Stephen Curry",
+      course: "BSA - 3rd Year",
+      type: "Regular",
+      time: "9:07 AM",
+      requests: [
+        { id: 1, name: "Temporary Gate Pass", status: "In Progress" },
+        { id: 2, name: "Good Moral Certificate", status: "In Progress" },
+        { id: 3, name: "Insurance Payment", status: "In Progress" },
+      ],
+    },
+    {
+      queueNo: "R022",
+      studentId: "23844352",
+      name: "Lebron James",
+      course: "BSCS - 4th Year",
+      type: "Regular",
+      time: "9:07 AM",
+      requests: [{ id: 1, name: "Insurance Payment", status: "In Progress" }],
+    },
+    {
+      queueNo: "R023",
+      studentId: "23844362",
+      name: "Dwayne Wade",
+      course: "BSN - 2nd Year",
+      type: "Regular",
+      time: "9:08 AM",
+      requests: [{ id: 1, name: "Transmittal Letter", status: "In Progress" }],
+    },
+    {
+      queueNo: "R022",
+      studentId: "23844352",
+      name: "Lebron James",
+      course: "BSCS - 4th Year",
+      type: "Regular",
+      time: "9:07 AM",
+      requests: [{ id: 1, name: "Insurance Payment", status: "In Progress" }],
+    },
+    {
+      queueNo: "R023",
+      studentId: "23844362",
+      name: "Dwayne Wade",
+      course: "BSN - 2nd Year",
+      type: "Regular",
+      time: "9:08 AM",
+      requests: [{ id: 1, name: "Transmittal Letter", status: "Stalled" }],
+    },
+  ]);
 
   const [deferredQueue, setDeferredQueue] = useState([
     {
@@ -130,14 +215,14 @@ export default function Manage_Queue() {
         Object.keys(queues[0])
       );
     }
-    // Debug: Log all queue types
-    queues.forEach((q, index) => {
-      console.log(
-        `Queue ${index}: id=${q.queueId}, type=${
-          q.type
-        }, upper=${q.type?.toUpperCase()}`
-      );
-    });
+    // // Debug: Log all queue types
+    // queues.forEach((q, index) => {
+    //   console.log(
+    //     `Queue ${index}: id=${q.queueId}, type=${
+    //       q.type
+    //     }, upper=${q.type?.toUpperCase()}`
+    //   );
+    // });
 
     // More flexible filtering with fallbacks
     const priority = queues.filter((q) => {
@@ -152,8 +237,8 @@ export default function Manage_Queue() {
     });
     // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
 
-    console.log("📊 Priority count:", priority.length);
-    console.log("📊 Regular count:", regular.length);
+    // console.log("📊 Priority count:", priority.length);
+    // console.log("📊 Regular count:", regular.length);
 
     const sorted = [];
     let pIndex = 0;
@@ -171,7 +256,7 @@ export default function Manage_Queue() {
       }
     }
 
-    console.log("✅ Final sorted count:", sorted.length);
+    // console.log("✅ Final sorted count:", sorted.length);
     return sorted;
   }, []);
   const handleAddNewQueue = useCallback(
@@ -184,13 +269,13 @@ export default function Manage_Queue() {
           const exists = prev.some(
             (q) => q.queueId === formattedNewQueue.queueId
           );
-          console.log("Prev length:", prev.length, "Exists:", exists);
+          // console.log("Prev length:", prev.length, "Exists:", exists);
 
           if (exists) {
-            console.log(
-              "🟡 Skipped duplicate queue:",
-              formattedNewQueue.queueId
-            );
+            // console.log(
+            //   "🟡 Skipped duplicate queue:",
+            //   formattedNewQueue.queueId
+            // );
             return prev;
           }
 
@@ -198,7 +283,7 @@ export default function Manage_Queue() {
           const merged = [...prev, formattedNewQueue];
           const updated = sortByPriorityPattern(merged);
 
-          console.log("✅ Updating queue list to new length:", updated.length);
+          // console.log("✅ Updating queue list to new length:", updated.length);
           return updated;
         });
 
@@ -220,36 +305,48 @@ export default function Manage_Queue() {
   const handleFormatQueueData = useCallback((queueData) => {
     try {
       const formattedQueue = queueData.map(formatQueueData);
-      const simplifiedQueue = formattedQueue.map(formatQueueNextItem);
-
-      setQueueList(formattedQueue);
-      if (formattedQueue.length > 0) setCurrentQueue(formattedQueue[0]);
+      const sortedQueue = sortByPriorityPattern(formattedQueue);
+      const simplifiedQueue = sortedQueue.map(formatQueueNextItem);
+      setQueueList(sortedQueue);
+      if (sortedQueue.length > 0) setCurrentQueue(sortedQueue[0]);
       setNextInLine(simplifiedQueue);
     } catch (error) {
-      console.error(error);
+      console.error("An error occured while formatting queue details: ", error);
     }
   }, []);
 
-  const fetchQueueList = useCallback(() => {
-    if (!socket || !isConnected) return;
-    setLoading(true);
-    socket.emit("fetch-queue-list");
-  }, [socket, isConnected]);
+  const fetchQueueList = useCallback(async () => {
+    try {
+      setLoading(true);
+      const queueData = await getQueueListByStatus(Status.WAITING);
+      if (queueData && Array.isArray(queueData)) {
+        handleFormatQueueData(queueData);
+      }
+    } catch (error) {
+      console.error("Error in fetching queue data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [handleFormatQueueData]);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
 
     fetchQueueList();
 
+    const handleWindowAssigned = (data) => {
+      console.log("🟢 Window Assigned:", data);
+      showToast(data.message, "info");
+      refreshWindowStatus(); // ⬅️ we'll define this next
+    };
+    const handleWindowRelease = (data) => {
+      console.log("🟡 Window Released:", data);
+      refreshWindowStatus(); // ⬅️ refresh availability here too
+    };
+
     const handleQueueCreated = (newQueueData) => {
       console.log("🔔 QUEUE_CREATED event received:", newQueueData);
       handleAddNewQueue(newQueueData);
-    };
-
-    const handleQueueListData = (data) => {
-      console.log("Raw Queue Data:", data[0]);
-      handleFormatQueueData(data);
-      setLoading(false);
     };
 
     const handleError = (error) => {
@@ -257,26 +354,21 @@ export default function Manage_Queue() {
       setLoading(false);
     };
 
-    socket.on("queue-list-data", handleQueueListData);
+    socket.on("window-assigned", handleWindowAssigned);
+    socket.on("window-released", handleWindowRelease);
+    // socket.on("queue-list-data", handleQueueListData);
     socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
     socket.on("error", handleError);
 
     return () => {
-      socket.off("queue-list-data", handleQueueListData);
+      // socket.off("queue-list-data", handleQueueListData);
+      socket.off("window-assigned", handleWindowAssigned);
+      socket.off("window-released", handleWindowRelease);
       socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
       socket.off("error", handleError);
     };
-  }, [
-    socket,
-    isConnected,
-    fetchQueueList,
-    handleAddNewQueue,
-    handleFormatQueueData,
-  ]);
+  }, [socket, isConnected, fetchQueueList, handleAddNewQueue]);
 
-  useEffect(() => {
-    console.log("🟢 Queue list updated:", queueList);
-  }, [queueList]);
   const handleRefresh = () => {
     // manual refresh
     fetchQueueList();
@@ -290,94 +382,6 @@ export default function Manage_Queue() {
     time: "",
     requests: [],
   });
-
-  // const [nextInLine, setNextInLine] = useState([
-  //   {
-  //     queueNo: "P005",
-  //     studentId: "23219652",
-  //     name: "John Doe",
-  //     course: "BSIT - 4th Year",
-  //     type: "Priority",
-  //     requests: ["Insurance Payment", "Transmittal Letter"],
-  //     time: "9:06 AM",
-  //   },
-  //   {
-  //     queueNo: "R020",
-  //     studentId: "23219823",
-  //     name: "Kevin Durant",
-  //     course: "BSA - 2nd Year",
-  //     type: "Regular",
-  //     requests: [
-  //       "Insurance Payment",
-  //       "Transmittal Letter",
-  //       "Good Moral Certificate",
-  //     ],
-  //     time: "9:05 AM",
-  //   },
-  //   {
-  //     queueNo: "R021",
-  //     studentId: "2323003",
-  //     name: "Stephen Curry",
-  //     course: "BSCS - 3rd Year",
-  //     type: "Regular",
-  //     request: "Temporary Gate Pass",
-  //     time: "9:07 AM",
-  //   },
-  //   {
-  //     queueNo: "R022",
-  //     studentId: "23844352",
-  //     name: "Lebron James",
-  //     course: "BSN - 1st Year",
-  //     type: "Regular",
-  //     request: "Insurance Payment",
-  //     time: "9:07 AM",
-  //   },
-  //   {
-  //     queueNo: "R023",
-  //     studentId: "23844363",
-  //     name: "Chris Paul",
-  //     course: "BSHM - 2nd Year",
-  //     type: "Regular",
-  //     request: "Transmittal Letter",
-  //     time: "9:08 AM",
-  //   },
-  //   {
-  //     queueNo: "R024",
-  //     studentId: "23844364",
-  //     name: "James Harden",
-  //     course: "BSIT - 3rd Year",
-  //     type: "Priority",
-  //     request: "Good Moral Certificate",
-  //     time: "9:09 AM",
-  //   },
-  //   {
-  //     queueNo: "R022",
-  //     studentId: "23844352",
-  //     name: "Lebron James",
-  //     course: "BSN - 1st Year",
-  //     type: "Regular",
-  //     request: "Insurance Payment",
-  //     time: "9:07 AM",
-  //   },
-  //   {
-  //     queueNo: "R023",
-  //     studentId: "23844363",
-  //     name: "Chris Paul",
-  //     course: "BSHM - 2nd Year",
-  //     type: "Regular",
-  //     request: "Transmittal Letter",
-  //     time: "9:08 AM",
-  //   },
-  //   {
-  //     queueNo: "R024",
-  //     studentId: "23844364",
-  //     name: "James Harden",
-  //     course: "BSIT - 3rd Year",
-  //     type: "Regular",
-  //     request: "Good Moral Certificate",
-  //     time: "9:09 AM",
-  //   },
-  // ]);
 
   const filteredNextInLine = (nextInLine || []).filter((item) => {
     const search = searchTerm?.toLowerCase() || "";
@@ -485,116 +489,6 @@ export default function Manage_Queue() {
     setSelectedQueue(null);
   };
 
-  // Voice selection utility
-  const getVoice = (voices) => {
-    const ziraVoice = voices.find(
-      (voice) =>
-        voice.name.toLowerCase().includes("zira") ||
-        voice.name === "Microsoft Zira Desktop" ||
-        voice.name === "Microsoft Zira"
-    );
-
-    if (ziraVoice) {
-      return ziraVoice;
-    }
-
-    const fallbackVoice =
-      voices.find(
-        (voice) => voice.lang.includes("en") && voice.name.includes("Microsoft")
-      ) || voices.find((voice) => voice.lang.includes("en-US"));
-
-    if (fallbackVoice) {
-      return fallbackVoice;
-    }
-
-    throw new Error("No suitable voice found");
-  };
-
-  const configureSpeech = (text, voice) => {
-    const speech = new SpeechSynthesisUtterance();
-    speech.text = text;
-    speech.volume = 1;
-    speech.rate = 0.8;
-    speech.pitch = 1;
-    speech.voice = voice;
-    return speech;
-  };
-
-  const loadVoices = async () => {
-    let voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      await new Promise((resolve) => {
-        window.speechSynthesis.onvoiceschanged = resolve;
-      });
-      voices = window.speechSynthesis.getVoices();
-    }
-    return voices;
-  };
-
-  const speak = (speech) => {
-    return new Promise((resolve, reject) => {
-      speech.onend = resolve;
-      speech.onerror = reject;
-      window.speechSynthesis.speak(speech);
-    });
-  };
-
-  const canAnnounce = () => {
-    const now = Date.now();
-    if (isAnnouncing || now - lastAnnounceTime < ANNOUNCE_COOLDOWN) {
-      return false;
-    }
-
-    if (!("speechSynthesis" in window)) {
-      alert("Speech synthesis not supported in this browser");
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleAnnounce = async () => {
-    if (!canAnnounce()) {
-      return;
-    }
-    const now = Date.now();
-    setIsAnnouncing(true);
-    setLastAnnounceTime(now);
-    try {
-      window.speechSynthesis.cancel();
-      const voices = await loadVoices();
-      const selectedVoice = getVoice(voices);
-      const speechText = `Queue number ${currentQueue.queueNo}, please proceed to Window 1`;
-      const speech = configureSpeech(speechText, selectedVoice);
-      await speak(speech);
-    } catch (error) {
-      console.error("Announcement failed:", error);
-    } finally {
-      setIsAnnouncing(false);
-    }
-  };
-  //For the next queue announcement
-  const handleAnnounceWithParams = async (nextQueueNo) => {
-    if (!canAnnounce()) {
-      return;
-    }
-    const now = Date.now();
-    setIsAnnouncing(true);
-    setLastAnnounceTime(now);
-    try {
-      window.speechSynthesis.cancel();
-      const voices = await loadVoices();
-      const selectedVoice = getVoice(voices);
-      const speechText = `Queue number ${nextQueueNo}, please proceed to Window 1`;
-      const speech = configureSpeech(speechText, selectedVoice);
-      await speak(speech);
-    } catch (error) {
-      console.error("Announcement failed:", error);
-    } finally {
-      setIsAnnouncing(false);
-    }
-  };
-
   const handleCallNext = () => {
     try {
       // Remove current queue from the list
@@ -604,7 +498,6 @@ export default function Manage_Queue() {
         alert("No more people in queue");
         setQueueList([]);
         setNextInLine([]);
-        // Optionally reset current queue to empty state
         setCurrentQueue({
           queueNo: "",
           type: "",
@@ -638,13 +531,12 @@ export default function Manage_Queue() {
       setNextInLine((prev) => prev.slice(1));
 
       // Announce the new current queue
-      handleAnnounceWithParams(nextPerson.queueNo);
+      AnnounceQueue(nextPerson.queueNo);
     } catch (error) {
       console.error("Error in handleCallNext:", error);
       alert("An error occurred while calling the next person");
     }
   };
-
   const handleDonePanel = () => {
     // alert('Queue completed and closed');
     closeActionPanel();
@@ -668,9 +560,61 @@ export default function Manage_Queue() {
   };
 
   useEffect(() => {
-    const loadWindows = async () => {
-      setIsLoading(true);
+    const restoreOrLoad = async () => {
+      if (!socket || !isConnected) return;
 
+      setIsLoading(true);
+      try {
+        const savedWindow = localStorage.getItem("selectedWindow");
+        const currentAssignment = await getMyWindowAssignment();
+
+        // ✅ CASE 1: DB has a valid assignment → restore from DB (fallback if no localStorage)
+        if (currentAssignment?.success && currentAssignment.assignment) {
+          const assignedWindow = currentAssignment.assignment.serviceWindow;
+
+          if (!assignedWindow) {
+            console.warn("⚠️ No serviceWindow found in assignment object.");
+            await loadWindows();
+            return;
+          }
+
+          const restoredWindow = {
+            id: assignedWindow.windowId,
+            name: assignedWindow.windowName,
+            status: "active",
+          };
+
+          // 🧠 Ensure both app state and localStorage are updated
+          setSelectedWindow(restoredWindow);
+          localStorage.setItem(
+            "selectedWindow",
+            JSON.stringify(restoredWindow)
+          );
+
+          // ✅ Join socket room
+          socket.emit("join-window", { windowId: restoredWindow.id });
+          setShowWindowModal(false);
+          showToast(`Resumed managing ${restoredWindow.name}`, "info");
+          return; // stop here (no modal)
+        }
+
+        // ✅ CASE 2: No assignment → load available windows for selection
+        await loadWindows();
+      } catch (err) {
+        console.error("❌ Error restoring or loading windows:", err);
+        showToast("Error restoring window data", "error");
+        await loadWindows();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    restoreOrLoad();
+  }, [socket, isConnected]);
+
+  const loadWindows = async () => {
+    setIsLoading(true);
+    try {
       const windowData = await getWindowData();
       const windows = Array.isArray(windowData)
         ? windowData
@@ -678,34 +622,35 @@ export default function Manage_Queue() {
 
       const windowIds = windows.map((w) => w.windowId);
 
+      // Fetch available windows (no assignment check here)
       const assignedResponse = await checkAvailableWindow(windowIds);
-      console.log("Assigned Response: ", assignedResponse);
-
       const availableWindows = assignedResponse?.availableWindows || [];
-      const assignedWindows = assignedResponse?.assignedIds || [];
-      const formattedWindows = windows.map((w, index) => {
+      const formattedWindows = windows.map((w) => {
         const isAvailable = availableWindows.includes(w.windowId);
-        const firstAvailableId = availableWindows[0]; // first window ID in the available list
+        const firstAvailableId = availableWindows[0]; // ✅ first available window
 
         return {
           id: w.windowId,
           name: w.windowName,
           status:
             isAvailable && w.windowId === firstAvailableId
-              ? "active"
+              ? "active" // only first available window is clickable
               : "inactive",
         };
       });
       setAvailableWindows(formattedWindows);
-
       setShowWindowModal(true);
-    };
-
-    loadWindows();
-  }, []);
+    } catch (error) {
+      console.error("❌ Error loading windows:", error);
+      showToast("Failed to load windows", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Window selection handler
   const handleWindowSelect = async (windowId) => {
+    // setIsLoading(true);
     try {
       const window = availableWindows.find((w) => w.id === windowId);
       if (window.status === "inactive") {
@@ -713,10 +658,30 @@ export default function Manage_Queue() {
         return;
       }
 
-      setSelectedWindow(window);
-      setShowWindowModal(false);
-      showToast(`Managing ${window.name}`, "success");
+      const response = await assignServiceWindow(windowId);
+      if (response?.success) {
+        const window = availableWindows.find((w) => w.id === windowId);
+        const windowData = {
+          id: window.id,
+          name: window.name,
+          status: "active",
+        };
+
+        socket.emit("join-window", { windowId });
+        setSelectedWindow(windowData);
+        localStorage.setItem("selectedWindow", JSON.stringify(windowData));
+
+        setShowWindowModal(false);
+        showToast(`Now managing ${window.name}`, "success");
+      } else if (response?.status === 409) {
+        showToast("Window already taken. Refreshing...", "error");
+        await loadWindows();
+      } else {
+        showToast(response?.message || "Failed to assign window", "error");
+      }
     } catch (error) {
+      console.error("Error selecting window:", error);
+      showToast("Error selecting window", "error");
     } finally {
       setIsLoading(false);
     }
@@ -1062,15 +1027,25 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3  mt-15 justify-end">
+                    <div className="flex gap-3 mt-15 justify-end">
                       <button
-                        onClick={handleCallNext}
+                        onClick={() =>
+                          handleButtonClick(
+                            handleCallNext,
+                            disabledForSeconds,
+                            lastAnnounceTime,
+                            setDisabledForSeconds,
+                            setLastAnnounceTime
+                          )
+                        }
                         disabled={
+                          disabledForSeconds ||
                           currentQueue.requests.some(
                             (request) => request.status === "In Progress"
-                          ) || isAnnouncing
+                          )
                         }
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                          disabledForSeconds ||
                           currentQueue.requests.some(
                             (request) => request.status === "In Progress"
                           )
@@ -1085,31 +1060,27 @@ export default function Manage_Queue() {
                         Call Next
                       </button>
                       <button
-                        onClick={handleAnnounce}
-                        disabled={isAnnouncing}
+                        onClick={() =>
+                          handleButtonClick(
+                            () => AnnounceQueue(currentQueue.queueNo), //Announce the current queue
+                            disabledForSeconds,
+                            lastAnnounceTime,
+                            setDisabledForSeconds,
+                            setLastAnnounceTime
+                          )
+                        }
+                        disabled={disabledForSeconds || queueList.length === 0}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                          isAnnouncing
+                          disabledForSeconds
                             ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
                             : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
                         }`}
                       >
-                        {isAnnouncing ? (
-                          <>
-                            <img
-                              src="/assets/manage_queue/Announcement.png"
-                              alt="Announcing"
-                            />
-                            Announce
-                          </>
-                        ) : (
-                          <>
-                            <img
-                              src="/assets/manage_queue/Announcement.png"
-                              alt="Announce"
-                            />
-                            Announce
-                          </>
-                        )}
+                        <img
+                          src="/assets/manage_queue/Announcement.png"
+                          alt="Announce"
+                        />
+                        Announce
                       </button>
                     </div>
                   </div>

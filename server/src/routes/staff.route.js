@@ -3,7 +3,9 @@ import express from "express";
 import {
   assignServiceWindow,
   checkAvailableWindow,
+  getMyWindowAssignment,
   getServiceWindowDetails,
+  releaseServiceWindow,
 } from "../controllers/staff.controller.js";
 import {
   authenticateToken,
@@ -24,6 +26,20 @@ router.post(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   checkAvailableWindow
+);
+
+router.post(
+  "/window/release",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  releaseServiceWindow
+);
+
+router.get(
+  "/window/get/own",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getMyWindowAssignment
 );
 
 router.get(

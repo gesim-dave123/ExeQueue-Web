@@ -4,6 +4,7 @@ import {
   createQueueSession,
   determineNextQueue,
   getQueueList,
+  getQueueListByStatus, // Add this import
   markQueueStatus,
   restoreSkippedQueue,
   viewQueues,
@@ -16,41 +17,45 @@ import {
 const router = express.Router();
 
 router.get(
-  "/queue/view",
+  "/view",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   viewQueues
 );
 
 router.get(
-  "/queue/next-queue",
+  "/next-queue",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   determineNextQueue
 );
+
 router.post(
-  "/queue/add-session",
+  "/add-session",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL),
   createQueueSession
 );
-router.get("/queue/queues", getQueueList);
-// router.put(
-//   "/window/assign",
-//   authenticateToken,
-//   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-//   assignServiceWindow
-// );
+
+router.get("/queues", getQueueList);
+
+// Add the new route for getting queues by status
+router.get(
+  "/list",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getQueueListByStatus
+);
 
 router.put(
-  "/queue/status",
+  "/status",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   markQueueStatus
 );
 
 router.put(
-  "/queue/restore-skipped",
+  "/restore-skipped",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   restoreSkippedQueue

@@ -1,4 +1,4 @@
-import { Queue_Type, Status } from "@prisma/client";
+import { Queue_Type, Role, Status } from "@prisma/client";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 
@@ -310,6 +310,85 @@ export const getQueueList = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getting queue list: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const getQueueListByStatus = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const { status } = req.query;
+
+    if (!sasStaffId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access, no Staff ID Provided!",
+      });
+    }
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access, Invalid Role!",
+      });
+    }
+
+    if (
+      ![
+        Status.WAITING,
+        Status.CANCELLED,
+        Status.COMPLETED,
+        Status.DEFERRED,
+        Status.IN_SERVICE,
+      ]
+        .toString()
+        .includes(status)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request, Invalid Queue Status!",
+      });
+    }
+    const queueList = await prisma.queue.findMany({
+      where: {
+        isActive: true,
+        session: {
+          sessionDate: todayUTC,
+          isActive: true,
+        },
+        queueStatus: status,
+      },
+      include: {
+        requests: {
+          include: {
+            requestType: true,
+          },
+        },
+      },
+      orderBy: {
+        sequenceNumber: "asc",
+      },
+    });
+
+    // Response handling
+    if (queueList.length === 0) {
+      return res.status(200).json({
+        // 200 for successful empty result
+        success: true,
+        message: `There are no current ${status} queues active today!`,
+        queueList: [],
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Current Queue List that are ${status}`,
+      queueList: queueList,
+    });
+  } catch (error) {
+    console.error("An error occured in get queue list contoller!", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
