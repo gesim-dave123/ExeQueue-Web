@@ -10,6 +10,7 @@ import { showToast } from "./toast/ShowToast";
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
   const [activeItem, setActiveItem] = useState("dashboard");
+  const [hover, setHover] = useState("");
   const [subItem, setSubItem] = useState("");
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 1024);
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1280);
@@ -23,6 +24,7 @@ export default function Sidebar() {
 
   const handleCloseModal = () => {
     setShowLogoutModal(false);
+    setIsProfileOpen(false);
   };
 
   const handleLogout = async () => {
@@ -155,7 +157,7 @@ export default function Sidebar() {
 
     setUserRole(formattedRole);
   }, [user]);
-
+  
   const handleItemClick = (item) => {
     setActiveItem(item);
     if (item === "logout") {
@@ -427,7 +429,7 @@ export default function Sidebar() {
             className={`flex items-center gap-3 rounded-lg transition-colors duration-300 cursor-pointer py-2.5 ${
               isOpen ? "px-2" : "justify-center"
             } ${
-              activeItem === "profile" ? "bg-white   font-medium" : "text-black"
+              activeItem === "profile" ? "bg-[#DDEAFC] text-[#1A73E8] font-medium" : "text-black hover:bg-blue-50"
             }`}
           >
             <div className="w-10 h-15 rounded-full flex items-center justify-center flex-shrink-0">
@@ -435,10 +437,18 @@ export default function Sidebar() {
             </div>
             {isOpen && (
               <div>
-                <div className="text-sm font-medium text-gray-900">
+                <div
+                  className={`text-sm font-medium ${
+                    activeItem === "profile" ? "text-[#1A73E8]" : "text-gray-900"
+                  }`}
+                >
                   {userFullName}
                 </div>
-                <div className="text-xs text-gray-500 text-start">
+                <div
+                  className={`text-xs ${
+                    activeItem === "profile" ? "text-[#1A73E8]" : "text-gray-500"
+                  } text-start`}
+                >
                   {userRole}
                 </div>
               </div>
@@ -447,7 +457,7 @@ export default function Sidebar() {
 
           {/* Dropdown Menu */}
           <AnimatePresence>
-            {isProfileOpen && isOpen && (
+            {isProfileOpen && isOpen &&(
               <motion.div
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -456,80 +466,83 @@ export default function Sidebar() {
                 className="flex flex-col p-1.5 absolute w-[260px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-100px]"
               >
                 {/* New Button at Top */}
-                <div className="relative">
-                  <div
-                    onClick={() => handleItemClick("system-settings")}
-                    className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
-                      ${
-                        activeItem === "system-settings"
-                          ? "bg-[#DDEAFC] font-medium"
-                          : "text-gray-700"
-                      }`}
-                  >
-                    <img
-                      src="/assets/dashboard/system_setting.png"
-                      alt="System Setting"
-                      className="w-5 h-5"
-                    />
-                    <span className="text-sm font-medium">System Settings</span>
-                    <img
-                      src="/assets/dashboard/system_settings_arrow.png"
-                      alt="arrow"
-                      className={`w-5 h-5 ml-auto`}
-                    />
-                  </div>
+                <div
+                  onMouseEnter={() => {setHover("system-settings"), setIsSystemSettingsOpen(true)}}
+                  onMouseLeave={() => {setHover(""), setIsSystemSettingsOpen(false)}}
+                    className="relative">
+                    <div
+                      onClick={() => setActiveItem("system-settings")}
+                      className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
+                        ${
+                          activeItem === "system-settings"
+                            ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
+                            : "text-gray-700 hover:bg-blue-50"
+                        }`}
+                    >
+                      <img
+                        src="/assets/dashboard/system_setting.png"
+                        alt="System Setting"
+                        className="w-5 h-5"
+                      />
+                      <span className="text-sm font-medium">System Settings</span>
+                      <img
+                        src="/assets/dashboard/system_settings_arrow.png"
+                        alt="arrow"
+                        className={`w-5 h-5 ml-auto`}
+                      />
+                    </div>
 
-                  {/* System Settings Dropdown */}
-                  <AnimatePresence>
-                    {isSystemSettingsOpen && isOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-40px] left-full -ml-4"
-                      >
-                        {/* Add your system settings options here */}
-                        <div
-                          onClick={() => handleItemClick("queue-reset")}
-                          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
-                            ${
-                              activeDropdownItem === "queue-reset"
-                                ? "bg-[#DDEAFC]   font-medium"
-                                : "text-gray-700"
-                            }`}
+                    {/* System Settings Dropdown */}
+                    <AnimatePresence>
+                      {isSystemSettingsOpen && isOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-40px] left-full -ml-4"
                         >
-                          {" "}
-                          <img
-                            src="/assets/dashboard/system_settings_dropdown/reset-icon.png"
-                            alt="reset"
-                            className="w-5 h-5"
-                          />
-                          <span className="text-sm font-medium">
-                            Queue Reset Settings
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl mb-1.5">
-                          <img
-                            src="/assets/dashboard/system_settings_dropdown/window.png"
-                            alt="window"
-                            className="w-5 h-5"
-                          />
-                          <span className="text-sm font-medium">
-                            Release Window
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl">
-                          <img
-                            src="/assets/dashboard/system_settings_dropdown/profilee.png"
-                            alt="profile"
-                            className="w-5 h-5"
-                          />
-                          <span className="text-sm font-medium">Profile</span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                          {/* Add your system settings options here */}
+                          <div
+                            onClick={() => handleItemClick("queue-reset")}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
+                              ${
+                                activeDropdownItem === "queue-reset"
+                                  ? "bg-white text-gray-700 font-medium"
+                                  : "text-gray-700"
+                              }`}
+                          >
+                            {" "}
+                            <img
+                              src="/assets/dashboard/system_settings_dropdown/reset-icon.png"
+                              alt="reset"
+                              className="w-5 h-5"
+                            />
+                            <span className="text-sm font-medium">
+                              Queue Reset Settings
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl mb-1.5">
+                            <img
+                              src="/assets/dashboard/system_settings_dropdown/window.png"
+                              alt="window"
+                              className="w-5 h-5"
+                            />
+                            <span className="text-sm font-medium">
+                              Release Window
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl">
+                            <img
+                              src="/assets/dashboard/system_settings_dropdown/profilee.png"
+                              alt="profile"
+                              className="w-5 h-5"
+                            />
+                            <span className="text-sm font-medium">Profile</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Log Out Button at Bottom */}
@@ -538,8 +551,8 @@ export default function Sidebar() {
                   className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer
                   ${
                     activeItem === "logout"
-                      ? "bg-[#DDEAFC]   font-medium"
-                      : "text-gray-700"
+                      ? "bg-[#DDEAFC] text-[#1A73E8]  font-medium"
+                      : "text-gray-700 hover:bg-blue-50"
                   }`}
                 >
                   <img
@@ -579,6 +592,7 @@ export default function Sidebar() {
           </>
         }
       />
+      
     </>
   );
 }
