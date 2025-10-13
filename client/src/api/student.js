@@ -1,88 +1,106 @@
 import axios from 'axios';
 import backendConnection from './backendConnection.js';
 
-
 // Api to submit Queue Details
-export const submitQueueDetail = async (queueDetails) =>{
-  
+export const submitQueueDetail = async (queueDetails) => {
   try {
-    if(!queueDetails) throw new Error("Queue Details is Empty!");
+    if (!queueDetails) throw new Error('Queue Details is Empty!');
 
-    const response = await axios.post(`${backendConnection()}/api/student/queue/generate`, queueDetails,
-    {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      withCredentials: true
-    });
-
-    if(response.data.success && response.status === 201){
-      console.log(response.data)
-      return{
-        success: true,
-        message: "Queue Generated",
-        queueDetails: response.data.queueDetails
+    const response = await axios.post(
+      `${backendConnection()}/api/student/queue/generate`,
+      queueDetails,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
       }
+    );
+
+    if (response.data.success && response.status === 201) {
+      console.log('✅ Queue created successfully', response.data);
+
+      return {
+        success: true,
+        message: 'Queue Generated',
+        data: response.data.data,
+      };
+    } else {
+      console.error('❌ Backend error:', response.data.message);
+      return { success: false, message: response.data.message };
     }
   } catch (error) {
-    console.error("Error in Generating Queue: ", error)
-    return{
-      success: false,
-      message: "Internal Server Error",
-      queueDetails: null
-    }
+    console.error('Error in Generating Queue:', error);
+    return { success: false, message: error.message };
   }
-
-
-
-
-}
+};
 // Api to get Course Data
-export const getCourseData = async () =>{
+export const getCourseData = async () => {
   try {
-    const response = await axios.get(`${backendConnection()}/api/student/courses`, {},
-    {
-      headers:{
-        "Content-Type": "application/json"
-      },
-      withCredentials:true
-    } 
-  );
+    const response = await axios.get(
+      `${backendConnection()}/api/student/courses`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
 
-  if(response.data.success && response.status){
-    return {
-      courseData: response.data.courseData
+    if (response.data.success && response.status) {
+      return {
+        courseData: response.data.courseData,
+      };
     }
-  }
-
   } catch (error) {
-    console.error("Error in Course Api (GET): ", error)
-    showToast(error, "error")
+    console.error('Error in Course Api (GET): ', error);
+    showToast(error, 'error');
   }
-
-}
+};
 // Api to get Request Types
-export const getRequestType = async ()=>{
+export const getRequestType = async () => {
   try {
-    const response = await axios.get(`${backendConnection()}/api/student/requests`, {},
-    {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      withCredentials: true
-    }
-  );
+    const response = await axios.get(
+      `${backendConnection()}/api/student/requests`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
 
-  if(response.data.success && response.status === 200){
-    return{
-      requestType: response.data.requestType
+    if (response.data.success && response.status === 200) {
+      return {
+        requestType: response.data.requestType,
+      };
     }
-  }
-
   } catch (error) {
-    console.error("Error in fetchind request-type data: ",error)
-    showToast(error, "error");
-    
+    console.error('Error in fetching request-type data: ', error);
+    showToast(error, 'error');
   }
+};
 
-}
+export const getQueueDisplay = async (referenceNumber) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/student/queue/${referenceNumber}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response.data.success && response.status === 200) {
+      return {
+        success: true,
+        data: response.data.data,
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching display queue:', error);
+    return { success: false, data: null };
+  }
+};

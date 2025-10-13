@@ -1,9 +1,9 @@
-import { Queue_Type, Status } from "@prisma/client";
-import prisma from "../../prisma/prisma.js";
-import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
-import { SocketEvents } from "../services/enums/SocketEvents.js";
-import generateReferenceNumber from "../services/queue/generateReferenceNumber.js";
-import { formatQueueNumber } from "../services/queue/QueueNumber.js";
+import { Queue_Type, Status } from '@prisma/client';
+import prisma from '../../prisma/prisma.js';
+import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { SocketEvents } from '../services/enums/SocketEvents.js';
+import generateReferenceNumber from '../services/queue/generateReferenceNumber.js';
+import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 // export const generateQueue = async (req, res) => {
 //   try {
 //     const {
@@ -1078,7 +1078,7 @@ import { formatQueueNumber } from "../services/queue/QueueNumber.js";
 
 export const generateQueue = async (req, res) => {
   try {
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const {
       fullName,
       studentId,
@@ -1088,6 +1088,8 @@ export const generateQueue = async (req, res) => {
       queueType,
       serviceRequests,
     } = req.body;
+
+    console.log('🟢 Incoming Queue Data:', req.body);
 
     // =================== VALIDATION ===================
     if (
@@ -1099,7 +1101,7 @@ export const generateQueue = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ success: false, message: "Missing required fields" });
+        .json({ success: false, message: 'Missing required fields' });
     }
 
     // Student ID format (8 digits)
@@ -1107,30 +1109,56 @@ export const generateQueue = async (req, res) => {
     if (!regexId.test(studentId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid student id format. Must be 8 digits.",
+        message: 'Invalid student id format. Must be 8 digits.',
       });
     }
 
     const validYearLevels = [
-      "1st",
-      "2nd",
-      "3rd",
-      "4th",
-      "5th",
-      "6th",
-      "Irregular",
+      '1st',
+      '2nd',
+      '3rd',
+      '4th',
+      '5th',
+      '6th',
+      'Irregular',
+      'First Year',
+      'Second Year',
+      'Third Year',
+      'Fourth Year',
+      'Fifth Year',
+      'Sixth Year',
     ];
+
+    // Normalize year level for internal storage (optional)
+    const normalizedYearLevel = (() => {
+      switch (yearLevel) {
+        case 'First Year':
+          return '1st';
+        case 'Second Year':
+          return '2nd';
+        case 'Third Year':
+          return '3rd';
+        case 'Fourth Year':
+          return '4th';
+        case 'Fifth Year':
+          return '5th';
+        case 'Sixth Year':
+          return '6th';
+        default:
+          return yearLevel;
+      }
+    })();
+
     if (!validYearLevels.includes(yearLevel)) {
       return res
         .status(400)
-        .json({ success: false, message: "Invalid year level" });
+        .json({ success: false, message: 'Invalid year level' });
     }
-
     // Course validation
     const course = await prisma.course.findFirst({
       where: {
-        courseId,
-        courseCode: { equals: courseCode, mode: "insensitive" },
+        courseId: Number(courseId),
+        courseCode: { equals: courseCode, mode: 'insensitive' },
         isActive: true,
       },
       select: { courseId: true, courseCode: true, courseName: true },
@@ -1139,13 +1167,13 @@ export const generateQueue = async (req, res) => {
     if (!course)
       return res
         .status(404)
-        .json({ success: false, message: "Course not found or inactive" });
+        .json({ success: false, message: 'Course not found or inactive' });
 
     // Validate service requests
     if (!serviceRequests?.length)
       return res
         .status(400)
-        .json({ success: false, message: "Service requests are required" });
+        .json({ success: false, message: 'Service requests are required' });
 
     const validQueueTypes = [
       Queue_Type.REGULAR.toLowerCase(),
@@ -1154,7 +1182,7 @@ export const generateQueue = async (req, res) => {
     if (!validQueueTypes.includes(queueType.toLowerCase())) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Queue Type! Must be REGULAR or PRIORITY",
+        message: 'Invalid Queue Type! Must be REGULAR or PRIORITY',
       });
     }
 
@@ -1168,7 +1196,7 @@ export const generateQueue = async (req, res) => {
       async (tx) => {
         const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
           new Date(),
-          "Asia/Manila"
+          'Asia/Manila'
         );
 
         // Advisory lock to prevent session race conditions
@@ -1177,13 +1205,13 @@ export const generateQueue = async (req, res) => {
         // Find or create today's active session
         let session = await tx.queueSession.findFirst({
           where: { sessionDate: todayUTC, isActive: true },
-          orderBy: { sessionNumber: "desc" },
+          orderBy: { sessionNumber: 'desc' },
         });
 
         if (!session) {
           const lastSession = await tx.queueSession.findFirst({
             where: { sessionDate: todayUTC },
-            orderBy: { sessionNumber: "desc" },
+            orderBy: { sessionNumber: 'desc' },
           });
 
           const nextSessionNumber = lastSession
@@ -1206,7 +1234,7 @@ export const generateQueue = async (req, res) => {
 
         // =================== QUEUE NUMBER & AUTO-WRAP ===================
         const counterField =
-          QUEUETYPE === Queue_Type.REGULAR ? "regularCount" : "priorityCount";
+          QUEUETYPE === Queue_Type.REGULAR ? 'regularCount' : 'priorityCount';
 
         const updatedSession = await tx.queueSession.update({
           where: { sessionId: session.sessionId },
@@ -1239,19 +1267,19 @@ export const generateQueue = async (req, res) => {
             studentFullName: fullName,
             courseCode: course.courseCode,
             courseName: course.courseName,
-            yearLevel,
+            yearLevel: normalizedYearLevel,
             queueNumber,
             sequenceNumber: currentCount, // atomic unique
             resetIteration,
             queueType: QUEUETYPE,
-            queueStatus: "WAITING",
+            queueStatus: 'WAITING',
             referenceNumber: refNumber,
             isActive: true,
           },
         });
         console.log(
           `✅ Queue generated: ${formatQueueNumber(
-            QUEUETYPE === Queue_Type.PRIORITY ? "P" : "R",
+            QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R',
             queueNumber
           )} (Seq: ${currentCount}, Session: ${
             session.sessionNumber
@@ -1271,7 +1299,7 @@ export const generateQueue = async (req, res) => {
         const existingIds = existingRequestData.map((r) => r.requestTypeId);
         const invalidIds = reqTypeIds.filter((id) => !existingIds.includes(id));
         if (invalidIds.length > 0)
-          throw new Error(`Request Types Not Found: ${invalidIds.join(", ")}`);
+          throw new Error(`Request Types Not Found: ${invalidIds.join(', ')}`);
 
         const requests = await Promise.all(
           reqTypeIds.map((id) =>
@@ -1279,7 +1307,7 @@ export const generateQueue = async (req, res) => {
               data: {
                 queueId: newQueue.queueId,
                 requestTypeId: id,
-                requestStatus: "WAITING",
+                requestStatus: 'WAITING',
                 isActive: true,
               },
               include: {
@@ -1293,7 +1321,7 @@ export const generateQueue = async (req, res) => {
 
         // =================== FORMAT RESPONSE ===================
         const formattedQueueNumber = formatQueueNumber(
-          QUEUETYPE === Queue_Type.PRIORITY ? "P" : "R",
+          QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R',
           queueNumber
         );
         const newQueueData = {
@@ -1303,7 +1331,7 @@ export const generateQueue = async (req, res) => {
           studentFullName: newQueue.studentFullName,
           courseCode: newQueue.courseCode,
           courseName: newQueue.courseName,
-          yearLevel: newQueue.yearLevel,
+          yearLevel: newQueue.normalizedYearLevel,
           queueNumber: newQueue.queueNumber,
           sequenceNumber: currentCount,
           resetIteration: resetIteration,
@@ -1319,7 +1347,6 @@ export const generateQueue = async (req, res) => {
           createdAt: newQueue.createdAt,
           updatedAt: newQueue.updatedAt,
 
-          // Match the exact structure from fetch
           requests: requests.map((req) => ({
             requestId: req.requestId,
             queueId: newQueue.queueId,
@@ -1328,7 +1355,6 @@ export const generateQueue = async (req, res) => {
             isActive: req.isActive,
             createdAt: req.createdAt,
             updatedAt: req.updatedAt,
-            // Nested requestType object - this is what was missing!
             requestType: {
               requestTypeId: req.requestType.requestTypeId,
               requestName: req.requestType.requestName,
@@ -1339,7 +1365,7 @@ export const generateQueue = async (req, res) => {
         io.emit(SocketEvents.QUEUE_CREATED, newQueueData);
         return res.status(201).json({
           success: true,
-          message: "Queue Generated Successfully!",
+          message: 'Queue Generated Successfully!',
           data: {
             queueDetails: {
               queueId: newQueue.queueId,
@@ -1354,7 +1380,7 @@ export const generateQueue = async (req, res) => {
               studentFullName: newQueue.studentFullName,
               courseCode: newQueue.courseCode,
               courseName: newQueue.courseName,
-              yearLevel: newQueue.yearLevel,
+              yearLevel: newQueue.normalizedYearLevel,
             },
             sessionInfo: {
               sessionId: session.sessionId,
@@ -1374,14 +1400,14 @@ export const generateQueue = async (req, res) => {
       { maxWait: 5000, timeout: 10000 }
     );
   } catch (error) {
-    console.error("Error generating queue:", error);
-    if (error.message?.includes("Request Types Not Found")) {
+    console.error('Error generating queue:', error);
+    if (error.message?.includes('Request Types Not Found')) {
       return res.status(400).json({ success: false, message: error.message });
     }
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -1390,15 +1416,15 @@ export const getQueue = async (req, res) => {
   try {
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
     const { studentId, referenceNumber } = req.query;
-    console.log("Student ID:", studentId);
-    console.log("Reference Number:", referenceNumber);
+    console.log('Student ID:', studentId);
+    console.log('Reference Number:', referenceNumber);
     if (!studentId?.trim() || !referenceNumber?.trim()) {
       return res
         .status(400)
-        .json({ success: false, message: "Missing required fields" });
+        .json({ success: false, message: 'Missing required fields' });
     }
 
     let whereClause = {
@@ -1415,7 +1441,7 @@ export const getQueue = async (req, res) => {
 
     const queues = await prisma.queue.findMany({
       where: whereClause,
-      orderBy: [{ queueSessionId: "desc" }, { queueNumber: "desc" }],
+      orderBy: [{ queueSessionId: 'desc' }, { queueNumber: 'desc' }],
       select: {
         queueId: true,
         studentFullName: true,
@@ -1455,20 +1481,20 @@ export const getQueue = async (req, res) => {
     if (!queues || queues.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No queues found for today",
+        message: 'No queues found for today',
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Queues fetched successfully!",
+      message: 'Queues fetched successfully!',
       queue: queues,
     });
   } catch (error) {
-    console.error("Error fetching queue:", error);
+    console.error('Error fetching queue:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch queue",
+      message: 'Failed to fetch queue',
     });
   }
 };
@@ -1494,20 +1520,20 @@ export const getQueueStatus = async (req, res) => {
     if (!studentQueue) {
       return res
         .status(404)
-        .json({ success: false, message: "Student not found in queue" });
+        .json({ success: false, message: 'Student not found in queue' });
     }
     const aheadCount = await prisma.queue.count({
       where: {
         queueSessionId: studentQueue.queueSessionId,
         queueType: studentQueue.queueType,
         isActive: true,
-        queueStatus: "WAITING",
+        queueStatus: 'WAITING',
         queueNumber: { lt: studentQueue.queueNumber },
       },
     });
     const response = {
       success: true,
-      message: "Queue status received successfully",
+      message: 'Queue status received successfully',
       data: {
         queueNumber: studentQueue.queueNumber,
         position: aheadCount + 1,
@@ -1516,7 +1542,7 @@ export const getQueueStatus = async (req, res) => {
     };
     res.json(response);
   } catch (error) {
-    res.stattus(500).json({ message: "Server error" });
+    res.stattus(500).json({ message: 'Server error' });
   }
 };
 
@@ -1553,13 +1579,13 @@ export const getQueueOverview = async (req, res) => {
     if (!studentQueue)
       return res
         .status(404)
-        .json({ success: false, message: "Student not found in queue" });
-    console.log("Student Queue:", studentQueue);
+        .json({ success: false, message: 'Student not found in queue' });
+    console.log('Student Queue:', studentQueue);
     //Queue Status
     const currentServing = await prisma.queue.findMany({
       where: {
         queueSessionId: studentQueue.queueSessionId,
-        queueStatus: "IN_SERVICE",
+        queueStatus: 'IN_SERVICE',
         isActive: true,
       },
       select: {
@@ -1568,17 +1594,17 @@ export const getQueueOverview = async (req, res) => {
         windowId: true,
       },
     });
-    console.log("Current Serving:", currentServing);
+    console.log('Current Serving:', currentServing);
     //Next in Line(window 1 = all regular)
     const window1Next = await prisma.queue.findFirst({
       where: {
         queueSessionId: studentQueue.queueSessionId,
-        queueStatus: "WAITING",
+        queueStatus: 'WAITING',
         isActive: true,
-        queueType: "REGULAR",
+        queueType: 'REGULAR',
         windowId: 1,
       },
-      orderBy: { queueNumber: "asc" },
+      orderBy: { queueNumber: 'asc' },
       select: {
         queueNumber: true,
         queueType: true,
@@ -1589,12 +1615,12 @@ export const getQueueOverview = async (req, res) => {
     let window2Next = await prisma.queue.findFirst({
       where: {
         queueSessionId: studentQueue.queueSessionId,
-        queueStatus: "WAITING",
+        queueStatus: 'WAITING',
         isActive: true,
-        queueType: "PRIORITY",
+        queueType: 'PRIORITY',
         windowId: 2,
       },
-      orderBy: { queueNumber: "asc" },
+      orderBy: { queueNumber: 'asc' },
       select: {
         queueNumber: true,
         queueType: true,
@@ -1606,12 +1632,12 @@ export const getQueueOverview = async (req, res) => {
       window2Next = await prisma.queue.findFirst({
         where: {
           queueSessionId: studentQueue.queueSessionId,
-          queueStatus: "WAITING",
+          queueStatus: 'WAITING',
           isActive: true,
-          queueType: "REGULAR",
+          queueType: 'REGULAR',
           windowId: 1,
         },
-        orderBy: { queueNumber: "asc" },
+        orderBy: { queueNumber: 'asc' },
         select: {
           queueNumber: true,
           queueType: true,
@@ -1625,16 +1651,16 @@ export const getQueueOverview = async (req, res) => {
       prisma.queue.count({
         where: {
           queueSessionId: studentQueue.queueSessionId,
-          queueStatus: "WAITING",
-          queueType: "REGULAR",
+          queueStatus: 'WAITING',
+          queueType: 'REGULAR',
           isActive: true,
         },
       }),
       prisma.queue.count({
         where: {
           queueSessionId: studentQueue.queueSessionId,
-          queueStatus: "WAITING",
-          queueType: "PRIORITY",
+          queueStatus: 'WAITING',
+          queueType: 'PRIORITY',
           isActive: true,
         },
       }),
@@ -1645,14 +1671,14 @@ export const getQueueOverview = async (req, res) => {
         queueSessionId: studentQueue.queueSessionId,
         queueType: studentQueue.queueType,
         isActive: true,
-        queueStatus: "WAITING",
+        queueStatus: 'WAITING',
         queueNumber: { lt: studentQueue.queueNumber },
       },
     });
 
     return res.json({
       success: true,
-      message: "Queue overview fetched successfully",
+      message: 'Queue overview fetched successfully',
       data: {
         student: {
           fullName: studentQueue.studentFullName,
@@ -1673,10 +1699,10 @@ export const getQueueOverview = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error in Getting Overview:", error);
+    console.error('Error in Getting Overview:', error);
     return res
       .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+      .json({ success: false, message: 'Internal Server Error' });
   }
 };
 
@@ -1685,7 +1711,7 @@ export const getCourseData = async (req, res) => {
   try {
     const courseData = await prisma.course.findMany({
       orderBy: {
-        courseId: "asc",
+        courseId: 'asc',
       },
       select: {
         courseId: true,
@@ -1697,19 +1723,19 @@ export const getCourseData = async (req, res) => {
     if (!courseData)
       return res.status(403).json({
         success: false,
-        message: "Error in fetching course data",
+        message: 'Error in fetching course data',
       });
 
     return res.status(200).json({
       success: true,
-      message: "Course data fetched successfully!",
+      message: 'Course data fetched successfully!',
       courseData: courseData,
     });
   } catch (error) {
-    console.error("Error in Course Route: ", error);
+    console.error('Error in Course Route: ', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -1719,7 +1745,7 @@ export const getRequestTypes = async (req, res) => {
   try {
     const requestTypes = await prisma.requestType.findMany({
       orderBy: {
-        requestTypeId: "asc",
+        requestTypeId: 'asc',
       },
       select: {
         requestTypeId: true,
@@ -1729,19 +1755,101 @@ export const getRequestTypes = async (req, res) => {
     if (!requestTypes)
       return res.status(403).json({
         success: false,
-        message: "An error occurred when fetching request types",
+        message: 'An error occurred when fetching request types',
       });
 
     return res.status(200).json({
       success: true,
-      message: "Successfully fetched reqeust Types",
+      message: 'Successfully fetched reqeust Types',
       requestType: requestTypes,
     });
   } catch (error) {
-    console.error("Error in Request ROute: ", error);
+    console.error('Error in Request ROute: ', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
+    });
+  }
+};
+
+//for Display Queue Number(Prio and Reg) in Figma
+export const getQueueDisplay = async (req, res) => {
+  try {
+    const { referenceNumber } = req.params;
+
+    if (!referenceNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reference number is required',
+      });
+    }
+
+    // Find the queue
+    const queue = await prisma.queue.findUnique({
+      where: { referenceNumber },
+      include: {
+        requests: {
+          where: { isActive: true },
+          select: {
+            requestId: true,
+            requestStatus: true,
+            requestType: {
+              select: { requestName: true },
+            },
+          },
+        },
+        session: {
+          select: {
+            sessionId: true,
+            sessionNumber: true,
+            maxQueueNo: true,
+          },
+        },
+      },
+    });
+
+    if (!queue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Queue not found',
+      });
+    }
+
+    // Build response like generateQueue
+    return res.status(200).json({
+      success: true,
+      message: 'Queue details fetched successfully!',
+      data: {
+        queueDetails: {
+          queueId: queue.queueId,
+          queueNumber: queue.queueNumber,
+          formattedQueueNumber: queue.queueNumber
+            ? queue.queueNumber.toString().padStart(3, '0')
+            : null,
+          queueType: queue.queueType,
+          queueStatus: queue.queueStatus,
+          referenceNumber: queue.referenceNumber,
+          studentId: queue.studentId,
+          studentFullName: queue.studentFullName,
+          courseCode: queue.courseCode,
+          courseName: queue.courseName,
+          yearLevel: queue.yearLevel,
+          createdAt: queue.createdAt,
+
+          sessionInfo: queue.session,
+          serviceRequests: queue.requests.map((r) => ({
+            requestId: r.requestId,
+            requestName: r.requestType.requestName,
+            requestStatus: r.requestStatus,
+          })),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching queue detail:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
     });
   }
 };
