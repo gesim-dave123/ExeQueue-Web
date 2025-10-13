@@ -1,10 +1,10 @@
 import { Role } from '@prisma/client';
 import express from 'express';
-import { getDashboardStatistics } from '../controllers/statistics.controller';
+import { getDashboardStatistics } from '../controllers/statistics.controller.js';
 import {
   authenticateToken,
   authorizeRoles,
-} from '../middlewares/auth.middleware';
+} from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
