@@ -26,6 +26,8 @@ import SearchQueueResult from "./pages/students/SearchQueueResult";
 import Manage_Queue from "./pages/dashboard/Manage_Queue";
 import Analytics from "./pages/dashboard/Analytics";
 import LayoutProfile from "./components/LayoutProfile";
+import Profile from "./pages/dashboard/Profile";
+import ReleaseWindow from "./pages/dashboard/ReleaseWindow";
 
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
@@ -116,13 +118,36 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Route>
 
+          <Route
+            path="staff"
+            element={
+              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+                <LayoutProfile />
+              </ProtectedRoute>
+            }
+          >
+            <Route
+              path="profile-settings"
+              element={
+                <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            ></Route>
+
+            <Route
+              path="release-window"
+              element={
+                <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+                  <ReleaseWindow />
+                </ProtectedRoute>
+              }
+            ></Route>
+          </Route>
+        </Route>
         {/* Catch-all Not Found */}
         <Route path="/not-found" element={<NotFound />} />
-      </Routes>
-      <Routes>
-        <Route element={<LayoutProfile />}></Route>
       </Routes>
     </Router>
   );
