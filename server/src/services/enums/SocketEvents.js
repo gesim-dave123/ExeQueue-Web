@@ -46,3 +46,24 @@ export const QueueListEvents = Object.freeze({
   REFRESH: "queue-list-refresh",
   UPDATED: "queue-list-updated",
 });
+
+export const WindowEvents = Object.freeze({
+  // Window Management Events
+  ASSIGN_WINDOW: "assign:window",
+  WINDOW_ASSIGNED: "window:assigned",
+  WINDOW_OCCUPIED: "window:occupied",
+  WINDOW_RELEASED: "window:released",
+  RELEASE_WINDOW: "release:window",
+});
+
+export const QueueActions = Object.freeze({
+  // Queue Actions
+  TAKE_QUEUE: "take:queue",
+  QUEUE_TAKEN: "queue:taken",
+  UPDATE_QUEUE_STATUS: "update:queue:status",
+  QUEUE_STATUS_UPDATED: "queue:status:updated",
+  COMPLETE_QUEUE: "complete:queue",
+  QUEUE_COMPLETED: "queue:completed",
+  DEFER_QUEUE: "defer:queue",
+  QUEUE_DEFERRED: "queue:deferred",
+});
