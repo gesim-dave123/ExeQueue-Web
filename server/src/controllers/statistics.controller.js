@@ -25,7 +25,7 @@ export const getDashboardStatistics = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: 'No active session found. Dashboard empty.',
-        data: {
+        dashboardOverview: {
           session: null,
           windows: [
             { windowNo: 1, currentServing: null, nextInLine: [] },
@@ -184,7 +184,7 @@ export const getDashboardStatistics = async (req, res) => {
       }),
     ]);
 
-    const data = {
+    const dashboardOverview = {
       session: {
         sessionId: sessionId,
         sessionNumber: activeSession.sessionNumber,
@@ -201,7 +201,7 @@ export const getDashboardStatistics = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: 'Dashboard statistics fetched successfully',
-      data,
+      dashboardOverview,
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
