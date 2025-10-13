@@ -1,6 +1,7 @@
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { getShiftTag } from "../../utils/shiftTag.js";
+import { WindowEvents } from "../services/enums/SocketEvents.js";
 
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
@@ -8,108 +9,79 @@ const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
 );
 
 export const assignServiceWindow = async (req, res) => {
+  const { sasStaffId } = req.user;
+  const { windowId } = req.body;
+  const io = req.app.get("io");
+  const shift = getShiftTag();
+
   try {
-    const { sasStaffId } = req.user;
-    const { windowId } = req.body;
-
-    if (!sasStaffId) {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized! No Staff Id provided!",
-      });
-    }
-
-    if (!windowId || windowId === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Window ID is required",
-      });
-    }
-
-    const shift = getShiftTag();
-
-    // ✅ CHECK: Is window already assigned in this shift?
-    const existingAssignment = await prisma.windowAssignment.findFirst({
-      where: {
-        windowId: windowId,
-        shiftTag: shift,
-        releasedAt: null,
-      },
-      include: {
-        staff: {
-          select: {
-            sasStaffId: true,
-            firstName: true,
-            lastName: true,
+    const result = await prisma.$transaction(async (tx) => {
+      // Step 1: Check again within transaction
+      const existing = await tx.windowAssignment.findFirst({
+        where: { windowId, shiftTag: shift, releasedAt: null },
+        include: {
+          staff: {
+            select: { sasStaffId: true, firstName: true, lastName: true },
           },
         },
-      },
-    });
-
-    // If someone else has it, reject
-    if (existingAssignment && existingAssignment.sasStaffId !== sasStaffId) {
-      return res.status(409).json({
-        success: false,
-        message: `Window ${windowId} is currently assigned to ${existingAssignment.staff.firstName} ${existingAssignment.staff.lastName}`,
-        occupiedBy: existingAssignment.staff,
       });
-    }
 
-    // If this staff already has it, return existing assignment
-    if (existingAssignment && existingAssignment.sasStaffId === sasStaffId) {
-      return res.status(200).json({
-        success: true,
-        message: "You are already assigned to this window",
-        assignment: existingAssignment,
-        isExisting: true,
-      });
-    }
+      if (existing && existing.sasStaffId !== sasStaffId) {
+        throw new Error(
+          `Window ${windowId} already assigned to ${existing.staff.firstName} ${existing.staff.lastName}`
+        );
+      }
 
-    // Release any previous window this staff had
-    await prisma.windowAssignment.updateMany({
-      where: {
-        sasStaffId: sasStaffId,
-        shiftTag: shift,
-        releasedAt: null,
-      },
-      data: {
-        releasedAt: new Date(),
-      },
-    });
+      // Step 2: Release any previous active assignment by this staff
+      // await tx.windowAssignment.updateMany({
+      //   where: { sasStaffId, shiftTag: shift, releasedAt: null },
+      //   data: { releasedAt: new Date() },
+      // });
 
-    // Create new assignment
-    const assignment = await prisma.windowAssignment.create({
-      data: {
-        sasStaffId: sasStaffId,
-        windowId: windowId,
-        shiftTag: shift,
-      },
-      include: {
-        staff: {
-          select: {
-            sasStaffId: true,
-            firstName: true,
-            lastName: true,
+      // Step 3: Assign new window
+      const assignment = await tx.windowAssignment.create({
+        data: { sasStaffId, windowId, shiftTag: shift },
+        include: {
+          staff: {
+            select: { sasStaffId: true, firstName: true, lastName: true },
           },
+          serviceWindow: true,
         },
-        window: true,
-      },
+      });
+
+      return assignment;
     });
 
-    if (!assignment) {
-      return res.status(500).json({
-        success: false,
-        message: "Error occurred when assigning staff",
-      });
-    }
+    io.emit(WindowEvents.WINDOW_ASSIGNED, {
+      windowId,
+      staff: result.staff,
+      message: `Window ${windowId} assigned to ${result.staff.firstName}`,
+    });
 
     return res.status(201).json({
       success: true,
-      message: `Successfully assigned to ${assignment.window.windowName}`,
-      assignment: assignment,
+      message: `Successfully assigned to ${result.serviceWindow.windowName}`,
+      assignment: result,
     });
   } catch (error) {
     console.error("❌ Error assigning staff:", error);
+
+    // Handle unique constraint (window already taken)
+    if (error.code === "P2002" && error.meta?.target?.includes("windowId")) {
+      return res.status(409).json({
+        success: false,
+        message: "This window is already assigned to another staff.",
+      });
+    }
+
+    // 🧩 Handle custom logic errors (like already assigned)
+    if (error.message.includes("already assigned")) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
@@ -122,29 +94,26 @@ export const releaseServiceWindow = async (req, res) => {
   try {
     const { sasStaffId } = req.user;
     const shift = getShiftTag();
+    const io = req.app.get("io");
 
-    const updated = await prisma.windowAssignment.updateMany({
-      where: {
-        sasStaffId: sasStaffId,
-        shiftTag: shift,
-        releasedAt: null,
-      },
-      data: {
-        releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-      },
+    const released = await prisma.windowAssignment.updateMany({
+      where: { sasStaffId, shiftTag: shift, releasedAt: null },
+      data: { releasedAt: new Date() },
     });
 
-    if (updated.count === 0) {
+    if (released.count === 0) {
       return res.status(404).json({
         success: false,
         message: "No active window assignment found",
       });
     }
 
+    // ✅ Notify others in real time
+    io.emit(WindowEvents.RELEASE_WINDOW, { sasStaffId, shift });
+
     return res.status(200).json({
       success: true,
       message: "Window released successfully",
-      releasedCount: updated.count,
     });
   } catch (error) {
     console.error("❌ Error releasing window:", error);
@@ -167,7 +136,7 @@ export const getMyWindowAssignment = async (req, res) => {
         releasedAt: null,
       },
       include: {
-        window: true,
+        serviceWindow: true,
         staff: {
           select: {
             sasStaffId: true,
@@ -223,7 +192,7 @@ export const checkAvailableWindow = async (req, res) => {
     const assignedWindows = await prisma.windowAssignment.findMany({
       where: {
         windowId: { in: windowIds },
-        // releasedAt: null,
+        releasedAt: null,
         // // assignedAt: todayUTC,
         shiftTag: shift.toString(),
       },
