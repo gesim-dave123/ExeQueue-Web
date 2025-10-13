@@ -26,4 +26,35 @@ export const getRequestTypes = async(req,res) =>{
       message: "Internal Server Error!"
     })
   }
+
+  
+}
+
+export const getServiceWindows = async(req,res) =>{
+  try {
+    const serviceWindows = await prisma.serviceWindow.findMany({
+      orderBy:{
+        windowId: "asc"
+      },
+      select:{
+        windowId: true,
+        windowName: true,
+      }
+    })
+    if(!serviceWindows) return res.status(403).json({success: false, message: "An error occurred when fetching service windows"})
+
+    return res.status(200).json({
+      success: true,
+      message: "Successfully fetched service windows",
+      serviceWindows: serviceWindows
+    })
+
+  } catch (error) {
+    console.error("Error in Service Window Route: ", error)
+    return res.status(500).json({
+      success:false,
+      message: "Internal Server Error!"
+    })
+  }
+
 }

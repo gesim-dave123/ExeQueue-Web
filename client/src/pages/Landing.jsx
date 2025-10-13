@@ -20,7 +20,7 @@ export default function Landing() {
         id="about"
         className="min-h-screen flex items-center justify-center "
       >
-        <AboutUs />
+        <Help />
       </section>
 
       {/* Help Section */}
@@ -28,7 +28,7 @@ export default function Landing() {
         id="help"
         className="min-h-[80vh] flex items-center justify-center "
       >
-        <Help />
+        <AboutUs />
       </section>
       <section
         id="faq"
