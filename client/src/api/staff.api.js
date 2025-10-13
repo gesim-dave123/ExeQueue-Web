@@ -48,3 +48,55 @@ export const checkAvailableWindow = async (windowIds) => {
     return null;
   }
 };
+export const assignServiceWindow = async (windowId) => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/staff/window/assign`,
+      { windowId },
+      { withCredentials: true } // Include auth cookies/tokens
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error assigning window:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to assign window",
+    };
+  }
+};
+
+export const releaseServiceWindow = async () => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/staff/window/release`,
+      {},
+      { withCredentials: true }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error releasing window:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to release window",
+    };
+  }
+};
+
+export const getMyWindowAssignment = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/window/get/own`,
+      {
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error getting window assignment:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to get assignment",
+      assignment: null,
+    };
+  }
+};
