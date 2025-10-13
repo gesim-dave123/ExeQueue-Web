@@ -7,7 +7,12 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { checkAvailableWindow, getWindowData } from "../../api/staff.api";
+import {
+  assignServiceWindow,
+  checkAvailableWindow,
+  getMyWindowAssignment,
+  getWindowData,
+} from "../../api/staff.api";
 import DynamicModal from "../../components/modal/DynamicModal";
 import { showToast } from "../../components/toast/ShowToast";
 import "../../index.css";
@@ -300,10 +305,10 @@ export default function Manage_Queue() {
   const handleFormatQueueData = useCallback((queueData) => {
     try {
       const formattedQueue = queueData.map(formatQueueData);
-      const simplifiedQueue = formattedQueue.map(formatQueueNextItem);
-
-      setQueueList(formattedQueue);
-      if (formattedQueue.length > 0) setCurrentQueue(formattedQueue[0]);
+      const sortedQueue = sortByPriorityPattern(formattedQueue);
+      const simplifiedQueue = sortedQueue.map(formatQueueNextItem);
+      setQueueList(sortedQueue);
+      if (sortedQueue.length > 0) setCurrentQueue(sortedQueue[0]);
       setNextInLine(simplifiedQueue);
     } catch (error) {
       console.error("An error occured while formatting queue details: ", error);
@@ -329,6 +334,16 @@ export default function Manage_Queue() {
 
     fetchQueueList();
 
+    const handleWindowAssigned = (data) => {
+      console.log("🟢 Window Assigned:", data);
+      showToast(data.message, "info");
+      refreshWindowStatus(); // ⬅️ we'll define this next
+    };
+    const handleWindowRelease = (data) => {
+      console.log("🟡 Window Released:", data);
+      refreshWindowStatus(); // ⬅️ refresh availability here too
+    };
+
     const handleQueueCreated = (newQueueData) => {
       console.log("🔔 QUEUE_CREATED event received:", newQueueData);
       handleAddNewQueue(newQueueData);
@@ -339,20 +354,21 @@ export default function Manage_Queue() {
       setLoading(false);
     };
 
+    socket.on("window-assigned", handleWindowAssigned);
+    socket.on("window-released", handleWindowRelease);
     // socket.on("queue-list-data", handleQueueListData);
     socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
     socket.on("error", handleError);
 
     return () => {
       // socket.off("queue-list-data", handleQueueListData);
+      socket.off("window-assigned", handleWindowAssigned);
+      socket.off("window-released", handleWindowRelease);
       socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
       socket.off("error", handleError);
     };
   }, [socket, isConnected, fetchQueueList, handleAddNewQueue]);
 
-  // useEffect(() => {
-  //   console.log("🟢 Queue list updated:", queueList);
-  // }, [queueList]);
   const handleRefresh = () => {
     // manual refresh
     fetchQueueList();
@@ -544,9 +560,61 @@ export default function Manage_Queue() {
   };
 
   useEffect(() => {
-    const loadWindows = async () => {
-      setIsLoading(true);
+    const restoreOrLoad = async () => {
+      if (!socket || !isConnected) return;
 
+      setIsLoading(true);
+      try {
+        const savedWindow = localStorage.getItem("selectedWindow");
+        const currentAssignment = await getMyWindowAssignment();
+
+        // ✅ CASE 1: DB has a valid assignment → restore from DB (fallback if no localStorage)
+        if (currentAssignment?.success && currentAssignment.assignment) {
+          const assignedWindow = currentAssignment.assignment.serviceWindow;
+
+          if (!assignedWindow) {
+            console.warn("⚠️ No serviceWindow found in assignment object.");
+            await loadWindows();
+            return;
+          }
+
+          const restoredWindow = {
+            id: assignedWindow.windowId,
+            name: assignedWindow.windowName,
+            status: "active",
+          };
+
+          // 🧠 Ensure both app state and localStorage are updated
+          setSelectedWindow(restoredWindow);
+          localStorage.setItem(
+            "selectedWindow",
+            JSON.stringify(restoredWindow)
+          );
+
+          // ✅ Join socket room
+          socket.emit("join-window", { windowId: restoredWindow.id });
+          setShowWindowModal(false);
+          showToast(`Resumed managing ${restoredWindow.name}`, "info");
+          return; // stop here (no modal)
+        }
+
+        // ✅ CASE 2: No assignment → load available windows for selection
+        await loadWindows();
+      } catch (err) {
+        console.error("❌ Error restoring or loading windows:", err);
+        showToast("Error restoring window data", "error");
+        await loadWindows();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    restoreOrLoad();
+  }, [socket, isConnected]);
+
+  const loadWindows = async () => {
+    setIsLoading(true);
+    try {
       const windowData = await getWindowData();
       const windows = Array.isArray(windowData)
         ? windowData
@@ -554,34 +622,35 @@ export default function Manage_Queue() {
 
       const windowIds = windows.map((w) => w.windowId);
 
+      // Fetch available windows (no assignment check here)
       const assignedResponse = await checkAvailableWindow(windowIds);
-      console.log("Assigned Response: ", assignedResponse);
-
       const availableWindows = assignedResponse?.availableWindows || [];
-      const assignedWindows = assignedResponse?.assignedIds || [];
-      const formattedWindows = windows.map((w, index) => {
+      const formattedWindows = windows.map((w) => {
         const isAvailable = availableWindows.includes(w.windowId);
-        const firstAvailableId = availableWindows[0]; // first window ID in the available list
+        const firstAvailableId = availableWindows[0]; // ✅ first available window
 
         return {
           id: w.windowId,
           name: w.windowName,
           status:
             isAvailable && w.windowId === firstAvailableId
-              ? "active"
+              ? "active" // only first available window is clickable
               : "inactive",
         };
       });
       setAvailableWindows(formattedWindows);
-
       setShowWindowModal(true);
-    };
-
-    loadWindows();
-  }, []);
+    } catch (error) {
+      console.error("❌ Error loading windows:", error);
+      showToast("Failed to load windows", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Window selection handler
   const handleWindowSelect = async (windowId) => {
+    // setIsLoading(true);
     try {
       const window = availableWindows.find((w) => w.id === windowId);
       if (window.status === "inactive") {
@@ -589,10 +658,30 @@ export default function Manage_Queue() {
         return;
       }
 
-      setSelectedWindow(window);
-      setShowWindowModal(false);
-      showToast(`Managing ${window.name}`, "success");
+      const response = await assignServiceWindow(windowId);
+      if (response?.success) {
+        const window = availableWindows.find((w) => w.id === windowId);
+        const windowData = {
+          id: window.id,
+          name: window.name,
+          status: "active",
+        };
+
+        socket.emit("join-window", { windowId });
+        setSelectedWindow(windowData);
+        localStorage.setItem("selectedWindow", JSON.stringify(windowData));
+
+        setShowWindowModal(false);
+        showToast(`Now managing ${window.name}`, "success");
+      } else if (response?.status === 409) {
+        showToast("Window already taken. Refreshing...", "error");
+        await loadWindows();
+      } else {
+        showToast(response?.message || "Failed to assign window", "error");
+      }
     } catch (error) {
+      console.error("Error selecting window:", error);
+      showToast("Error selecting window", "error");
     } finally {
       setIsLoading(false);
     }
