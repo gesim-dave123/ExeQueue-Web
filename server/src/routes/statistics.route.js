@@ -1,6 +1,6 @@
 import { Role } from '@prisma/client';
 import express from 'express';
-import { getDashboardStatistics } from '../controllers/statistics.controller.js';
+import { getDashboardStatistics,getAnalyticsData } from '../controllers/statistics.controller.js';
 import {
   authenticateToken,
   authorizeRoles,
@@ -14,5 +14,11 @@ router.get(
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   getDashboardStatistics
 );
+router.get("/analytics", authenticateToken,
+  authorizeRoles(Role.PERSONNEL),
+  getAnalyticsData);
+
+
+
 
 export default router;

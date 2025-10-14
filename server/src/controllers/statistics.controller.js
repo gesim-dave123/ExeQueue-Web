@@ -210,3 +210,172 @@ export const getDashboardStatistics = async (req, res) => {
       .json({ success: false, message: 'Internal Server Error' });
   }
 };
+
+export const getAnalyticsData = async (req, res) => {
+  try {
+    // Calculate week range (Monday to Saturday)
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
+    monday.setHours(0, 0, 0, 0);
+
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+    saturday.setHours(23, 59, 59, 999);
+
+    console.log(' Week Range:', monday, 'to', saturday);
+
+    // ---  FETCH QUEUES PER DAY ---
+    const allQueues = await prisma.queueSession.findMany({
+      where: {
+        createdAt: {
+          gte: monday,
+          lte: saturday,
+        },
+      },
+      select: {
+        regularCount: true,
+        priorityCount: true,
+        sessionDate: true,
+      },
+    });
+
+    console.log('Found queues:', allQueues.length);
+
+    const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const getDayName = (date) => {
+      const dayIndex = date.getDay();
+      const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+      return DAYS_OF_WEEK[adjustedIndex];
+    };
+
+    // Combine queues by date
+    const combineQueuesByDate = Object.values(
+      allQueues.reduce((acc, curr) => {
+        const day = getDayName(new Date(curr.sessionDate));
+
+        if (!acc[day]) {
+          acc[day] = {
+            day: day,
+            totalRegular: 0,
+            totalPriority: 0,
+          };
+        }
+
+        acc[day].totalRegular += curr.regularCount || 0;
+        acc[day].totalPriority += curr.priorityCount || 0;
+
+        return acc;
+      }, {})
+    );
+
+    //  Ensure all days are included (bisag walay data)
+    const queueSummary = DAYS_OF_WEEK.map(day => {
+      const existing = combineQueuesByDate.find(item => item.day === day);
+      return existing || {
+        day,
+        totalRegular: 0,
+        totalPriority: 0,
+        totalQueues: 0,
+      };
+    }).map(item => ({
+      day: item.day,
+      totalRegular: item.totalRegular,
+      totalPriority: item.totalPriority,
+      totalQueues: item.totalRegular + item.totalPriority,
+    }));
+
+    console.log('Queue Summary:', queueSummary);
+
+    // --- FETCH REQUESTS OF THE WEEK ---
+    const allRequestOfTheWeek = await prisma.request.findMany({
+      where: {
+        createdAt: {
+          gte: monday,
+          lte: saturday,
+        },
+        requestStatus: 'COMPLETED', 
+      },
+      select: {
+        createdAt: true,
+        requestTypeId: true,
+      },
+    });
+
+    console.log('Found requests:', allRequestOfTheWeek.length);
+
+    // --- GROUP REQUESTS BY REQUEST TYPE (Weekly total) ---
+    const requestTypeMap = new Map();
+    allRequestOfTheWeek.forEach(req => {
+      const typeId = req.requestTypeId;
+      requestTypeMap.set(typeId, (requestTypeMap.get(typeId) || 0) + 1);
+    });
+
+    // Fetch request type names
+    const requestTypes = await prisma.requestType.findMany();
+    const typeIdToNameMap = new Map(requestTypes.map(rt => [rt.requestTypeId, rt.requestName]));
+
+    const weeklyRequestBreakdown = Array.from(requestTypeMap, ([typeId, total]) => ({
+      requestTypeId: typeId,
+      requestType: typeIdToNameMap.get(typeId) || 'Unknown',
+      total,
+    }));
+
+    console.log('Weekly Request Breakdown:', weeklyRequestBreakdown);
+
+    // --- GROUP REQUESTS BY DAY AND REQUEST TYPE ---
+    const dayRequestMap = {};
+    DAYS_OF_WEEK.forEach(day => {
+      dayRequestMap[day] = {};
+    });
+
+    allRequestOfTheWeek.forEach(req => {
+      const day = getDayName(new Date(req.createdAt));
+      const typeId = req.requestTypeId;
+      const typeName = typeIdToNameMap.get(typeId) || 'Unknown';
+
+      if (!dayRequestMap[day][typeName]) {
+        dayRequestMap[day][typeName] = 0;
+      }
+      dayRequestMap[day][typeName] += 1;
+    });
+
+    // Convert to array format
+    const everydayRequestBreakdown = [];
+    Object.entries(dayRequestMap).forEach(([day, requests]) => {
+      Object.entries(requests).forEach(([requestType, requestTotal]) => {
+        everydayRequestBreakdown.push({
+          day,
+          requestType,
+          requestTotal,
+        });
+      });
+    });
+
+    console.log('Everyday Request Breakdown:', everydayRequestBreakdown);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Successfully fetched analytics data',
+      weekRange: {
+        from: monday,
+        to: saturday,
+      },
+      data: {
+        queueSummary,
+        weeklyRequestBreakdown,
+        everydayRequestBreakdown,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching analytics data:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: error.message,
+    });
+  }
+};
+

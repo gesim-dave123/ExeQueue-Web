@@ -215,3 +215,6 @@ vite.config.ts.timestamp-*
 #package Lock json
 # package-lock.json
 # package.json
+
+#Functions that popultae the database
+populateDatabase.js
