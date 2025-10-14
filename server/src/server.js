@@ -53,8 +53,15 @@ const io = new Server(server, {
   },
 });
 
+export { io };
+
 io.on('connection', (socket) => {
   console.log('🟢 New client connected:', socket.id);
+
+  socket.on('join-analytics-room', () => {
+    socket.join('analytics-room');
+    console.log(`Socket ${socket.id} joined analytics-room`);
+  });
 
   // Example: join private student room
   socket.on('join-student-room', (studentId) => {
