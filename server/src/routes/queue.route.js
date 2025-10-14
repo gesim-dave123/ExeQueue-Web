@@ -1,6 +1,7 @@
 import { Role } from "@prisma/client";
 import express from "express";
 import {
+  callNextQueue,
   createQueueSession,
   determineNextQueue,
   getQueueList,
@@ -45,6 +46,13 @@ router.get(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   getQueueListByStatus
+);
+
+router.put(
+  "/call/:windowId",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  callNextQueue
 );
 
 router.put(
