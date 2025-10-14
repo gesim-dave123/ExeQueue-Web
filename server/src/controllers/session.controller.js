@@ -1,5 +1,5 @@
 import prisma from '../../prisma/prisma.js';
-import DateAndTimeFormatter from '../utils/DateAndTimeFormatter.js';
+import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
 export const closeActiveSession = async () => {
   const activeSession = await prisma.queueSession.findFirst({
     where: { isActive: true },
