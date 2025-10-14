@@ -44,6 +44,7 @@ export const formatQueueData = (queueData) => {
     ).padStart(3, "0")}`,
     type: queueData.queueType === "PRIORITY" ? "Priority" : "Regular",
     queueStatus: queueData.queueStatus,
+    windowId: queueData.windowId,
     name: queueData.studentFullName,
     studentId: queueData.studentId,
     course: `${queueData.courseCode} - ${queueData.yearLevel} Year`,
