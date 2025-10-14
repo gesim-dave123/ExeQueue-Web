@@ -31,6 +31,7 @@ import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents
 import {
   getCallNextQueue,
   getQueueListByStatus,
+  setRequestStatus,
 } from "../../api/staff.queue.api.js";
 import { Queue_Type, Status } from "../../constants/queueEnums.js";
 import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
@@ -508,27 +509,68 @@ export default function Manage_Queue() {
       (item.studentId?.toLowerCase() || "").includes(search)
     );
   });
-  const handleRequestAction = (requestId, action) => {
-    setCurrentQueue((prev) => ({
-      ...prev,
-      requests: prev.requests.map((req) => {
-        if (req.id === requestId) {
-          switch (action) {
-            case "done":
-              return { ...req, status: "Completed" };
-            case "stall":
-              return { ...req, status: "Stalled" };
-            case "skip":
-              return { ...req, status: "Skipped" };
-            case "cancel":
-              return { ...req, status: "Cancelled" };
-            default:
-              return req;
-          }
-        }
-        return req;
-      }),
-    }));
+  const normalizeStatusForDisplay = (backendStatus) => {
+    const displayMap = {
+      COMPLETED: "Completed",
+      STALLED: "Stalled",
+      SKIPPED: "Skipped",
+      CANCELLED: "Cancelled",
+      PENDING: "Pending",
+      IN_PROGRESS: "In Progress",
+    };
+
+    return displayMap[backendStatus] || backendStatus; // Fallback to original if not found
+  };
+  const handleRequestAction = async (requestId, action) => {
+    if (!currentQueue) return;
+    console.log("Request ID", requestId);
+    console.log("Action", action);
+    // Map frontend action to backend status
+    const statusMap = {
+      done: "Completed",
+      stall: "Stalled",
+      skip: "Skipped",
+      cancel: "Cancelled",
+    };
+    const requestStatus = statusMap[action];
+    if (!requestStatus) return;
+
+    try {
+      // Call backend to update request status + queue state
+      console.log("Current Queue Window: ", currentQueue);
+      const response = await setRequestStatus(
+        currentQueue.queueId,
+        requestId,
+        requestStatus,
+        currentQueue.windowId
+      );
+
+      if (!response.success) {
+        showToast(response.message || "Failed to update request", "error");
+        return;
+      }
+      const updatedRequest = response.data.requestUpdate;
+
+      // Update only the changed request in the existing array
+      const updatedRequests = currentQueue.requests.map((req) =>
+        req.id === updatedRequest.requestId
+          ? {
+              ...req,
+              status: normalizeStatusForDisplay(updatedRequest.requestStatus),
+            } // only update the status
+          : req
+      );
+
+      setCurrentQueue({
+        ...currentQueue,
+        requests: updatedRequests,
+      });
+      // setCurrentQueue(formatQueueData(response.data.queueUpdate));
+      showToast(`Request updated to ${requestStatus}`, "success");
+    } catch (error) {
+      console.error("Error updating request:", error);
+      showToast("Error updating request", "error");
+    }
   };
 
   const handleDeferredAction = (requestId, action) => {
