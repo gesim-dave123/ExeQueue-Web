@@ -118,34 +118,16 @@ function App() {
               </ProtectedRoute>
             }
           />
-
-          <Route
-            path="staff"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <LayoutProfile />
-              </ProtectedRoute>
-            }
-          >
-            <Route
-              path="profile-settings"
-              element={
-                <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            ></Route>
-
-            <Route
-              path="release-window"
-              element={
-                <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                  <ReleaseWindow />
-                </ProtectedRoute>
-              }
-            ></Route>
-          </Route>
         </Route>
+
+        <Route element={<LayoutProfile />}>
+          <Route path="/profile/profile-settings" element={<Profile />}></Route>
+          <Route
+            path="/profile/release-window"
+            element={<ReleaseWindow />}
+          ></Route>
+        </Route>
+
         {/* Catch-all Not Found */}
         <Route path="/not-found" element={<NotFound />} />
       </Routes>

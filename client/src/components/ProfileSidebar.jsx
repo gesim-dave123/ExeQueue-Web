@@ -19,7 +19,7 @@ export default function ProfileSidebar() {
       key: "release",
       label: "Release Window",
       icon: <Monitor size={20} />,
-      path: "/staff/release-window",
+      path: "/profile/release-window",
     },
     {
       key: "profile",
@@ -31,7 +31,7 @@ export default function ProfileSidebar() {
           className="w-6 h-6"
         />
       ),
-      path: "/staff/profile",
+      path: "/profile/profile-settings",
     },
   ];
 
