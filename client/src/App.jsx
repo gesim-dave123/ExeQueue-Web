@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
@@ -28,6 +29,7 @@ import Analytics from "./pages/dashboard/Analytics";
 import LayoutProfile from "./components/LayoutProfile";
 import Profile from "./pages/dashboard/Profile";
 import ReleaseWindow from "./pages/dashboard/ReleaseWindow";
+import Reset_Queue from "./pages/dashboard/Reset_Queue";
 
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
@@ -146,6 +148,23 @@ function App() {
             ></Route>
           </Route>
         </Route>
+
+      <Route path="/staff"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+              <LayoutProfile />
+            </ProtectedRoute>
+          }>
+            <Route
+                path="reset-queue"
+                element={
+                  <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+                    <Reset_Queue />
+                  </ProtectedRoute>
+                }
+            />
+        </Route>
+
         {/* Catch-all Not Found */}
         <Route path="/not-found" element={<NotFound />} />
       </Routes>
