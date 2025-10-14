@@ -54,3 +54,26 @@ export const getQueueListByStatus = async (status) => {
     return [];
   }
 };
+
+export const getCallNextQueue = async (windowId) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/queue/call/${windowId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response?.status === 200 && response?.data.success) {
+      return response.data;
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("An error occured in Call Next Api", error);
+    return response.data.error;
+  }
+};
