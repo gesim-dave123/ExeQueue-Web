@@ -1853,3 +1853,87 @@ export const getQueueDisplay = async (req, res) => {
     });
   }
 };
+
+export const searchQueue = async (req, res) => {
+  try {
+    const { studentId, referenceNumber } = req.query;
+
+    if (!studentId && !referenceNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide either studentId or referenceNumber',
+      });
+    }
+
+    let queues;
+
+    if (referenceNumber) {
+      const queue = await prisma.queue.findUnique({
+        where: {
+          referenceNumber,
+          isActive: true,
+        },
+        include: {
+          session: true,
+          serviceWindow: true,
+          requests: {
+            where: { isActive: true },
+            include: {
+              requestType: true,
+            },
+          },
+        },
+      });
+
+      if (!queue) {
+        return res.status(404).json({
+          success: false,
+          message: 'Queue not found with this reference number',
+        });
+      }
+
+      queues = [queue];
+    }
+    // Search by studentId (returns multiple queues)
+    else if (studentId) {
+      queues = await prisma.queue.findMany({
+        where: {
+          studentId,
+          isActive: true,
+        },
+        include: {
+          session: true,
+          serviceWindow: true,
+          requests: {
+            where: { isActive: true },
+            include: {
+              requestType: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (queues.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No queues found for this student ID',
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: queues,
+    });
+  } catch (error) {
+    console.error('Error searching queue:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error searching queue',
+      error: error.message,
+    });
+  }
+};

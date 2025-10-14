@@ -104,3 +104,25 @@ export const getQueueDisplay = async (referenceNumber) => {
     return { success: false, data: null };
   }
 };
+
+export const searchQueue = async (searchParams) => {
+  try {
+    // searchParams should be { studentId: '2021-12345' } or { referenceNumber: '20251013-S1-R-0009' }
+    const queryString = new URLSearchParams(searchParams).toString();
+
+    const response = await axios.get(
+      `${backendConnection()}/api/student/queue/search?${queryString}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error('Error searching queue:', error);
+    throw error;
+  }
+};
