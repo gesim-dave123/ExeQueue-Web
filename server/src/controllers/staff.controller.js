@@ -679,6 +679,7 @@ export const getWorkingScholars = async (req, res) => {
         isActive: true,
       },
       select: {
+        sasStaffId: true,
         username: true,
         firstName: true,
         lastName: true,
@@ -688,7 +689,10 @@ export const getWorkingScholars = async (req, res) => {
     });
 
     const formattedScholars = workingScholars.map((scholar) => ({
+      sasStaffId: scholar.sasStaffId,
       username: scholar.username,
+      firstName: scholar.firstName,
+      lastName: scholar.lastName,
       name: `${scholar.firstName} ${scholar.lastName}`,
       role: scholar.role,
       email: scholar.email,
@@ -981,7 +985,7 @@ export const softDeleteWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Account soft-deleted successfully.',
+      message: 'Account deleted successfully.',
       data: {
         sasStaffId: deleted.sasStaffId,
         username: deleted.username,
