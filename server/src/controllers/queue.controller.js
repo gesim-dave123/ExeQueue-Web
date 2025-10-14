@@ -424,42 +424,151 @@ export const getRequest = async (req, res) => {
 export const setRequestStatus = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
-    const { requestId, requestStatus, status } = req.body;
-    if (!serviceWindowId || serviceWindowId === null) {
-      return res.status(403).json({
+    const isIntegerParam = (val) => /^\d+$/.test(val);
+
+    const {
+      queueId: queueIdStr,
+      requestId: requestIdStr,
+      windowId: windowIdStr,
+      requestStatus,
+    } = req.params;
+
+    console.log("Request Params:", req.params);
+    if (
+      !isIntegerParam(queueIdStr) ||
+      !isIntegerParam(requestIdStr) ||
+      !isIntegerParam(windowIdStr)
+    ) {
+      return res.status(400).json({
         success: false,
         message:
-          "No window assigned detected! Please assign which window you are using first.",
+          "Invalid param(s). queueId, requestId, and windowId must be integers.",
       });
     }
 
+    // Convert to numbers after validation
+    const queueId = Number(queueIdStr);
+    const requestId = Number(requestIdStr);
+    const windowId = Number(windowIdStr);
+
+    // 🔒 Role validation
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access — invalid role.",
+      });
+    }
+
+    if (!requestStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required filed. (requestStatus)",
+      });
+    }
+
+    // 🧩 Validate request data
+    if (isNaN(queueId) || isNaN(requestId) || isNaN(windowId)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid Type, should receive a number but recieved a string (queueId, requestId, windowId).",
+      });
+    }
+
+    // ✅ Allow only supported statuses
     if (
       ![
         Status.STALLED,
         Status.COMPLETED,
         Status.CANCELLED,
         Status.SKIPPED,
-      ].includes(status)
+      ].includes(requestStatus.toUpperCase())
     ) {
-      return res.status(400).json(
-        {
-          success: false,
-          message: "Invalid status update. Please provide a valid status.",
-        }``
-      );
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status update. Please provide a valid status.",
+      });
     }
 
-    const requestTransaction = await prisma.$transaction(async (tx) => {
-      const request = await tx.request.update({
-        where: {
-          requestId: requestId,
-          requestStatus: { not: Status.COMPLETED },
-          isActive: true,
-        },
-        data: {},
-      });
+    // ✅ Verify this window owns this queue
+    const queueCheck = await prisma.queue.findUnique({
+      where: { queueId },
+      select: { windowId: true, queueStatus: true },
     });
-  } catch (error) {}
+
+    if (!queueCheck) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found.",
+      });
+    }
+
+    if (Number(queueCheck.windowId) !== Number(windowId)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This queue is being served by another window. Cannot update request status.",
+      });
+    }
+
+    if (queueCheck.queueStatus !== Status.IN_SERVICE) {
+      return res.status(400).json({
+        success: false,
+        message: "Queue must be in service to update request status.",
+      });
+    }
+
+    // 🧠 Transaction: update request + fetch queue for context
+    const updated = await prisma.$transaction(async (tx) => {
+      const requestUpdate = await tx.request.update({
+        where: { requestId },
+        data: {
+          requestStatus: mapToStatus(requestStatus),
+          processedBy: sasStaffId,
+          processedAt:
+            mapToStatus(requestStatus) === Status.COMPLETED
+              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              : null,
+          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+      });
+
+      const queueUpdate = await tx.queue.findUnique({
+        where: { queueId },
+        include: {
+          requests: {
+            include: { requestType: true },
+          },
+        },
+      });
+
+      return { requestUpdate, queueUpdate };
+    });
+
+    // // ✅ Emit real-time event to all windows with action type
+    // io.emit("QUEUE_UPDATED", {
+    //   action: "REQUEST_STATUS_UPDATED",
+    //   queueId: updated.queueUpdate.queueId,
+    //   queueStatus: updated.queueUpdate.queueStatus,
+    //   updatedQueue: updated.queueUpdate,
+    //   updatedRequest: updated.requestUpdate,
+    //   windowId: windowId,
+    // });
+
+    // ✅ Respond to the calling client
+    return res.status(200).json({
+      success: true,
+      message: `Request ${requestId} set to ${requestStatus}`,
+      data: updated,
+    });
+  } catch (error) {
+    console.error("❌ Error setting request status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
 };
 export const createQueueSession = async (req, res) => {
   // const { sessionName } = req.body;
@@ -777,3 +886,15 @@ export const callNextQueue = async (req, res) => {
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
+
+function mapToStatus(statusString) {
+  const statusMap = {
+    completed: Status.COMPLETED,
+    stalled: Status.STALLED,
+    skipped: Status.SKIPPED,
+    cancelled: Status.CANCELLED,
+    // Add other status mappings as needed
+  };
+
+  return statusMap[statusString.toLowerCase()];
+}
