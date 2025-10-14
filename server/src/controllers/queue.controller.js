@@ -1,6 +1,7 @@
 import { Queue_Type, Role, Status } from "@prisma/client";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { QueueActions } from "../services/enums/SocketEvents.js";
 
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
@@ -356,6 +357,7 @@ export const getQueueListByStatus = async (req, res) => {
         isActive: true,
         session: {
           sessionDate: todayUTC,
+          isServing: true,
           isActive: true,
         },
         queueStatus: status,
@@ -367,9 +369,14 @@ export const getQueueListByStatus = async (req, res) => {
           },
         },
       },
-      orderBy: {
-        sequenceNumber: "asc",
-      },
+      orderBy: [
+        {
+          session: {
+            sessionNumber: "asc",
+          },
+        },
+        { sequenceNumber: "asc" },
+      ],
     });
 
     // Response handling
@@ -676,5 +683,97 @@ export const restoreSkippedQueue = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Internal server error." });
+  }
+};
+
+export const callNextQueue = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+    const { sasStaffId, role } = req.user;
+    const windowId = parseInt(req.params.windowId, 10);
+
+    if (isNaN(windowId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid windowId parameter",
+      });
+    }
+
+    const todayUTC = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Get the next available queue
+
+      const nextQueue = await tx.queue.findFirst({
+        where: {
+          queueStatus: Status.WAITING,
+          session: {
+            isActive: true,
+            isServing: true,
+          },
+        },
+        orderBy: [
+          {
+            session: {
+              sessionNumber: "asc",
+            },
+          },
+          { sequenceNumber: "asc" },
+        ],
+      });
+
+      if (!nextQueue) return null;
+
+      // Attempt to update it — only if it’s still WAITING
+      const updated = await tx.queue.updateMany({
+        where: {
+          queueId: nextQueue.queueId,
+          queueStatus: Status.WAITING, // 👈 prevents double claim
+        },
+        data: {
+          queueStatus: Status.IN_SERVICE,
+          windowId,
+          servedByStaff: sasStaffId,
+          calledAt: new Date(),
+        },
+      });
+
+      // If updateMany returned 0, someone else already took it
+      if (updated.count === 0) return "TAKEN";
+
+      // Return the fully updated queue record
+      return await tx.queue.findUnique({
+        where: { queueId: nextQueue.queueId },
+        include: { requests: { include: { requestType: true } } },
+      });
+    });
+
+    if (result === null)
+      return res
+        .status(404)
+        .json({ success: false, message: "No queues left." });
+
+    if (result === "TAKEN")
+      return res.status(409).json({
+        success: false,
+        message: "Queue already taken by another window.",
+      });
+
+    // Broadcast: remove this queue globally
+    io.emit(QueueActions.QUEUE_TAKEN, { queueId: result.queueId });
+    io.to(`window:${result.windowId}`).emit(QueueActions.TAKE_QUEUE, result);
+
+    console.log(
+      `📣 Window ${windowId} called next queue ${result.referenceNumber}`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Now serving ${result.referenceNumber}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("❌ Error in callNextQueue:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
