@@ -120,49 +120,32 @@ function App() {
               </ProtectedRoute>
             }
           />
-
-          <Route
-            path="staff"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <LayoutProfile />
-              </ProtectedRoute>
-            }
-          >
-            <Route
-              path="profile-settings"
-              element={
-                <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            ></Route>
-
-            <Route
-              path="release-window"
-              element={
-                <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                  <ReleaseWindow />
-                </ProtectedRoute>
-              }
-            ></Route>
-          </Route>
         </Route>
 
-      <Route path="/staff"
+        <Route element={<LayoutProfile />}>
+          <Route path="/profile/profile-settings" element={<Profile />}></Route>
+          <Route
+            path="/profile/release-window"
+            element={<ReleaseWindow />}
+          ></Route>
+        </Route>
+
+        <Route
+          path="/staff"
           element={
             <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
               <LayoutProfile />
             </ProtectedRoute>
-          }>
-            <Route
-                path="reset-queue"
-                element={
-                  <ProtectedRoute allowedRoles={["PERSONNEL"]}>
-                    <Reset_Queue />
-                  </ProtectedRoute>
-                }
-            />
+          }
+        >
+          <Route
+            path="reset-queue"
+            element={
+              <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+                <Reset_Queue />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         {/* Catch-all Not Found */}

@@ -21,12 +21,10 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full ">
       {/* Main Content */}
-      <div className="flex-1 pr-10 pt-2 xl:pt-17 md:px-8 lg:px-10 transition-all duration-300 ease-in-out">
+      <div className="flex-1 pr-8 xl:pt-17 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
         {/* Header */}
-        <div className="mb-6 mt-4 text-left">
-          <h2 className="text-2xl md:text-3xl font-semibold text-[#202124]">
-            Dashboard
-          </h2>
+        <div className="mb-6 text-left">
+          <h2 className="text-3xl font-semibold text-[#202124]">Dashboard</h2>
           <span className="text-sm md:text-base text-[#686969]">
             Your Queue Management Snapshot
           </span>

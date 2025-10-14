@@ -7,7 +7,7 @@ export default function Profile() {
         <h1 className="text-2xl sm:text-3xl xl:text-4xl font-semibold">
           Profile
         </h1>
-        <span className="text-sm sm:text-base xl:text-lg text-[#686969] mb-6 xl:mb-20">
+        <span className="text-sm sm:text-base xl:text-lg text-[#686969] mb-6 xl:mb-10">
           Manage your profile and account settings
         </span>
 
