@@ -8,6 +8,7 @@ import {
   getQueueListByStatus, // Add this import
   markQueueStatus,
   restoreSkippedQueue,
+  setRequestStatus,
   viewQueues,
 } from "../controllers/queue.controller.js";
 import {
@@ -53,6 +54,13 @@ router.put(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   callNextQueue
+);
+
+router.put(
+  "/set/status/:queueId/:requestId/:requestStatus/:windowId",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  setRequestStatus
 );
 
 router.put(
