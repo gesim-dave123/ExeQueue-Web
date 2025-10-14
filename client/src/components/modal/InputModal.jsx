@@ -40,32 +40,42 @@ export default function InputModal({
 
     setFormData({
       ...formData,
-      [name]: value, // No processing, just store as-is
+      [name]: value,
     });
 
-    // Clear password error when user types
+    // Clear password errors when user types
     if (name === 'newPassword' || name === 'confirmPassword') {
       setLocalErrors({
         ...localErrors,
+        passwordLength: '',
         passwordMatch: '',
       });
     }
   };
 
   const handleSubmit = () => {
-    // Check if passwords match (only if password fields are filled)
+    // Clear previous errors
+    setLocalErrors({});
+    let errors = {};
+
+    // Check password length (only if password fields are filled)
     if (formData.newPassword || formData.confirmPassword) {
+      if (formData.newPassword.length < 8) {
+        errors.passwordLength =
+          'Your password must be at least 8 characters long.';
+      }
+
+      // Check if passwords match
       if (formData.newPassword !== formData.confirmPassword) {
-        setLocalErrors({
-          ...localErrors,
-          passwordMatch: 'Passwords do not match',
-        });
-        return;
+        errors.passwordMatch = 'Passwords do not match';
       }
     }
 
-    // Clear local errors
-    setLocalErrors({});
+    // If there are errors, set them and don't submit
+    if (Object.keys(errors).length > 0) {
+      setLocalErrors(errors);
+      return;
+    }
 
     // Call onSave callback - it will handle validation
     if (onSave) {
@@ -220,11 +230,16 @@ export default function InputModal({
                 onChange={handleChange}
                 placeholder="New Password"
                 className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordMatch
+                  localErrors.passwordLength
                     ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
                     : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                 }`}
               />
+              {localErrors.passwordLength && (
+                <p className="text-red-500 text-xs mt-1">
+                  {localErrors.passwordLength}
+                </p>
+              )}
             </div>
 
             {/* Confirm Password */}
