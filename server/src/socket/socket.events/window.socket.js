@@ -35,7 +35,18 @@ export const windowSocket = (io, socket) => {
       message: `Now serving ${queueNo}`,
     });
   });
+  socket.on(QueueActions.QUEUE_STATUS_UPDATED, (data) => {
+    const { windowId, queue } = data;
+    console.log(
+      `📣 Queue ${queue.referenceNumber} updated to ${queue.queueStatus}`
+    );
 
+    // Emit to the window that owns it
+    io.to(`window:${windowId}`).emit(
+      `queue:${queue.queueStatus.toLowerCase()}`,
+      queue
+    );
+  });
   socket.on("disconnect", () => {
     console.log("❌ Window disconnected:", socket.id);
   });
