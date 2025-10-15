@@ -38,6 +38,9 @@ export const getQueueListByStatus = async (status) => {
       `${backendConnection()}/api/staff/queue/list?status=${status}`,
       {},
       {
+        headers: {
+          "Content-Type": "application/type",
+        },
         withCredentials: true,
       }
     );
@@ -104,5 +107,77 @@ export const setRequestStatus = async (
   } catch (error) {
     console.error("An error occured in Call Next Api", error);
     return response.data.error;
+  }
+};
+
+export const markQueueStatus = async (queueId, windowId) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/queue/${queueId}/${windowId}/mark-status`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    console.log("Response from api", response);
+    if (response?.status === 200 && response?.data.success) {
+      return response.data;
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("An error occured in Mark Queue Status Api", error);
+    return response.data.error;
+  }
+};
+
+export const currentServedQueue = async (windowId) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/queue/current/${windowId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    console.log("Response from api", response);
+    if (response?.status === 200 && response?.data.success) {
+      return response.data;
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("An error occured in Current Served Queue Api", error);
+    return response.data.error;
+  }
+};
+
+export const getQueueByStatusAndWindow = async (status, windowId) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/queue/list?status=${status}&windowId=${windowId}`,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/type",
+        },
+        withCredentials: true,
+      }
+    );
+    // Correct condition - check if status is 200 AND success is true
+    if (response.status === 200 && response.data.success) {
+      console.log("Queue List:", response.data.queueList);
+      return response.data.queueList;
+    } else {
+      console.warn("Unexpected response format:", response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error("Error in getQueueListByStatus:", error);
+    return [];
   }
 };
