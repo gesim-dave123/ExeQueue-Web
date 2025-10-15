@@ -31,6 +31,7 @@ import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents
 import {
   currentServedQueue,
   getCallNextQueue,
+  getDeferredQueue,
   getQueueListByStatus,
   markQueueStatus,
   setRequestStatus,
@@ -145,81 +146,8 @@ export default function Manage_Queue() {
     },
   ]);
 
-  const [deferredQueue, setDeferredQueue] = useState([
-    {
-      queueNo: "R009",
-      studentId: "23921845",
-      name: "John Doe",
-      course: "BSHM- 1st Year",
-      type: "Regular",
-      time: "11:21 AM",
-      requests: [
-        { id: 1, name: "Transmittal Letter", status: "Stalled" },
-        { id: 2, name: "Good Moral Certificate", status: "Stalled" },
-      ],
-    },
-    {
-      queueNo: "R020",
-      studentId: "23219823",
-      name: "Kevin Durant",
-      course: "BSIT - 2nd Year",
-      type: "Regular",
-      time: "9:05 AM",
-      requests: [{ id: 1, name: "Insurance Payment", status: "Stalled" }],
-    },
-    {
-      queueNo: "R021",
-      studentId: "2323003",
-      name: "Stephen Curry",
-      course: "BSA - 3rd Year",
-      type: "Regular",
-      time: "9:07 AM",
-      requests: [
-        { id: 1, name: "Temporary Gate Pass", status: "Stalled" },
-        { id: 2, name: "Good Moral Certificate", status: "Stalled" },
-        { id: 3, name: "Insurance Payment", status: "Stalled" },
-      ],
-    },
-    {
-      queueNo: "R022",
-      studentId: "23844352",
-      name: "Lebron James",
-      course: "BSCS - 4th Year",
-      type: "Regular",
-      time: "9:07 AM",
-      requests: [{ id: 1, name: "Insurance Payment", status: "Stalled" }],
-    },
-    {
-      queueNo: "R023",
-      studentId: "23844362",
-      name: "Dwayne Wade",
-      course: "BSN - 2nd Year",
-      type: "Regular",
-      time: "9:08 AM",
-      requests: [{ id: 1, name: "Transmittal Letter", status: "Stalled" }],
-    },
-    {
-      queueNo: "R022",
-      studentId: "23844352",
-      name: "Lebron James",
-      course: "BSCS - 4th Year",
-      type: "Regular",
-      time: "9:07 AM",
-      requests: [{ id: 1, name: "Insurance Payment", status: "Stalled" }],
-    },
-    {
-      queueNo: "R023",
-      studentId: "23844362",
-      name: "Dwayne Wade",
-      course: "BSN - 2nd Year",
-      type: "Regular",
-      time: "9:08 AM",
-      requests: [{ id: 1, name: "Transmittal Letter", status: "Stalled" }],
-    },
-  ]);
-  // const [nextInLine, setNextInLine] = useState([]);
+  const [deferredQueue, setDeferredQueue] = useState([]);
   const nextInLine = (globalQueueList || []).slice(0); // Everything except first
-  // console.log("Next In Line:", nextInLine);
   const sortByPriorityPattern = useCallback((queues) => {
     console.log("🔢 Starting sort with queues:", queues?.length);
 
@@ -342,16 +270,26 @@ export default function Manage_Queue() {
 
     try {
       setLoading(true);
-      const queueData = await getQueueListByStatus(Status.WAITING);
 
-      if (queueData && Array.isArray(queueData)) {
-        const formattedQueue = queueData.map(formatQueueData);
+      // ✅ Fetch WAITING queues (global - no windowId)
+      const waitingQueues = await getQueueListByStatus(Status.WAITING);
+
+      if (waitingQueues && Array.isArray(waitingQueues)) {
+        const formattedQueue = waitingQueues.map(formatQueueData);
         const sortedQueue = sortByPriorityPattern(formattedQueue);
-        // console.log("Sorted Queue:", sortedQueue);
-        // ✅ Set the GLOBAL shared list
         setGlobalQueueList(sortedQueue);
+      }
 
-        // ✅ DO NOT set currentQueue here - wait for window to claim one
+      // ✅ Fetch DEFERRED queues (window-specific)
+      const deferredQueues = await getDeferredQueue(
+        Status.DEFERRED,
+        selectedWindow.id
+      );
+      console.log("Defered Response Api", deferredQueues);
+      if (deferredQueues && Array.isArray(deferredQueues)) {
+        const formattedDeferred = deferredQueues.map(formatQueueData);
+        console.log("Deferred Queue", formattedDeferred);
+        setDeferredQueue(formattedDeferred);
       }
     } catch (error) {
       console.error("Error in fetching queue data:", error);
@@ -377,7 +315,6 @@ export default function Manage_Queue() {
     // setCurrentQueue(null);
   }, []);
 
-  // Handle errors from socket
   const handleError = useCallback((error) => {
     console.error("❌ Socket Error:", error);
     showToast("Connection error occurred", "error");
@@ -395,7 +332,7 @@ export default function Manage_Queue() {
 
     // When new queue is created globally
     const handleQueueCreated = (newQueueData) => {
-      console.log("🔔 QUEUE_CREATED event received:", newQueueData);
+      // console.log("🔔 QUEUE_CREATED event received:", newQueueData);
 
       const formattedNewQueue = formatQueueData(newQueueData);
 
@@ -411,20 +348,39 @@ export default function Manage_Queue() {
         return updated;
       });
     };
-
-    const handleQueueAssigned = (data) => {
-      console.log("✅ Queue assigned to this window:", data);
-      showToast(data.message, "success");
-    };
-
     // 🟡 When another window removes someone from the global queue
     const handleQueueRemoved = (data) => {
-      console.log("🚫 Queue removed globally:", data.queueNo);
       setGlobalQueueList((prev) =>
         prev.filter((q) => q.queueId !== data.queueId)
       );
     };
-    socket.on(QueueActions.TAKE_QUEUE, handleQueueAssigned);
+
+    // 🟢 When a queue is deferred
+    const handleDeferredQueue = (queue) => {
+      // console.log("🟡 Queue deferred:", queue);
+      const formattedDeferredQueue = formatQueueData(queue);
+      showToast(
+        `Queue (${formattedDeferredQueue.queueNo}) deferred`,
+        "warning"
+      );
+
+      // Add to deferred list if not already there
+      setDeferredQueue((prev) => {
+        const exists = prev.some(
+          (q) => q.queueId === formattedDeferredQueue.queueId
+        );
+        if (exists) return prev;
+        return [...prev, formattedDeferredQueue];
+      });
+      // setGlobalQueueList((prev) =>
+      //   prev.filter((q) => q.queueId !== formattedDeferredQueue.queueId)
+      // );
+    };
+
+    socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
+    // socket.on("queue:cancelled", handleCancelledQueue);
+    // socket.on(QueueActions.QUEUE_COMPLETED, handleCompletedQueue);
+    // socket.on(QueueActions.TAKE_QUEUE, handleQueueAssigned);
     socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
     socket.on(QueueActions.QUEUE_TAKEN, handleQueueRemoved);
     socket.on(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
@@ -432,7 +388,10 @@ export default function Manage_Queue() {
     socket.on("error", handleError);
 
     return () => {
-      socket.off(QueueActions.TAKE_QUEUE, handleQueueAssigned);
+      socket.off(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
+      // socket.off(QueueActions.QUEUE_CANCELLED, handleCancelledQueue);
+      // socket.off(QueueActions.QUEUE_COMPLETED, handleCompletedQueue);
+      // socket.off(QueueActions.TAKE_QUEUE, handleQueueAssigned);
       socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
       socket.off(QueueActions.QUEUE_TAKEN, handleQueueRemoved);
       socket.off(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
@@ -448,7 +407,12 @@ export default function Manage_Queue() {
     handleWindowRelease,
     handleError,
   ]);
-
+  useEffect(() => {
+    if (socket && isConnected && selectedWindow?.id) {
+      console.log(`🪟 Joining socket room: window:${selectedWindow.id}`);
+      socket.emit("WINDOW_JOINED", { windowId: selectedWindow.id });
+    }
+  }, [socket, isConnected, selectedWindow?.id]);
   const handleRefresh = () => {
     // manual refresh
     fetchQueueList();
@@ -751,7 +715,9 @@ export default function Manage_Queue() {
           );
 
           // ✅ Join socket room
-          socket.emit("join-window", { windowId: restoredWindow.id });
+          socket.emit(WindowEvents.WINDOW_JOINED, {
+            windowId: restoredWindow.id,
+          });
           setShowWindowModal(false);
           showToast(`Resumed managing ${restoredWindow.name}`, "info");
 
@@ -849,7 +815,7 @@ export default function Manage_Queue() {
           status: "active",
         };
 
-        socket.emit("join-window", { windowId });
+        socket.emit(WindowEvents.WINDOW_JOINED, { windowId });
         setSelectedWindow(windowData);
         localStorage.setItem("selectedWindow", JSON.stringify(windowData));
 
