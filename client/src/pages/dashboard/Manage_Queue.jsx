@@ -29,8 +29,10 @@ import {
 
 import { SocketEvents } from "../../../../server/src/services/enums/SocketEvents.js";
 import {
+  currentServedQueue,
   getCallNextQueue,
   getQueueListByStatus,
+  markQueueStatus,
   setRequestStatus,
 } from "../../api/staff.queue.api.js";
 import { Queue_Type, Status } from "../../constants/queueEnums.js";
@@ -54,7 +56,15 @@ export default function Manage_Queue() {
   const { socket, isConnected } = useSocket();
   const [loading, setLoading] = useState(false);
   const [globalQueueList, setGlobalQueueList] = useState([]);
-  const [currentQueue, setCurrentQueue] = useState(null);
+  const [currentQueue, setCurrentQueue] = useState({
+    queueNo: "R000",
+    studentId: "N/A",
+    name: "John Doe",
+    course: "N/A",
+    type: "N/A",
+    time: "N/A",
+    requests: [],
+  });
   const {
     lastAnnounceTime,
     setLastAnnounceTime,
@@ -217,12 +227,12 @@ export default function Manage_Queue() {
       console.log("⚠️ No queues to sort");
       return [];
     }
-    if (queues.length > 0) {
-      console.log(
-        "🔍 Available properties on first queue:",
-        Object.keys(queues[0])
-      );
-    }
+    // if (queues.length > 0) {
+    //   console.log(
+    //     "🔍 Available properties on first queue:",
+    //     Object.keys(queues[0])
+    //   );
+    // }
     // // Debug: Log all queue types
     // queues.forEach((q, index) => {
     //   console.log(
@@ -455,7 +465,6 @@ export default function Manage_Queue() {
   });
 
   // console.log("Filtered Next In Line: ", filteredNextInLine);
-
   const handleCallNext = async () => {
     try {
       if (!selectedWindow?.id) {
@@ -463,10 +472,59 @@ export default function Manage_Queue() {
         return;
       }
 
-      // 🔄 Call backend (atomic transaction)
+      // ============================================
+      // 🔒 STEP 1: Mark previous queue as completed (REQUIRED)
+      // ============================================
+      if (currentQueue?.queueId) {
+        console.log(
+          `🔖 Marking previous queue ${currentQueue.queueNo} before calling next...`
+        );
+
+        try {
+          const markResponse = await markQueueStatus(
+            currentQueue.queueId,
+            currentQueue.windowId
+          );
+
+          if (!markResponse.success) {
+            console.error(
+              "❌ BLOCKING: Failed to mark previous queue:",
+              markResponse.message
+            );
+
+            // 🚨 HARD FAIL - Do NOT proceed
+            showToast(
+              `Cannot proceed: Failed to mark ${currentQueue.queueNo} as completed. Please try again.`,
+              "error"
+            );
+            return; // ⛔ Stop execution
+          }
+
+          console.log(
+            `✅ Previous queue marked as: ${markResponse.queue.queueStatus}`
+          );
+        } catch (markError) {
+          console.error(
+            "❌ BLOCKING: Error marking previous queue:",
+            markError
+          );
+
+          // 🚨 HARD FAIL - Do NOT proceed
+          showToast(
+            "Cannot proceed: Error updating queue status. Please try again.",
+            "error"
+          );
+          return; // ⛔ Stop execution
+        }
+      }
+
+      // ============================================
+      // 🔄 STEP 2: Call next queue (only if step 1 succeeded)
+      // ============================================
       const response = await getCallNextQueue(selectedWindow.id);
-      console.log(response);
-      // 🧩 Handle backend response
+      console.log("Call Next Response:", response);
+
+      // Handle backend response
       if (!response || !response.success) {
         showToast(response?.message || "Failed to call next queue.", "error");
         return;
@@ -474,23 +532,25 @@ export default function Manage_Queue() {
 
       const assignedQueue = response.data;
       const formattedQueue = formatQueueData(assignedQueue);
-      // 🟢 Set current queue for this window only
 
+      // ✅ Set current queue for this window only
       setCurrentQueue(formattedQueue);
-      console.log("Current Queue", formattedQueue);
+      console.log("Current Queue:", formattedQueue);
 
-      // 🟢 Optimistically remove from local list (if present)
+      // ✅ Remove from global list
       setGlobalQueueList((prev) =>
         prev.filter((q) => q.queueId !== assignedQueue.queueId)
       );
 
-      // 🟢 Broadcast to all other windows so they also remove it
+      // ✅ Broadcast to all windows
       socket.emit(QueueActions.QUEUE_TAKEN, {
         queueId: assignedQueue.queueId,
         queueNo: assignedQueue.queueNo,
         windowId: selectedWindow.id,
       });
-      console.log("Formatted Queue: ", formattedQueue.queueNo);
+
+      console.log("Formatted Queue:", formattedQueue.queueNo);
+
       // 🗣️ Announce
       AnnounceQueue(formattedQueue.queueNo);
       showToast(`Now serving ${formattedQueue.queueNo}`, "success");
@@ -499,7 +559,38 @@ export default function Manage_Queue() {
       showToast("Error calling next queue.", "error");
     }
   };
+  const handleForceRefresh = async () => {
+    try {
+      if (!selectedWindow?.id) {
+        showToast("No window selected", "error");
+        return;
+      }
 
+      setIsLoading(true);
+
+      // Re-fetch current queue from backend
+      const currentQueueResponse = await getCurrentQueueByWindow(
+        selectedWindow.id
+      );
+
+      if (currentQueueResponse?.success && currentQueueResponse.queue) {
+        const restoredQueue = formatQueueData(currentQueueResponse.queue);
+        setCurrentQueue(restoredQueue);
+        showToast("Queue synced successfully", "success");
+      } else {
+        setCurrentQueue(null);
+        showToast("No active queue found", "info");
+      }
+
+      // Also refresh global list
+      await fetchQueueList();
+    } catch (error) {
+      console.error("Error force refreshing:", error);
+      showToast("Failed to sync queue", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const filteredDeferredQueue = deferredQueue.filter((item) => {
     const search = deferredSearchTerm?.toLowerCase() || "";
 
@@ -604,6 +695,8 @@ export default function Manage_Queue() {
       })
     );
 
+    console.log("DEf", deferredQueue);
+
     setSelectedQueue((prev) => ({
       ...prev,
       requests: prev.requests.map((req) => {
@@ -661,6 +754,29 @@ export default function Manage_Queue() {
           socket.emit("join-window", { windowId: restoredWindow.id });
           setShowWindowModal(false);
           showToast(`Resumed managing ${restoredWindow.name}`, "info");
+
+          try {
+            const currentQueueResponse = await currentServedQueue(
+              restoredWindow.id
+            );
+            console.log("Current Queue Response", currentQueueResponse);
+
+            if (currentQueueResponse?.success && currentQueueResponse.queue) {
+              const restoredQueue = formatQueueData(currentQueueResponse.queue);
+              setCurrentQueue(restoredQueue);
+              console.log("✅ Restored current queue:", restoredQueue.queueNo);
+              showToast(
+                `Resumed ${restoredWindow.name} - Serving ${restoredQueue.queueNo}`,
+                "info"
+              );
+            } else {
+              console.log("ℹ️ No active queue for this window");
+              showToast(`Resumed managing ${restoredWindow.name}`, "info");
+            }
+          } catch (queueError) {
+            console.warn("⚠️ Could not restore current queue:", queueError);
+            showToast(`Resumed managing ${restoredWindow.name}`, "info");
+          }
           return; // stop here (no modal)
         }
 
@@ -930,300 +1046,205 @@ export default function Manage_Queue() {
                     <img src="/assets/Monitor.png" alt="" />
                   </div>
                   <span className="font-semibold text-gray-700">
-                    {selectedWindow?.name}
+                    {selectedWindow?.name || "Window 0"}
                   </span>
                 </div>
 
                 {/* container */}
-                <div className="flex items-center justify-between gap-6 h-full">
-                  {/* Check if currentQueue exists */}
-                  {currentQueue ? (
-                    <>
-                      {/* left side */}
-                      <div className="border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
-                        <div className="text-left mb-4">
-                          <div
-                            className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 ${
-                              currentQueue.type === "Priority"
-                                ? "text-[#F9AB00] border-[#F9AB00]"
-                                : "text-[#1A73E8] border-[#1A73E8]"
-                            }`}
-                          >
-                            {currentQueue.queueNo}
-                          </div>
-                          <span
-                            className={`font-medium text-sm px-3 py-1 rounded-full ${
-                              currentQueue.type === "Priority"
-                                ? "bg-[#FEF2D9] text-[#F9AB00]"
-                                : "bg-[#DDEAFC] text-[#1A73E8]"
-                            }`}
-                          >
-                            {currentQueue.type}
-                          </span>
-                        </div>
+                <div className="flex  items-center justify-between gap-6 h-full">
+                  {/* left side */}
+                  <div className="border-2 flex-1  border-[#E2E3E4] rounded-lg p-6 h-full">
+                    <div className=" text-left mb-4 ">
+                      <div
+                        className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
+                          currentQueue.type === "Priority"
+                            ? "text-[#F9AB00] border-[#F9AB00]"
+                            : "text-[#1A73E8] border-[#1A73E8]"
+                        }`}
+                      >
+                        {currentQueue.queueNo}
+                      </div>
+                      <span
+                        className={`"font-medium text-sm px-3 py-1 rounded-full ${
+                          currentQueue.type === "Priority"
+                            ? "bg-[#FEF2D9] text-[#F9AB00]"
+                            : "bg-[#DDEAFC] text-[#1A73E8]"
+                        }`}
+                      >
+                        {currentQueue.type}
+                      </span>
+                    </div>
 
-                        <div className="space-y-3 text-sm text-left">
-                          <div>
-                            <div className="text-[#686969] mb-1">Name</div>
-                            <div className="font-semibold text-[#202124]">
-                              {currentQueue.name || "N/A"}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[#686969] mb-1">
-                              Student ID
-                            </div>
-                            <div className="font-semibold text-[#202124]">
-                              {currentQueue.studentId || "N/A"}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[#686969] mb-1">
-                              Course & Year
-                            </div>
-                            <div className="font-semibold text-[#202124]">
-                              {currentQueue.course || "N/A"}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[#686969] mb-1">Time</div>
-                            <div className="font-semibold text-[#202124]">
-                              {currentQueue.time || "N/A"}
-                            </div>
-                          </div>
+                    <div className="space-y-3 text-sm text-left">
+                      <div>
+                        <div className="text-[#686969] mb-1">Name</div>
+                        <div className="font-semibold text-[#202124]">
+                          {currentQueue.name}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-[#686969] mb-1">Student ID</div>
+                        <div className="font-semibold text-[#202124]">
+                          {currentQueue.studentId}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#686969] mb-1">Course & Year</div>
+                        <div className="font-semibold text-[#202124]">
+                          {currentQueue.course}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#686969] mb-1">Time</div>
+                        <div className="font-semibold text-[#202124]">
+                          {currentQueue.time}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                      {/* right side */}
-                      <div className="flex flex-col flex-5 justify-between">
-                        <div className="flex-1">
-                          <div className="space-y-3">
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                              {/* Scrollable wrapper for table body */}
-                              <div className="h-75 overflow-y-auto custom-scrollbar">
-                                <table className="w-full">
-                                  <thead className="bg-white sticky top-0 z-10">
-                                    {/* Service Requests Header Row */}
-                                    <tr className="border-b border-gray-200">
-                                      <th
-                                        colSpan="3"
-                                        className="text-left py-5 px-4 text-xl font-medium text-gray-900"
+                  {/* right side */}
+                  <div className="flex flex-col flex-5 justify-between">
+                    <div className="flex-1">
+                      <div className="space-y-3">
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          {/* Scrollable wrapper for table body */}
+                          <div className="h-75 overflow-y-auto custom-scrollbar">
+                            <table className="w-full">
+                              <thead className="bg-white sticky top-0 z-10">
+                                {/* Service Requests Header Row */}
+                                <tr className="border-b border-gray-200">
+                                  <th
+                                    colSpan="3"
+                                    className="text-left py-5 px-4 text-xl font-medium  text-gray-900 "
+                                  >
+                                    Service Requests
+                                  </th>
+                                </tr>
+                                {/* Table Headers */}
+                                <tr className="border-b border-gray-200">
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-44">
+                                    Request
+                                  </th>
+                                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-36">
+                                    Status
+                                  </th>
+                                  <th className="text-center py-3 px-4 text-sm font-semibold text-[#686969] w-16">
+                                    Actions
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {currentQueue.requests.map((request) => (
+                                  <tr
+                                    key={request.id}
+                                    className="border-b border-gray-200 hover:bg-gray-50 transition"
+                                  >
+                                    <td className="text-left py-3 px-4 text-sm font-medium text-[#202124]">
+                                      {request.name}
+                                    </td>
+                                    <td className="text-left py-3 px-4">
+                                      <div
+                                        className={`text-xs font-medium  py-1 rounded w-24 text-left text-[#202124] `}
                                       >
-                                        Service Requests
-                                      </th>
-                                    </tr>
-                                    {/* Table Headers */}
-                                    <tr className="border-b border-gray-200">
-                                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-44">
-                                        Request
-                                      </th>
-                                      <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-36">
-                                        Status
-                                      </th>
-                                      <th className="text-center py-3 px-4 text-sm font-semibold text-[#686969] w-16">
-                                        Actions
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {currentQueue.requests &&
-                                    currentQueue.requests.length > 0 ? (
-                                      currentQueue.requests.map((request) => (
-                                        <tr
-                                          key={request.id}
-                                          className="border-b border-gray-200 hover:bg-gray-50 transition"
-                                        >
-                                          <td className="text-left py-3 px-4 text-sm font-medium text-[#202124]">
-                                            {request.name}
-                                          </td>
-                                          <td className="text-left py-3 px-4">
-                                            <div className="text-xs font-medium py-1 rounded w-24 text-left text-[#202124]">
-                                              {request.status}
-                                            </div>
-                                          </td>
-                                          <td className="text-center py-3 px-4">
-                                            <div className="flex gap-2 items-center justify-center">
-                                              {/* Done Button */}
-                                              <div className="relative group">
-                                                <button
-                                                  onClick={() =>
-                                                    handleRequestAction(
-                                                      request.id,
-                                                      "done"
-                                                    )
-                                                  }
-                                                  className="w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors cursor-pointer"
-                                                >
-                                                  <Check className="w-4 h-4" />
-                                                </button>
-                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
-                                                  Done
-                                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                                </div>
-                                              </div>
+                                        {request.status}
+                                      </div>
+                                    </td>
+                                    <td className="text-center py-3 px-4">
+                                      <div className="flex gap-2 items-center justify-center">
+                                        {/* Done Button with Top Tooltip */}
+                                        <div className="relative group">
+                                          <button
+                                            onClick={() =>
+                                              handleRequestAction(
+                                                request.id,
+                                                "done"
+                                              )
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors cursor-pointer"
+                                          >
+                                            <Check className="w-4 h-4" />
+                                          </button>
+                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
+                                            Done
+                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                          </div>
+                                        </div>
 
-                                              {/* Stall Button */}
-                                              <div className="relative group">
-                                                <button
-                                                  onClick={() =>
-                                                    handleRequestAction(
-                                                      request.id,
-                                                      "stall"
-                                                    )
-                                                  }
-                                                  className="w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
-                                                >
-                                                  <img
-                                                    src="/assets/manage_queue/pause.png"
-                                                    alt="Stall"
-                                                  />
-                                                </button>
-                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
-                                                  Stall
-                                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                                </div>
-                                              </div>
+                                        {/* Stall Button with Top Tooltip */}
+                                        <div className="relative group">
+                                          <button
+                                            onClick={() =>
+                                              handleRequestAction(
+                                                request.id,
+                                                "stall"
+                                              )
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                                          >
+                                            <img
+                                              src="/assets/manage_queue/pause.png"
+                                              alt="Edit"
+                                            />
+                                          </button>
+                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
+                                            Stall
+                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                          </div>
+                                        </div>
 
-                                              {/* Skip Button */}
-                                              <div className="relative group">
-                                                <button
-                                                  onClick={() =>
-                                                    handleRequestAction(
-                                                      request.id,
-                                                      "skip"
-                                                    )
-                                                  }
-                                                  className="w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors cursor-pointer"
-                                                >
-                                                  <img
-                                                    src="/assets/manage_queue/forward.png"
-                                                    alt="Skip"
-                                                  />
-                                                </button>
-                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
-                                                  Skip
-                                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                                </div>
-                                              </div>
+                                        {/* Skip Button with Top Tooltip */}
+                                        <div className="relative group">
+                                          <button
+                                            onClick={() =>
+                                              handleRequestAction(
+                                                request.id,
+                                                "skip"
+                                              )
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors cursor-pointer"
+                                          >
+                                            <img
+                                              src="/assets/manage_queue/forward.png"
+                                              alt="Edit"
+                                            />
+                                          </button>
+                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
+                                            Skip
+                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                          </div>
+                                        </div>
 
-                                              {/* Cancel Button */}
-                                              <div className="relative group">
-                                                <button
-                                                  onClick={() =>
-                                                    handleRequestAction(
-                                                      request.id,
-                                                      "cancel"
-                                                    )
-                                                  }
-                                                  className="w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                                                >
-                                                  <X className="w-4 h-4" />
-                                                </button>
-                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
-                                                  Cancel
-                                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      ))
-                                    ) : (
-                                      <tr>
-                                        <td
-                                          colSpan="3"
-                                          className="text-center py-6 text-[#686969]"
-                                        >
-                                          No service requests for this queue
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
+                                        {/* Cancel Button with Top Tooltip */}
+                                        <div className="relative group">
+                                          <button
+                                            onClick={() =>
+                                              handleRequestAction(
+                                                request.id,
+                                                "cancel"
+                                              )
+                                            }
+                                            className="w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
+                                            Cancel
+                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         </div>
+                      </div>
+                    </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 mt-15 justify-end">
-                          <button
-                            onClick={() =>
-                              handleButtonClick(
-                                handleCallNext,
-                                disabledForSeconds,
-                                lastAnnounceTime,
-                                setDisabledForSeconds,
-                                setLastAnnounceTime
-                              )
-                            }
-                            disabled={
-                              disabledForSeconds ||
-                              (currentQueue.requests &&
-                                currentQueue.requests.some(
-                                  (request) => request.status === "In Progress"
-                                ))
-                            }
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                              disabledForSeconds ||
-                              (currentQueue.requests &&
-                                currentQueue.requests.some(
-                                  (request) => request.status === "In Progress"
-                                ))
-                                ? "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
-                                : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
-                            }`}
-                          >
-                            <img
-                              src="/assets/manage_queue/Announcement-1.png"
-                              alt="Call Next"
-                            />
-                            Call Next
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleButtonClick(
-                                () => AnnounceQueue(currentQueue.queueNo),
-                                disabledForSeconds,
-                                lastAnnounceTime,
-                                setDisabledForSeconds,
-                                setLastAnnounceTime
-                              )
-                            }
-                            disabled={
-                              disabledForSeconds || globalQueueList.length === 0
-                            }
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                              disabledForSeconds
-                                ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
-                                : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
-                            }`}
-                          >
-                            <img
-                              src="/assets/manage_queue/Announcement.png"
-                              alt="Announce"
-                            />
-                            Announce
-                          </button>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    /* Empty State - No Current Queue */
-                    <div className="w-full flex flex-col items-center justify-center py-12 text-center">
-                      <div className="bg-gray-100 p-8 rounded-xl mb-4">
-                        <img
-                          src="/assets/empty-queue.png"
-                          alt="Empty"
-                          className="w-16 h-16 mx-auto opacity-50"
-                        />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                        Queue is Empty
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-6">
-                        Click "Call Next" to get the next person in queue
-                      </p>
+                    <div className="flex gap-3 mt-15 justify-end">
                       <button
                         onClick={() =>
                           handleButtonClick(
@@ -1235,22 +1256,51 @@ export default function Manage_Queue() {
                           )
                         }
                         disabled={
-                          disabledForSeconds || globalQueueList.length === 0
+                          disabledForSeconds ||
+                          currentQueue.requests.some(
+                            (request) => request.status === "In Progress"
+                          )
                         }
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                          disabledForSeconds || globalQueueList.length === 0
+                          disabledForSeconds ||
+                          currentQueue.requests.some(
+                            (request) => request.status === "In Progress"
+                          )
                             ? "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
                             : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
                         }`}
                       >
                         <img
                           src="/assets/manage_queue/Announcement-1.png"
-                          alt="Call Next"
+                          alt="Edit"
                         />
                         Call Next
                       </button>
+                      <button
+                        onClick={() =>
+                          handleButtonClick(
+                            () => AnnounceQueue(currentQueue.queueNo), //Announce the current queue
+                            disabledForSeconds,
+                            lastAnnounceTime,
+                            setDisabledForSeconds,
+                            setLastAnnounceTime
+                          )
+                        }
+                        disabled={disabledForSeconds || queueList.length === 0}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                          disabledForSeconds
+                            ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
+                            : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
+                        }`}
+                      >
+                        <img
+                          src="/assets/manage_queue/Announcement.png"
+                          alt="Announce"
+                        />
+                        Announce
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1309,7 +1359,7 @@ export default function Manage_Queue() {
                     {/* Fixed Header */}
                     <div className="overflow-y-scroll custom-scrollbar max-h-96">
                       <table className="w-full min-w-[700px]">
-                        <thead className="bg-white sticky top-0 z-50">
+                        <thead className="bg-white sticky top-0 z-10">
                           <tr className="border-b border-[#E2E3E4]">
                             <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-40">
                               Student ID
@@ -1457,7 +1507,7 @@ export default function Manage_Queue() {
                   <div className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="overflow-y-scroll custom-scrollbar max-h-96">
                       <table className="w-full min-w-[700px] ">
-                        <thead className=" sticky top-0 bg-white z-50 ">
+                        <thead className=" sticky top-0 bg-white z-10">
                           <tr className="border-b border-[#E2E3E4]">
                             <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-32">
                               Queue No.
