@@ -181,3 +181,28 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
     return [];
   }
 };
+export const getDeferredQueue = async (status, windowId) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/queue/list?status=${status}&windowId=${windowId}&requestStatus=STALLED,SKIPPED`,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/type",
+        },
+        withCredentials: true,
+      }
+    );
+    // Correct condition - check if status is 200 AND success is true
+    if (response.status === 200 && response.data.success) {
+      console.log("Queue List:", response.data.queueList);
+      return response.data.queueList;
+    } else {
+      console.warn("Unexpected response format:", response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error("Error in getQueueListByStatus:", error);
+    return [];
+  }
+};
