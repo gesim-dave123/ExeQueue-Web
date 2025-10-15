@@ -60,13 +60,14 @@ export const WindowEvents = Object.freeze({
 
 export const QueueActions = Object.freeze({
   // Queue Actions
-  CALL_NEXT:  "call:next",
+  CALL_NEXT: "call:next",
   TAKE_QUEUE: "take:queue",
   QUEUE_TAKEN: "queue:taken",
   UPDATE_QUEUE_STATUS: "update:queue:status",
   QUEUE_STATUS_UPDATED: "queue:status:updated",
   COMPLETE_QUEUE: "complete:queue",
-  QUEUE_COMPLETED: "queue:completed",
   DEFER_QUEUE: "defer:queue",
+  QUEUE_COMPLETED: "queue:completed",
   QUEUE_DEFERRED: "queue:deferred",
+  QUEUE_CANCELLED: "queue:cancelled",
 });
