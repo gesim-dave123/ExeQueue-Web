@@ -57,7 +57,9 @@ export const formatQueueData = (queueData) => {
           ? "In Progress"
           : request.requestStatus === "COMPLETED"
           ? "Completed"
-          : request.requestStatus,
+          : request.requestStatus === "STALLED"
+          ? "Stalled"
+          : "Cancelled",
     })),
   };
 };
