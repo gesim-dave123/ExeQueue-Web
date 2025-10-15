@@ -322,8 +322,7 @@ export const getQueueList = async (req, res) => {
 export const getQueueListByStatus = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
-    const { status } = req.query;
-    const { windowId: windowIdStr } = req.query;
+    const { status, windowId: windowIdStr, requestStatus } = req.query; // ✅ NEW: requestStatus param
 
     if (!sasStaffId) {
       return res.status(401).json({
@@ -331,6 +330,7 @@ export const getQueueListByStatus = async (req, res) => {
         message: "Unauthorized access, no Staff ID Provided!",
       });
     }
+
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
@@ -345,9 +345,7 @@ export const getQueueListByStatus = async (req, res) => {
         Status.COMPLETED,
         Status.DEFERRED,
         Status.IN_SERVICE,
-      ]
-        .toString()
-        .includes(status)
+      ].includes(status)
     ) {
       return res.status(400).json({
         success: false,
@@ -364,7 +362,6 @@ export const getQueueListByStatus = async (req, res) => {
       queueStatus: status,
     };
 
-    // ✅ If windowId is provided, filter by window
     if (windowIdStr) {
       if (!isIntegerParam(windowIdStr)) {
         return res.status(400).json({
@@ -376,7 +373,6 @@ export const getQueueListByStatus = async (req, res) => {
       const windowId = Number(windowIdStr);
       if (isNaN(windowId)) {
         return res.status(400).json({
-          // Fixed typo: sttaus → status
           success: false,
           message:
             "An error occurred. Expecting a number but received a string. (windowId)",
@@ -384,17 +380,23 @@ export const getQueueListByStatus = async (req, res) => {
       }
       whereClause.windowId = windowId;
     }
-
-    // ✅ Execute query with dynamic filters
-    const queueList = await prisma.queue.findMany({
-      where: whereClause,
-      include: {
-        requests: {
-          include: {
-            requestType: true,
-          },
+    const includeClause = {
+      requests: {
+        where: requestStatus
+          ? {
+              requestStatus: {
+                in: requestStatus.split(","), // Support multiple: "STALLED,SKIPPED"
+              },
+            }
+          : undefined, // If no requestStatus, include all
+        include: {
+          requestType: true,
         },
       },
+    };
+    const queueList = await prisma.queue.findMany({
+      where: whereClause,
+      include: includeClause,
       orderBy: [
         {
           session: {
@@ -405,23 +407,41 @@ export const getQueueListByStatus = async (req, res) => {
       ],
     });
 
+    let filteredQueueList = queueList;
+
+    if (requestStatus) {
+      const allowedStatuses = requestStatus.split(","); // ["STALLED", "SKIPPED"]
+
+      filteredQueueList = queueList
+        .map((queue) => ({
+          ...queue,
+          requests: queue.requests.filter((req) =>
+            allowedStatuses.includes(req.requestStatus)
+          ),
+        }))
+        .filter((queue) => queue.requests.length > 0); // ✅ Only include queues with matching requests
+    }
+
     // Response handling
-    if (queueList.length === 0) {
+    if (filteredQueueList.length === 0) {
       return res.status(200).json({
-        // 200 for successful empty result
         success: true,
-        message: `There are no current ${status} queues active today!`,
+        message: windowIdStr
+          ? `No ${status} queues for window ${windowIdStr}`
+          : `There are no current ${status} queues active today!`,
         queueList: [],
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Current Queue List that are ${status}`,
-      queueList: queueList,
+      message: windowIdStr
+        ? `${status} queues for window ${windowIdStr}`
+        : `Current Queue List that are ${status}`,
+      queueList: filteredQueueList,
     });
   } catch (error) {
-    console.error("An error occured in get queue list contoller!", error);
+    console.error("An error occurred in get queue list controller!", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
@@ -652,6 +672,7 @@ export const createQueueSession = async (req, res) => {
 
 export const markQueueStatus = async (req, res) => {
   try {
+    const io = req.app.get("io");
     const { sasStaffId, role } = req.user;
     const { queueId: queueIdStr, windowId: windowIdStr } = req.params;
 
@@ -685,7 +706,9 @@ export const markQueueStatus = async (req, res) => {
     // 🧩 Fetch queue with its requests
     const existingQueue = await prisma.queue.findUnique({
       where: { queueId },
-      include: { requests: true },
+      include: {
+        requests: true,
+      },
     });
 
     if (!existingQueue) {
@@ -737,8 +760,17 @@ export const markQueueStatus = async (req, res) => {
           completedAt:
             finalStatus === Status.COMPLETED
               ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              : Status.CANCELLED
+              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        include: {
+          requests: {
+            include: {
+              requestType: true,
+            },
+          },
         },
       });
 
@@ -753,6 +785,65 @@ export const markQueueStatus = async (req, res) => {
 
       return queueUpdate;
     });
+
+    // 🎯 Emit socket signal only to the window room
+    const actionMap = {
+      [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
+      // [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
+      // [Status.CANCELLED]: QueueActions.QUEUE_CANCELLED,
+    };
+    const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
+
+    console.log("Updated Queue: ", updatedQueue);
+
+    const newQueueData = {
+      queueId: updatedQueue.queueId,
+      sessionId: updatedQueue.sessionId,
+      studentId: updatedQueue.studentId,
+      studentFullName: updatedQueue.studentFullName,
+      courseCode: updatedQueue.courseCode,
+      courseName: updatedQueue.courseName,
+      yearLevel: updatedQueue.yearLevel,
+      queueNumber: updatedQueue.queueNumber,
+      sequenceNumber: updatedQueue.currentCount,
+      resetIteration: updatedQueue.resetIteration,
+      queueType: updatedQueue.queueType,
+      queueStatus: updatedQueue.queueStatus,
+      referenceNumber: updatedQueue.referenceNumber,
+      isActive: updatedQueue.isActive,
+      windowId: updatedQueue.windowId,
+      servedByStaff: updatedQueue.servedByStaff,
+      calledAt: updatedQueue.calledAt,
+      completedAt: updatedQueue.completedAt,
+      deletedAt: updatedQueue.deletedAt,
+      createdAt: updatedQueue.createdAt,
+      updatedAt: updatedQueue.updatedAt,
+      requests: updatedQueue.requests
+        .filter(
+          (req) =>
+            req.requestStatus === Status.STALLED ||
+            req.requestStatus === Status.SKIPPED
+        )
+        .map((req) => ({
+          requestId: req.requestId,
+          queueId: updatedQueue.queueId,
+          requestTypeId: req.requestTypeId,
+          requestStatus: req.requestStatus,
+          isActive: req.isActive,
+          createdAt: req.createdAt,
+          updatedAt: req.updatedAt,
+          requestType: {
+            requestTypeId: req.requestType.requestTypeId,
+            requestName: req.requestType.requestName,
+          },
+        })),
+    };
+    // io.emit(event, newQueueData);
+    io.to(`window:${windowId}`).emit(event, newQueueData);
+
+    console.log(
+      `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber} → window:${windowId}`
+    );
 
     return res.status(200).json({
       success: true,
@@ -1065,6 +1156,7 @@ export const currentServedQueue = async (req, res) => {
     });
   }
 };
+
 function mapToStatus(statusString) {
   const statusMap = {
     completed: Status.COMPLETED,
