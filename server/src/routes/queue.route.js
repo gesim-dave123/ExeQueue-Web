@@ -3,6 +3,7 @@ import express from "express";
 import {
   callNextQueue,
   createQueueSession,
+  currentServedQueue,
   determineNextQueue,
   getQueueList,
   getQueueListByStatus, // Add this import
@@ -64,7 +65,7 @@ router.put(
 );
 
 router.put(
-  "/status",
+  "/:queueId/:windowId/mark-status",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   markQueueStatus
@@ -75,6 +76,13 @@ router.put(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   restoreSkippedQueue
+);
+
+router.get(
+  "/current/:windowId",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  currentServedQueue
 );
 
 export default router;
