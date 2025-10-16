@@ -69,15 +69,18 @@ export const getCallNextQueue = async (windowId) => {
         withCredentials: true,
       }
     );
-
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
-
+    
     return response.data;
   } catch (error) {
-    console.error("An error occured in Call Next Api", error);
-    return response.data.error;
+    console.error("❌ Error in Call Next Queue:", error);
+    if (error.response) {
+      return error.response.data;
+      ssage;
+    }
+    return { success: false, message: "Network error." };
   }
 };
 
@@ -91,6 +94,35 @@ export const setRequestStatus = async (
     console.log("Request Id in API:", requestId);
     const response = await axios.put(
       `${backendConnection()}/api/staff/queue/set/status/${queueId}/${requestId}/${requestStatus}/${windowId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response?.status === 200 && response?.data.success) {
+      return response.data;
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("An error occured in Call Next Api", error);
+    return response.data.error;
+  }
+};
+
+export const setDeferredRequestStatus = async (
+  queueId,
+  requestId,
+  requestStatus,
+  windowId
+) => {
+  try {
+    console.log("Request Id in API:", requestId);
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/queue/set/status/deferred/${queueId}/${requestId}/${windowId}/${requestStatus}`,
       {
         headers: {
           "Content-Type": "application/json",
