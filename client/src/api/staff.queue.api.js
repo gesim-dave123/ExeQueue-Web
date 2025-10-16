@@ -72,7 +72,7 @@ export const getCallNextQueue = async (windowId) => {
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
-    
+
     return response.data;
   } catch (error) {
     console.error("❌ Error in Call Next Queue:", error);
@@ -213,10 +213,10 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
     return [];
   }
 };
-export const getDeferredQueue = async (status, windowId) => {
+export const getDeferredQueue = async (status) => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}&windowId=${windowId}&requestStatus=STALLED,SKIPPED`,
+      `${backendConnection()}/api/staff/queue/list?status=${status}&requestStatus=STALLED,SKIPPED`,
       {},
       {
         headers: {
