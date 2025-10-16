@@ -51,7 +51,7 @@ export const formatQueueData = (queueData) => {
     time: formatTime(queueData.createdAt).time,
     requests: queueData.requests.map((request) => ({
       id: request.requestId,
-      name: request.requestType.requestName,
+      name: request.requestType?.requestName || "Unknown Request",
       status:
         request.requestStatus === "WAITING"
           ? "In Progress"
@@ -59,6 +59,8 @@ export const formatQueueData = (queueData) => {
           ? "Completed"
           : request.requestStatus === "STALLED"
           ? "Stalled"
+          : request.requestStatus === "SKIPPED"
+          ? "Skipped"
           : "Cancelled",
     })),
   };
