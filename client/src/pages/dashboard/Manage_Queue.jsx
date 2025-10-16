@@ -790,7 +790,12 @@ export default function Manage_Queue() {
     }
   };
   useEffect(() => {
-    if (wasQueueEmpty && globalQueueList.length > 0 && selectedWindow) {
+    if (
+      wasQueueEmpty &&
+      globalQueueList.length > 0 &&
+      selectedWindow &&
+      isDefaultQueue(currentQueue)
+    ) {
       console.log("🔄 Auto-calling next - new queues after empty state");
 
       setWasQueueEmpty(false);
@@ -799,7 +804,13 @@ export default function Manage_Queue() {
         await handleCallNext(selectedWindow);
       }, 1000);
     }
-  }, [globalQueueList.length, wasQueueEmpty, selectedWindow, handleCallNext]);
+  }, [
+    globalQueueList.length,
+    wasQueueEmpty,
+    selectedWindow,
+    handleCallNext,
+    currentQueue,
+  ]);
 
   useEffect(() => {
     if (isDefaultQueue(currentQueue) && selectedWindow) {
