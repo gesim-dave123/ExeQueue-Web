@@ -199,8 +199,8 @@ export default function Manage_Queue() {
 
       // ✅ Fetch DEFERRED queues (window-specific)
       const deferredQueues = await getDeferredQueue(
-        Status.DEFERRED,
-        selectedWindow.id
+        Status.DEFERRED
+        // selectedWindow.id
       );
       console.log("Defered Response Api", deferredQueues);
       if (deferredQueues && Array.isArray(deferredQueues)) {
@@ -289,10 +289,106 @@ export default function Manage_Queue() {
       // );
     };
 
+    const handleCompleted = (queue) => {
+      console.log("✅ Queue Completed:", queue);
+      const formattedCompletedQueue = formatQueueData(queue);
+
+      // Remove from deferred list if it exists there
+      setDeferredQueue((prev) =>
+        prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
+      );
+
+      // Also remove from global queue list if needed
+      setGlobalQueueList((prev) =>
+        prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
+      );
+    };
+
+    const handleCancelled = (queue) => {
+      console.log("✅ Queue Cancelled:", queue);
+      const formattedCancelledQueue = formatQueueData(queue);
+
+      // Remove from deferred list if it exists there
+      setDeferredQueue((prev) =>
+        prev.filter((q) => q.queueId !== formattedCancelledQueue.queueId)
+      );
+
+      // Also remove from global queue list if needed
+      setGlobalQueueList((prev) =>
+        prev.filter((q) => q.queueId !== formattedCancelledQueue.queueId)
+      );
+    };
+
+    const handlePartiallyCompleted = (queue) => {
+      console.log("✅ Queue Cancelled:", queue);
+      const formattedPartialCompletedQueue = formatQueueData(queue);
+
+      // Remove from deferred list if it exists there
+      setDeferredQueue((prev) =>
+        prev.filter((q) => q.queueId !== formattedPartialCompletedQueue.queueId)
+      );
+
+      // Also remove from global queue list if needed
+      setGlobalQueueList((prev) =>
+        prev.filter((q) => q.queueId !== formattedPartialCompletedQueue.queueId)
+      );
+    };
+
+    const handleDeferredRequestUpdated = (data) => {
+      console.log("🔄 Deferred request updated:", data);
+      setDeferredQueue((prev) =>
+        prev.map((q) =>
+          q.queueId === data.queueId
+            ? {
+                ...q,
+                requests: q.requests.map((req) =>
+                  req.id === data.requestId
+                    ? {
+                        ...req,
+                        status: normalizeStatusForDisplay(data.requestStatus),
+                        // Include any other fields from the updated request if needed
+                        processedBy: data.updatedRequest?.processedBy,
+                        processedAt: data.updatedRequest?.processedAt,
+                      }
+                    : req
+                ),
+              }
+            : q
+        )
+      );
+      // ✅ Update selected queue's specific request
+      setSelectedQueue((prev) =>
+        prev && prev.queueId === data.queueId
+          ? {
+              ...prev,
+              requests: prev.requests.map((req) =>
+                req.id === data.requestId
+                  ? {
+                      ...req,
+                      status: normalizeStatusForDisplay(data.requestStatus),
+                      processedBy: data.updatedRequest?.processedBy,
+                      processedAt: data.updatedRequest?.processedAt,
+                    }
+                  : req
+              ),
+            }
+          : prev
+      );
+
+      // Optional: Show notification for remote updates only
+      if (data.updatedBy !== currentStaffId) {
+        showToast(`Request in queue updated by another window`, "info");
+      }
+    };
+
     socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
-    // socket.on("queue:cancelled", handleCancelledQueue);
-    // socket.on(QueueActions.QUEUE_COMPLETED, handleCompletedQueue);
-    // socket.on(QueueActions.TAKE_QUEUE, handleQueueAssigned);
+    socket.on(
+      QueueActions.REQUEST_DEFERRED_UPDATED,
+      handleDeferredRequestUpdated
+    );
+    socket.on(QueueActions.QUEUE_CANCELLED, handleCancelled);
+    socket.on(QueueActions.QUEUE_COMPLETED, handleCompleted);
+    socket.on(QueueActions.QUEUE_PARTIALLY_COMPLETE, handlePartiallyCompleted);
     socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
     socket.on(QueueActions.QUEUE_TAKEN, handleQueueRemoved);
     socket.on(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
@@ -301,9 +397,17 @@ export default function Manage_Queue() {
 
     return () => {
       socket.off(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
-      // socket.off(QueueActions.QUEUE_CANCELLED, handleCancelledQueue);
-      // socket.off(QueueActions.QUEUE_COMPLETED, handleCompletedQueue);
-      // socket.off(QueueActions.TAKE_QUEUE, handleQueueAssigned);
+      socket.off(QueueActions.QUEUE_CANCELLED, handleCancelled);
+      socket.off(QueueActions.QUEUE_COMPLETED, handleCompleted);
+      socket.off(
+        QueueActions.REQUEST_DEFERRED_UPDATED,
+        handleDeferredRequestUpdated
+      );
+
+      socket.off(
+        QueueActions.QUEUE_PARTIALLY_COMPLETE,
+        handlePartiallyCompleted
+      );
       socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
       socket.off(QueueActions.QUEUE_TAKEN, handleQueueRemoved);
       socket.off(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
@@ -474,7 +578,6 @@ export default function Manage_Queue() {
   };
   const filteredDeferredQueue = deferredQueue.filter((item) => {
     const search = deferredSearchTerm?.toLowerCase() || "";
-
     return (
       (item.queueNo?.toLowerCase() || "").includes(search) ||
       (item.name?.toLowerCase() || "").includes(search) ||
@@ -740,7 +843,6 @@ export default function Manage_Queue() {
 
   // Window selection handler
   const handleWindowSelect = async (windowId) => {
-    // setIsLoading(true);
     unlockSpeech();
     try {
       const window = availableWindows.find((w) => w.id === windowId);
@@ -759,21 +861,40 @@ export default function Manage_Queue() {
         };
 
         socket.emit(WindowEvents.WINDOW_JOINED, { windowId });
-        // console.log("Window:", windowData);
         setSelectedWindow(windowData);
         localStorage.setItem("selectedWindow", JSON.stringify(windowData));
 
         setShowWindowModal(false);
         showToast(`Now managing ${window.name}`, "success");
-
+        setIsLoading(true);
         setTimeout(async () => {
           try {
-            console.log(`🎯 Auto-calling next queue for ${window.name}...`);
-            // console.log("windowData: ", selectedWindow);
-            await handleCallNext(windowData); // <-- reuse your existing function
+            // Double-check everything before calling next
+            const currentQueueResponse = await currentServedQueue(
+              windowData.id
+            );
+            const hasCurrentQueue =
+              currentQueueResponse?.success && currentQueueResponse.queue;
+            const hasQueuesAvailable = globalQueueList.length > 0;
+            const isCurrentlyDefaultQueue = isDefaultQueue(currentQueue);
+
+            if (
+              !hasCurrentQueue &&
+              hasQueuesAvailable &&
+              isCurrentlyDefaultQueue
+            ) {
+              console.log(`🎯 Auto-calling next queue for ${window.name}...`);
+              await handleCallNext(windowData);
+            } else if (hasCurrentQueue) {
+              // Restore existing queue
+              const restoredQueue = formatQueueData(currentQueueResponse.queue);
+              setCurrentQueue(restoredQueue);
+              console.log("✅ Restored current queue:", restoredQueue.queueNo);
+            } else {
+              console.log("ℹ️ No auto-call needed - conditions not met");
+            }
           } catch (err) {
             console.error("⚠️ Auto call next failed:", err);
-            showToast("Failed to auto-call next queue.", "error");
           }
         }, 500);
       } else if (response?.status === 409) {
@@ -912,7 +1033,7 @@ export default function Manage_Queue() {
 
       showToast(message, "success");
     } catch (error) {
-      console.error("❌ Error finalizing queue status:", error);
+      console.error("Error finalizing queue status:", error);
 
       // 🔄 Rollback on error
       setSelectedQueue(snapshot.selectedQueue);
