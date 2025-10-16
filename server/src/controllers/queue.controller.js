@@ -628,6 +628,7 @@ export const setRequestStatus = async (req, res) => {
 
 export const setDeferredRequestStatus = async (req, res) => {
   try {
+    const io = req.app.get("io");
     const { sasStaffId, role } = req.user;
 
     const {
@@ -715,26 +716,44 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // ✅ Transaction: update request only, no queue fetch
-    const newStatus = mapToStatus(requestStatus);
-    await prisma.request.update({
-      where: { requestId },
-      data: {
-        requestStatus: newStatus,
-        processedBy: sasStaffId,
-        processedAt:
-          newStatus === Status.COMPLETED
-            ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-            : null,
-        updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-      },
+    // ✅ Transaction: update request AND get updated queue data
+    const updated = await prisma.$transaction(async (tx) => {
+      const newStatus = mapToStatus(requestStatus);
+
+      const requestUpdate = await tx.request.update({
+        where: { requestId },
+        data: {
+          requestStatus: newStatus,
+          processedBy: sasStaffId,
+          processedAt:
+            newStatus === Status.COMPLETED
+              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              : null,
+          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        include: {
+          requestType: true, // Include related data if needed
+        },
+      });
+
+      return { requestUpdate };
     });
 
-    // ✅ Return minimal response
+    // ✅ Broadcast ONLY the specific request update to ALL windows
+    io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+      queueId: queueId,
+      requestId: updated.requestUpdate.requestId,
+      requestStatus: updated.requestUpdate.requestStatus,
+      updatedRequest: updated.requestUpdate, // Only the updated request, not the whole queue
+      updatedBy: sasStaffId,
+    });
+
+    // ✅ Return success response
     return res.status(200).json({
       success: true,
-      status: newStatus, // The new status of the request
+      status: updated.requestUpdate.requestStatus,
       message: `Deferred request ${requestId} updated successfully.`,
+      data: updated.requestUpdate, // Return only the updated request
     });
   } catch (error) {
     console.error("❌ Error setting deferred request status:", error);
@@ -928,8 +947,9 @@ export const markQueueStatus = async (req, res) => {
     // 🎯 Emit socket signal only to the window room
     const actionMap = {
       [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
-      // [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
-      // [Status.CANCELLED]: QueueActions.QUEUE_CANCELLED,
+      [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
+      [Status.CANCELLED]: QueueActions.QUEUE_CANCELLED,
+      [Status.PARTIALLY_COMPLETE]: QueueActions.QUEUE_PARTIALLY_COMPLETE,
     };
     const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
 
@@ -978,7 +998,8 @@ export const markQueueStatus = async (req, res) => {
         })),
     };
     // io.emit(event, newQueueData);
-    io.to(`window:${windowId}`).emit(event, newQueueData);
+    // io.to(`window:${windowId}`).emit(event, newQueueData);
+    io.emit(event, newQueueData);
 
     console.log(
       `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber} → window:${windowId}`
@@ -1160,6 +1181,7 @@ export const callNextQueue = async (req, res) => {
     // Broadcast: remove this queue globally
     io.emit(QueueActions.QUEUE_TAKEN, { queueId: result.queueId });
     io.to(`window:${result.windowId}`).emit(QueueActions.TAKE_QUEUE, result);
+    //  io.emit(QueueActions.TAKE_QUEUE, result);
 
     console.log(
       `📣 Window ${windowId} called next queue ${result.referenceNumber}`
