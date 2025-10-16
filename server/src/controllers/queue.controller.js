@@ -556,19 +556,23 @@ export const setRequestStatus = async (req, res) => {
       });
     }
 
-    if (queueCheck.queueStatus !== Status.IN_SERVICE) {
+    if (
+      queueCheck.queueStatus === Status.WAITING ||
+      queueCheck.queueStatus === null
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Queue must be in service to update request status.",
+        message: "Queue not be WAITING to update request status.",
       });
     }
 
     // 🧠 Transaction: update request + fetch queue for context
     const updated = await prisma.$transaction(async (tx) => {
+      const newStatus = mapToStatus(requestStatus);
       const requestUpdate = await tx.request.update({
         where: { requestId },
         data: {
-          requestStatus: mapToStatus(requestStatus),
+          requestStatus: newStatus,
           processedBy: sasStaffId,
           processedAt:
             mapToStatus(requestStatus) === Status.COMPLETED
@@ -577,12 +581,18 @@ export const setRequestStatus = async (req, res) => {
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
       });
-
       const queueUpdate = await tx.queue.findUnique({
         where: { queueId },
         include: {
           requests: {
-            include: { requestType: true },
+            // where: {
+            //   requestStatus: {
+            //     in: [Status.STALLED, Status.SKIPPED],
+            //   },
+            // },
+            include: {
+              requestType: true,
+            },
           },
         },
       });
@@ -615,6 +625,127 @@ export const setRequestStatus = async (req, res) => {
     });
   }
 };
+
+export const setDeferredRequestStatus = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+
+    const {
+      queueId: queueIdStr,
+      requestId: requestIdStr,
+      windowId: windowIdStr,
+      requestStatus,
+    } = req.params;
+
+    // Validate integer params
+    if (
+      !isIntegerParam(queueIdStr) ||
+      !isIntegerParam(requestIdStr) ||
+      !isIntegerParam(windowIdStr)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid param(s). queueId, requestId, and windowId must be integers.",
+      });
+    }
+
+    const queueId = Number(queueIdStr);
+    const requestId = Number(requestIdStr);
+    const windowId = Number(windowIdStr);
+
+    // Role validation
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access — invalid role.",
+      });
+    }
+
+    if (!requestStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required field. (requestStatus)",
+      });
+    }
+
+    // Only allow supported statuses
+    if (
+      ![
+        Status.STALLED,
+        Status.COMPLETED,
+        Status.CANCELLED,
+        Status.SKIPPED,
+      ].includes(requestStatus.toUpperCase())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status update. Please provide a valid status.",
+      });
+    }
+
+    // Verify window owns this queue
+    const queueCheck = await prisma.queue.findUnique({
+      where: { queueId },
+      select: { windowId: true, queueStatus: true },
+    });
+
+    if (!queueCheck) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found.",
+      });
+    }
+
+    if (Number(queueCheck.windowId) !== windowId) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This queue is being served by another window. Cannot update request status.",
+      });
+    }
+
+    if (
+      queueCheck.queueStatus === Status.WAITING ||
+      queueCheck.queueStatus === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Queue must not be WAITING to update deferred request status.",
+      });
+    }
+
+    // ✅ Transaction: update request only, no queue fetch
+    const newStatus = mapToStatus(requestStatus);
+    await prisma.request.update({
+      where: { requestId },
+      data: {
+        requestStatus: newStatus,
+        processedBy: sasStaffId,
+        processedAt:
+          newStatus === Status.COMPLETED
+            ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            : null,
+        updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      },
+    });
+
+    // ✅ Return minimal response
+    return res.status(200).json({
+      success: true,
+      status: newStatus, // The new status of the request
+      message: `Deferred request ${requestId} updated successfully.`,
+    });
+  } catch (error) {
+    console.error("❌ Error setting deferred request status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 export const createQueueSession = async (req, res) => {
   // const { sessionName } = req.body;
 
@@ -744,12 +875,20 @@ export const markQueueStatus = async (req, res) => {
     );
     const anyStalled = requests.some((r) => r.requestStatus === Status.STALLED);
     const anySkipped = requests.some((r) => r.requestStatus === Status.SKIPPED);
-
+    const hasCompleted = requests.some(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const hasCancelled = requests.some(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
     let finalStatus = Status.IN_SERVICE;
 
+    // ✅ Fixed logic - check for stalled/skipped FIRST
     if (allCompleted) finalStatus = Status.COMPLETED;
     else if (allCancelled) finalStatus = Status.CANCELLED;
     else if (anyStalled || anySkipped) finalStatus = Status.DEFERRED;
+    else if (hasCompleted && hasCancelled)
+      finalStatus = Status.PARTIALLY_COMPLETE;
 
     // ✅ Save updates in a transaction
     const updatedQueue = await prisma.$transaction(async (tx) => {
