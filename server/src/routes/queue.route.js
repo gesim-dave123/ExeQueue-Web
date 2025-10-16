@@ -9,6 +9,7 @@ import {
   getQueueListByStatus, // Add this import
   markQueueStatus,
   restoreSkippedQueue,
+  setDeferredRequestStatus,
   setRequestStatus,
   viewQueues,
 } from "../controllers/queue.controller.js";
@@ -62,6 +63,12 @@ router.put(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   setRequestStatus
+);
+router.put(
+  "/set/status/deferred/:queueId/:requestId/:windowId/:requestStatus",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  setDeferredRequestStatus
 );
 
 router.put(
