@@ -70,4 +70,6 @@ export const QueueActions = Object.freeze({
   QUEUE_COMPLETED: "queue:completed",
   QUEUE_DEFERRED: "queue:deferred",
   QUEUE_CANCELLED: "queue:cancelled",
+  QUEUE_PARTIALLY_COMPLETE: "queue:partial_complete",
+  REQUEST_DEFERRED_UPDATED: "request:updated",
 });
