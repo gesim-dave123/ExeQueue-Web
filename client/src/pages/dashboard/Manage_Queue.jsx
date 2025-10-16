@@ -912,6 +912,12 @@ export default function Manage_Queue() {
       closeActionPanel();
     }
   };
+  const shouldDisableAnnounce = () => {
+    const hasNoQueuesToServe = globalQueueList.length === 0;
+    const isCooldown = disabledForSeconds;
+
+    return hasNoQueuesToServe || isCooldown;
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -1319,9 +1325,9 @@ export default function Manage_Queue() {
                             setLastAnnounceTime
                           )
                         }
-                        disabled={disabledForSeconds || queueList.length === 0}
+                        disabled={shouldDisableAnnounce()}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                          disabledForSeconds
+                          shouldDisableAnnounce()
                             ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
                             : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
                         }`}
