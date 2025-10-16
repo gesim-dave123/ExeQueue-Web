@@ -913,7 +913,7 @@ export default function Manage_Queue() {
     }
   };
   const shouldDisableAnnounce = () => {
-    const hasNoQueuesToServe = globalQueueList.length === 0;
+    const hasNoQueuesToServe = isDefaultQueue(currentQueue);
     const isCooldown = disabledForSeconds;
 
     return hasNoQueuesToServe || isCooldown;
