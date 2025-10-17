@@ -904,7 +904,7 @@ export default function Request() {
                 <option value="BSEE">BSEE</option> */}
                 {courseData.map((course) => (
                   <option key={course.courseId} value={course.courseId}>
-                    {course.courseCode} ({course.courseName})
+                    {course.courseName} - {course.courseCode}
                   </option>
                 ))}
                 ;
