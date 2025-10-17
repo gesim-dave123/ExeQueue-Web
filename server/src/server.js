@@ -9,9 +9,12 @@ import { Server } from 'socket.io';
 import AuthRoute from '../src/routes/auth.route.js';
 import StaffRoute from '../src/routes/staff.route.js';
 import validateAccess from '../utils/validate.js';
-import StudentRoute from './routes/student.route.js';
+import StaffQueue from "./routes/queue.route.js";
+import StudentRoute from "./routes/student.route.js";
+import { socketAuthentication } from "./socket/socket.auth.js";
+import { socketHandler } from "./socket/socketHandler.js";
 import StatisticsRoute from './routes/statistics.route.js';
-
+// import io from 'io'
 dotenv.config();
 
 validateAccess();
@@ -25,7 +28,9 @@ app.use(express.json());
 app.use(
   cors({
     origin:
-      process.env.NODE_ENV === 'production' ? process.env.CORS_ORIGIN : true, // React dev server
+      process.env.NODE_ENV === "production"
+        ? process.env.CORS_ORIGIN
+        : process.env.CORS_ORIGIN, // React dev server
     credentials: true,
   })
 );
@@ -38,43 +43,27 @@ app.use(helmet());
 app.use('/api/auth', AuthRoute);
 app.use('/api/student', StudentRoute);
 app.use('/api/staff', StaffRoute);
+app.use("/api/staff/queue", StaffQueue);
 app.use('/api/statistics', StatisticsRoute);
-// app.use('/api/request', RequestRoute)
-// app.use('/api/course', CourseRoute)
-// app.use('/api/student', StudentRoute)
 
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin:
-      process.env.NODE_ENV === 'production' ? process.env.CORS_ORIGIN : true, // React dev server
-    methods: ['GET', 'POST'],
+      process.env.NODE_ENV === "production"
+        ? process.env.CORS_ORIGIN
+        : process.env.CORS_ORIGIN, // React dev server
+    methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
-io.on('connection', (socket) => {
-  console.log('🟢 New client connected:', socket.id);
-
-  // Example: join private student room
-  socket.on('join-student-room', (studentId) => {
-    socket.join(`student-${studentId}`);
-    console.log(`Student ${studentId} joined room student-${studentId}`);
-  });
-
-  socket.on('testBroadcast', (message) => {
-    console.log('Message from client:', message);
-    socket.broadcast.emit('testMessage', message);
-  });
-
-  // Example: disconnect
-  socket.on('disconnect', () => {
-    console.log('🔴 Client disconnected:', socket.id);
-  });
-});
+app.set("io", io);
+socketAuthentication(io);
+socketHandler(io);
 
 server.listen(PORT, () => {
-  console.log('Server is running on port ', PORT);
+  console.log("Server is running on port ", PORT);
 });
 // app.listen(PORT, '0.0.0.0', () => {
 //   console.log(`Server running on http://0.0.0.0:${PORT}`);

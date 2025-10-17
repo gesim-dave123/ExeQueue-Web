@@ -10,7 +10,7 @@ import {
 } from '../../api/staff';
 import { toast } from 'sonner';
 export default function ManageAccount() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);

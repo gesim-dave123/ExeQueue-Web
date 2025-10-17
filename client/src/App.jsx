@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
@@ -23,6 +24,12 @@ import GenerateQueue from "./pages/students/GenerateQueue";
 import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
+import Manage_Queue from "./pages/dashboard/Manage_Queue";
+import Analytics from "./pages/dashboard/Analytics";
+import LayoutProfile from "./components/LayoutProfile";
+import Profile from "./pages/dashboard/Profile";
+import ReleaseWindow from "./pages/dashboard/ReleaseWindow";
+import Reset_Queue from "./pages/dashboard/Reset_Queue";
 
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
@@ -77,7 +84,7 @@ function App() {
             path="queue/manage"
             element={
               <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <div>Manage Queue Page</div>
+                <Manage_Queue />
               </ProtectedRoute>
             }
           />
@@ -109,14 +116,40 @@ function App() {
             path="analytics"
             element={
               <ProtectedRoute allowedRoles={["PERSONNEL"]}>
-                <div>Analytics Page</div>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
+
+        <Route element={<LayoutProfile />}>
+          <Route path="/profile/profile-settings" element={<Profile />}></Route>
+          <Route
+            path="/profile/release-window"
+            element={<ReleaseWindow />}
+          ></Route>
+        </Route>
+
+        <Route
+          path="/staff"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+              <LayoutProfile />
+            </ProtectedRoute>
+          }
+        >
+          <Route
+            path="reset-queue"
+            element={
+              <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+                <Reset_Queue />
               </ProtectedRoute>
             }
           />
         </Route>
 
         {/* Catch-all Not Found */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="/not-found" element={<NotFound />} />
       </Routes>
     </Router>
   );

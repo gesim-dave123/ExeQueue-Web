@@ -46,12 +46,15 @@ export const loginUser = async (req, res) => {
       { expiresIn: user.role === Role.PERSONNEL ? "10h" : "5h" }
     );
 
-    res.cookie("token", token, {
+    res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // HTTPS only in prod
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
       maxAge:
-        user.role === Role.PERSONNEL ? 1000 * 60 * 60 * 10 : 1000 * 60 * 60 * 5,
+        user.role === Role.PERSONNEL
+          ? 1000 * 60 * 60 * 20
+          : 1000 * 60 * 60 * 10,
     });
 
     return res.status(200).json({
@@ -98,7 +101,7 @@ export const createUser = (req, res) => {
 };
 
 export const logoutUser = (req, res) => {
-  res.clearCookie("token", {
+  res.clearCookie("access_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",

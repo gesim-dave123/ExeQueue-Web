@@ -19,14 +19,12 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen py-15 xl:py-8 flex bg-transparent w-full ">
+    <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full ">
       {/* Main Content */}
-      <div className="flex-1 pr-10 md:px-8 lg:px-12 transition-all duration-300 ease-in-out">
+      <div className="flex-1 pr-8 xl:pt-17 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
         {/* Header */}
-        <div className="mb-6 mt-4 text-left">
-          <h2 className="text-2xl md:text-3xl font-semibold text-[#202124]">
-            Dashboard
-          </h2>
+        <div className="mb-6 text-left">
+          <h2 className="text-3xl font-semibold text-[#202124]">Dashboard</h2>
           <span className="text-sm md:text-base text-[#686969]">
             Your Queue Management Snapshot
           </span>
@@ -35,7 +33,7 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           {/* Card 1 */}
-          <div className="bg-white rounded-xl shadow-xs p-5 flex flex-col gap-3">
+          <div className="bg-white rounded-xl shadow-xs  p-5 flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="bg-[#F5F5F5] p-2 rounded-xl">
                 <img src="/assets/Monitor.png" alt="" />
@@ -44,12 +42,14 @@ export default function Dashboard() {
                 Window 1
               </h3>
             </div>
-            <p className="text-3xl md:text-5xl font-bold text-[#1A73E8] mt-7 xl:text-start ">
+            <p className="text-3xl md:text-5xl font-bold text-[#1A73E8] mt-7 text-start ">
               R001
             </p>
-            <button className="bg-[#26BA33]/20 py-1 px-2 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
-              Currently Serving
-            </button>
+            <div className="flex justify-start">
+              <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
+                Currently Serving
+              </button>
+            </div>
           </div>
 
           {/* Card 2 */}
@@ -62,12 +62,14 @@ export default function Dashboard() {
                 Window 2
               </h3>
             </div>
-            <p className="text-3xl md:text-5xl font-bold text-[#F9AB00] mt-7 xl:text-start">
+            <p className="text-3xl md:text-5xl font-bold text-[#F9AB00] mt-7 text-start">
               P002
             </p>
-            <button className="bg-[#26BA33]/20 py-1 px-2 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
-              Currently Serving
-            </button>
+            <div className="flex justify-start">
+              <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
+                Currently Serving
+              </button>
+            </div>
           </div>
 
           {/* Card 3 */}
