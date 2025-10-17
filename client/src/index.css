@@ -10,3 +10,30 @@ body {
 html {
   scroll-behavior: smooth;
 }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #F3F4F6;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3B82F6;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #2563EB;
+}
+
+/* ✅ Hide the arrows */
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+}
+.custom-scrollbar {
+  scrollbar-width:thick;
+  scrollbar-color: #1A73E8 #F3F4F6;
+}
