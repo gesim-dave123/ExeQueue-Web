@@ -246,14 +246,12 @@ export default function Dashboard() {
   const totalPriorityWaiting = totals.totalPriorityWaiting || 0;
 
   return (
-    <div className="min-h-screen py-15 xl:py-8 flex bg-transparent w-full ">
+    <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full ">
       {/* Main Content */}
-      <div className="flex-1 pr-10 md:px-8 lg:px-12 transition-all duration-300 ease-in-out">
+      <div className="flex-1 pr-8 xl:pt-17 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
         {/* Header */}
-        <div className="mb-6 mt-4 text-left">
-          <h2 className="text-2xl md:text-3xl font-semibold text-[#202124]">
-            Dashboard
-          </h2>
+        <div className="mb-6 text-left">
+          <h2 className="text-3xl font-semibold text-[#202124]">Dashboard</h2>
           <span className="text-sm md:text-base text-[#686969]">
             Your Queue Management Snapshot
           </span>
@@ -286,9 +284,11 @@ export default function Dashboard() {
                   ? win.currentServing.formattedQueueNumber
                   : '—'}
               </p>
-              <button className="bg-[#26BA33]/20 py-1 px-2 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
+            <div className="flex justify-start">
+              <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
                 Currently Serving
               </button>
+            </div>
             </div>
           ))}
 

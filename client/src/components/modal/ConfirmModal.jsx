@@ -27,7 +27,7 @@ export default function ConfirmModal({
   
   // 🔹 New Props
   cancelButtonClass = "px-4 py-3 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-xl w-1/2 font-medium cursor-pointer",
-  confirmButtonClass = "px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl w-1/2 font-medium cursor-pointer",
+  confirmButtonClass = "px-4 py-3 bg-[#1A73E8] text-white hover:bg-blue-700 rounded-xl w-1/2 font-medium cursor-pointer",
 }) {
   if (!isOpen) return null;
 

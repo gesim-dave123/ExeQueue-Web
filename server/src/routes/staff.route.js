@@ -1,17 +1,15 @@
-import { Role } from '@prisma/client';
-import express from 'express';
+import { Role } from "@prisma/client";
+import express from "express";
 import {
   assignServiceWindow,
-  createQueueSession,
-  determineNextQueue,
-  getQueueList,
-  viewQueues,
-  markQueueStatus,
-  restoreSkippedQueue,
   getWorkingScholars,
   softDeleteWorkingScholar,
   updateWorkingScholar,
   createWorkingScholar,
+  checkAvailableWindow,
+  getMyWindowAssignment,
+  getServiceWindowDetails,
+  releaseServiceWindow,
 } from '../controllers/staff.controller.js';
 import {
   authenticateToken,
@@ -20,46 +18,11 @@ import {
 
 const router = express.Router();
 
-router.get(
-  '/queue/view',
-  authenticateToken,
-  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  viewQueues
-);
-
-router.get(
-  '/queue/next-queue',
-  authenticateToken,
-  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  determineNextQueue
-);
 router.post(
-  '/queue/add-session',
-  authenticateToken,
-  authorizeRoles(Role.PERSONNEL),
-  createQueueSession
-);
-router.get('/queue/queues', getQueueList);
-
-router.put(
-  '/window/assign',
+  "/window/:windowId/assign",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   assignServiceWindow
-);
-
-router.put(
-  '/queue/status',
-  authenticateToken,
-  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  markQueueStatus
-);
-
-router.put(
-  '/queue/restore-skipped',
-  authenticateToken,
-  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  restoreSkippedQueue
 );
 
 /* --Manage Accounts - (Personnel only)--*/
@@ -90,4 +53,32 @@ router.delete(
   authorizeRoles(Role.PERSONNEL),
   softDeleteWorkingScholar
 );
+router.post(
+  "/window/check",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  checkAvailableWindow
+);
+
+router.put(
+  "/window/release",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  releaseServiceWindow
+);
+
+router.get(
+  "/window/get/own",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getMyWindowAssignment
+);
+
+router.get(
+  "/window/get",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getServiceWindowDetails
+);
+
 export default router;

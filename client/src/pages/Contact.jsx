@@ -4,7 +4,7 @@ import { Globe } from "lucide-react";
 
 export default function Contact() {
   return (
-    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-10 rounded-2xl w-full xl:w-6xl 2xl:w-[180vh]">
+    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-10 rounded-4xl w-full xl:w-6xl 2xl:w-[180vh]">
       <div className="max-w-8xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10">
         {/* Left Section */}
         <div className="md:mx-10 lg:mx-20 flex flex-col max-w-md w-full top-1/2 transform -translate-y-[15%] ">
@@ -12,9 +12,9 @@ export default function Contact() {
             {/* Logo */}
             <div className="w-30 h-30 flex items-center justify-center rounded-full left-1/2 transform -translate-x-[30%] ">
               <img
-                src="assets/icon.svg"
+                src="assets/whitelogo.png"
                 alt="ExeQueue Logo"
-                className="w-30 h-30"
+                className=""
               />
             </div>
             <h1
@@ -25,7 +25,7 @@ export default function Contact() {
             </h1>
           </div>
 
-          <p className="text-sm text-left md:text-base text-gray-300 leading-relaxed">
+          <p className="text-sm text-left md:text-base text-gray-300 leading-relaxed pl-1">
             Queue Management System for Student Affairs Services Office
           </p>
 
@@ -47,7 +47,7 @@ export default function Contact() {
         {/* Middle - Services */}
         <div className="md:mr-20 lg:mr-40 grid grid-cols-2 gap-20">
           <div className="text-left w-full sm:w-auto">
-            <h2 className="text-blue-300 font-semibold mb-3">Service</h2>
+            <h2 className="text-white font-medium mb-3">Service</h2>
             <ul className="space-y-2 text-gray-300 text-sm md:text-base">
               <li>Good Moral</li>
               <li>Insurance Payment</li>
@@ -60,7 +60,7 @@ export default function Contact() {
 
           {/* Right - Product */}
           <div className="text-left w-full sm:w-auto">
-            <h2 className="text-blue-300 font-semibold mb-3">Product</h2>
+            <h2 className="text-white font-medium mb-3">Product</h2>
             <ul className="space-y-2 text-gray-300 text-sm md:text-base">
               <li>Features</li>
               <li>Tutorial</li>
@@ -71,7 +71,7 @@ export default function Contact() {
 
       {/* Bottom Note */}
       <div className="mt-10 flex items-center justify-center text-xs text-gray-400  lg:w-8xl">
-        © 2025 University of Cebu Main Campus - ExeQueue v1.0.1 | All Rights
+        © 2025 ExeQueue v1.0.1 | All Rights
         Reserved.
       </div>
     </footer>
