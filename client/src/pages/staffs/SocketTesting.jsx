@@ -1,27 +1,27 @@
-import { Eye, Send, Trash2, User, Users, Wifi, WifiOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useSocket } from '../../utils/hooks/useSocket';
+import { Eye, Send, Trash2, User, Users, Wifi, WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSocket } from "../../utils/hooks/useSocket";
 
 const SocketTesting = () => {
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState([]);
-  const [publicMessage, setPublicMessage] = useState('');
-  const [privateMessage, setPrivateMessage] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [currentRoom, setCurrentRoom] = useState('');
+  const [publicMessage, setPublicMessage] = useState("");
+  const [privateMessage, setPrivateMessage] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [currentRoom, setCurrentRoom] = useState("");
 
   // Test data for ExeQueue scenarios
   const [testData, setTestData] = useState({
-    windowId: '1',
-    currentServing: 'R001',
-    nextInLine: 'R002',
-    queueStatus: 'WAITING',
+    windowId: "1",
+    currentServing: "R001",
+    nextInLine: "R002",
+    queueStatus: "WAITING",
     studentQueue: {
-      id: 'Q001',
-      number: 'R001',
-      status: 'SERVING',
-      serviceType: 'Scholarship Inquiry'
-    }
+      id: "Q001",
+      number: "R001",
+      status: "SERVING",
+      serviceType: "Scholarship Inquiry",
+    },
   });
 
   useEffect(() => {
@@ -29,158 +29,174 @@ const SocketTesting = () => {
 
     // Event listeners for receiving messages
     const handleTestMessage = (data) => {
-      console.log('Received testMessage:', data);
-      addMessage('Stranger (Public)', data.message, 'sent');
+      console.log("Received testMessage:", data);
+      addMessage("Stranger (Public)", data.message, "sent");
     };
 
     const handleReceiveBroadcast = (data) => {
-      addMessage('Broadcast Received', JSON.stringify(data), 'info');
+      addMessage("Broadcast Received", JSON.stringify(data), "info");
     };
 
     const handleWindowUpdate = (data) => {
-      addMessage('Window Update', data, 'success');
+      addMessage("Window Update", data, "success");
     };
 
     const handleQueueUpdate = (data) => {
-      addMessage('Queue Update', JSON.stringify(data), 'success');
+      addMessage("Queue Update", JSON.stringify(data), "success");
     };
 
     const handlePersonalQueueUpdate = (data) => {
-      addMessage('Personal Queue Update', JSON.stringify(data), 'warning');
+      addMessage("Personal Queue Update", JSON.stringify(data), "warning");
     };
-    
+
     const handleQueueCalled = (data) => {
-      addMessage('Queue Called', JSON.stringify(data), 'warning');
+      addMessage("Queue Called", JSON.stringify(data), "warning");
     };
 
     // Set up all event listeners
-    socket.on('testMessage', handleTestMessage);
-    socket.on('receiveBroadcast', handleReceiveBroadcast); // Fixed typo from 'recieveBroadcast'
-    socket.on('windowUpdate', handleWindowUpdate);
-    socket.on('queueUpdate', handleQueueUpdate);
-    socket.on('personalQueueUpdate', handlePersonalQueueUpdate);
-    socket.on('queueCalled', handleQueueCalled);
-
-    // Connection events
-    socket.on('connect', () => {
-      addMessage('System', `Connected to server ID:${socket.id} `, 'success');
+    socket.on("testMessage", handleTestMessage);
+    socket.on("receiveBroadcast", handleReceiveBroadcast); // Fixed typo from 'recieveBroadcast'
+    socket.on("windowUpdate", handleWindowUpdate);
+    socket.on("queueUpdate", handleQueueUpdate);
+    socket.on("personalQueueUpdate", handlePersonalQueueUpdate);
+    socket.on("queueCalled", handleQueueCalled);
+    socket.on("All", (data) => {
+      addMessage("Announcement", JSON.stringify(data), "info");
     });
 
-    socket.on('disconnect', () => {
-      addMessage('System', 'Disconnected from server', 'error');
+    // Connection events
+    socket.on("connect", () => {
+      addMessage("System", `Connected to server ID:${socket.id} `, "success");
+    });
+
+    socket.on("disconnect", () => {
+      addMessage("System", "Disconnected from server", "error");
     });
 
     // Cleanup function
     return () => {
       if (socket) {
-        socket.off('testMessage', handleTestMessage);
-        socket.off('receiveBroadcast', handleReceiveBroadcast);
-        socket.off('windowUpdate', handleWindowUpdate);
-        socket.off('queueUpdate', handleQueueUpdate);
-        socket.off('personalQueueUpdate', handlePersonalQueueUpdate);
-        socket.off('queueCalled', handleQueueCalled);
-        socket.off('connect');
-        socket.off('disconnect');
+        socket.off("testMessage", handleTestMessage);
+        socket.off("receiveBroadcast", handleReceiveBroadcast);
+        socket.off("windowUpdate", handleWindowUpdate);
+        socket.off("queueUpdate", handleQueueUpdate);
+        socket.off("personalQueueUpdate", handlePersonalQueueUpdate);
+        socket.off("queueCalled", handleQueueCalled);
+        socket.off("connect");
+        socket.off("disconnect");
       }
     };
   }, [socket]); // Add socket as dependency
 
-  const addMessage = (sender, content, type = 'info') => {
+  const addMessage = (sender, content, type = "info") => {
     console.log("addMessage called with:", { sender, content, type });
     const newMessage = {
       id: Date.now() + Math.random(), // Better unique ID
       sender,
       content,
       type,
-      timestamp: new Date().toLocaleTimeString()
+      timestamp: new Date().toLocaleTimeString(),
     };
     console.log("Adding message:", newMessage);
-    setMessages(prev => [...prev, newMessage],);
+    setMessages((prev) => [...prev, newMessage]);
   };
 
   const sendPublicMessage = () => {
     if (!socket || !publicMessage.trim()) return;
-    
+
     // Emit the message
-    socket.emit('testBroadcast', {
+    socket.emit("testBroadcast", {
       id: `msg-${Date.now()}`,
       message: publicMessage,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // Add to local messages immediately
-    addMessage('You (Public)', publicMessage, 'sent');
-    setPublicMessage('');
+    addMessage("You (Public)", publicMessage, "sent");
+    setPublicMessage("");
   };
 
   const sendPrivateMessage = () => {
     if (!socket || !privateMessage.trim() || !studentId.trim()) return;
-    
-    socket.emit('testPrivateMessage', {
+
+    socket.emit("testPrivateMessage", {
       studentId,
       message: privateMessage,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
-    addMessage('You (Private)', `To student-${studentId}: ${privateMessage}`, 'sent');
-    setPrivateMessage('');
+
+    addMessage(
+      "You (Private)",
+      `To student-${studentId}: ${privateMessage}`,
+      "sent"
+    );
+    setPrivateMessage("");
   };
 
   const joinRoom = () => {
     if (!socket || !studentId.trim()) return;
-    
+
     const room = `student-${studentId}`;
-    socket.emit('joinRoom', room);
+    socket.emit("joinRoom", room);
     setCurrentRoom(room);
-    addMessage('System', `Joined room: ${room}`, 'success');
+    addMessage("System", `Joined room: ${room}`, "success");
   };
 
   const leaveRoom = () => {
     if (!socket || !currentRoom) return;
-    
-    socket.emit('leaveRoom', currentRoom);
-    addMessage('System', `Left room: ${currentRoom}`, 'success');
-    setCurrentRoom('');
+
+    socket.emit("leaveRoom", currentRoom);
+    addMessage("System", `Left room: ${currentRoom}`, "success");
+    setCurrentRoom("");
   };
 
   const sendExeQueueEvent = (eventType) => {
     if (!socket) return;
-    
+
     let eventData = {};
-    
+
     switch (eventType) {
-      case 'windowUpdate':
+      case "windowUpdate":
         eventData = {
           windowId: testData.windowId,
           currentServing: testData.currentServing,
-          nextInLine: testData.nextInLine
+          nextInLine: testData.nextInLine,
         };
         break;
-      case 'queueUpdate':
+      case "queueUpdate":
         eventData = {
           queueNumber: testData.currentServing,
           status: testData.queueStatus,
-          windowId: testData.windowId
+          windowId: testData.windowId,
         };
         break;
-      case 'personalQueueUpdate':
+      case "personalQueueUpdate":
         eventData = testData.studentQueue;
         break;
       default:
         eventData = { type: eventType, data: testData };
     }
-    
+
     socket.emit(eventType, eventData);
-    addMessage('You (Event)', `Sent ${eventType}: ${JSON.stringify(eventData)}`, 'sent');
+    addMessage(
+      "You (Event)",
+      `Sent ${eventType}: ${JSON.stringify(eventData)}`,
+      "sent"
+    );
   };
 
   const getMessageStyle = (type) => {
     switch (type) {
-      case 'success': return 'bg-green-50 border-green-200 text-green-800';
-      case 'error': return 'bg-red-50 border-red-200 text-red-800';
-      case 'warning': return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-      case 'sent': return 'bg-blue-50 border-blue-200 text-blue-800';
-      default: return 'bg-gray-50 border-gray-200 text-gray-800';
+      case "success":
+        return "bg-green-50 border-green-200 text-green-800";
+      case "error":
+        return "bg-red-50 border-red-200 text-red-800";
+      case "warning":
+        return "bg-yellow-50 border-yellow-200 text-yellow-800";
+      case "sent":
+        return "bg-blue-50 border-blue-200 text-blue-800";
+      default:
+        return "bg-gray-50 border-gray-200 text-gray-800";
     }
   };
 
@@ -191,13 +207,17 @@ const SocketTesting = () => {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Socket.IO Testing Area - ExeQueue</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Socket.IO Testing Area - ExeQueue
+          </h1>
           <div className="flex items-center space-x-2">
             {isConnected ? (
               <>
                 <Wifi className="w-5 h-5 text-green-500" />
                 <span className="text-green-600 font-medium">Connected</span>
-                {socket && <span className="text-xs text-gray-500">ID: {socket.id}</span>}
+                {socket && (
+                  <span className="text-xs text-gray-500">ID: {socket.id}</span>
+                )}
               </>
             ) : (
               <>
@@ -253,7 +273,9 @@ const SocketTesting = () => {
                   </button>
                 </div>
                 {currentRoom && (
-                  <p className="text-sm text-green-600">Current room: {currentRoom}</p>
+                  <p className="text-sm text-green-600">
+                    Current room: {currentRoom}
+                  </p>
                 )}
               </div>
             </div>
@@ -271,7 +293,7 @@ const SocketTesting = () => {
                   onChange={(e) => setPublicMessage(e.target.value)}
                   placeholder="Enter public message"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={(e) => e.key === 'Enter' && sendPublicMessage()}
+                  onKeyPress={(e) => e.key === "Enter" && sendPublicMessage()}
                   disabled={!socket}
                 />
                 <button
@@ -298,7 +320,7 @@ const SocketTesting = () => {
                   onChange={(e) => setPrivateMessage(e.target.value)}
                   placeholder="Enter private message"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={(e) => e.key === 'Enter' && sendPrivateMessage()}
+                  onKeyPress={(e) => e.key === "Enter" && sendPrivateMessage()}
                   disabled={!socket}
                 />
                 <button
@@ -317,21 +339,21 @@ const SocketTesting = () => {
               <h3 className="text-lg font-semibold mb-4">ExeQueue Events</h3>
               <div className="space-y-2">
                 <button
-                  onClick={() => sendExeQueueEvent('windowUpdate')}
+                  onClick={() => sendExeQueueEvent("windowUpdate")}
                   disabled={!socket}
                   className="w-full bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 disabled:opacity-50 text-left"
                 >
                   Send Window Update
                 </button>
                 <button
-                  onClick={() => sendExeQueueEvent('queueUpdate')}
+                  onClick={() => sendExeQueueEvent("queueUpdate")}
                   disabled={!socket}
                   className="w-full bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 disabled:opacity-50 text-left"
                 >
                   Send Queue Update
                 </button>
                 <button
-                  onClick={() => sendExeQueueEvent('personalQueueUpdate')}
+                  onClick={() => sendExeQueueEvent("personalQueueUpdate")}
                   disabled={!socket}
                   className="w-full bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 disabled:opacity-50 text-left"
                 >
@@ -349,7 +371,9 @@ const SocketTesting = () => {
                   <input
                     type="text"
                     value={testData.windowId}
-                    onChange={(e) => setTestData({...testData, windowId: e.target.value})}
+                    onChange={(e) =>
+                      setTestData({ ...testData, windowId: e.target.value })
+                    }
                     className="w-full px-2 py-1 border rounded text-sm"
                   />
                 </div>
@@ -358,7 +382,12 @@ const SocketTesting = () => {
                   <input
                     type="text"
                     value={testData.currentServing}
-                    onChange={(e) => setTestData({...testData, currentServing: e.target.value})}
+                    onChange={(e) =>
+                      setTestData({
+                        ...testData,
+                        currentServing: e.target.value,
+                      })
+                    }
                     className="w-full px-2 py-1 border rounded text-sm"
                   />
                 </div>
@@ -367,7 +396,9 @@ const SocketTesting = () => {
                   <input
                     type="text"
                     value={testData.nextInLine}
-                    onChange={(e) => setTestData({...testData, nextInLine: e.target.value})}
+                    onChange={(e) =>
+                      setTestData({ ...testData, nextInLine: e.target.value })
+                    }
                     className="w-full px-2 py-1 border rounded text-sm"
                   />
                 </div>
@@ -375,7 +406,9 @@ const SocketTesting = () => {
                   <label className="block text-gray-600">Queue Status</label>
                   <select
                     value={testData.queueStatus}
-                    onChange={(e) => setTestData({...testData, queueStatus: e.target.value})}
+                    onChange={(e) =>
+                      setTestData({ ...testData, queueStatus: e.target.value })
+                    }
                     className="w-full px-2 py-1 border rounded text-sm"
                   >
                     <option value="WAITING">WAITING</option>
@@ -405,16 +438,24 @@ const SocketTesting = () => {
             </div>
             <div className="bg-white border rounded-lg h-96 overflow-y-auto p-4 space-y-2">
               {messages.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No messages yet. Start testing!</p>
+                <p className="text-gray-500 text-center py-8">
+                  No messages yet. Start testing!
+                </p>
               ) : (
-                messages.map(message => (
+                messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`p-3 rounded-lg border ${getMessageStyle(message.type)}`}
+                    className={`p-3 rounded-lg border ${getMessageStyle(
+                      message.type
+                    )}`}
                   >
                     <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium text-sm">{message.sender}</span>
-                      <span className="text-xs opacity-75">{message.timestamp}</span>
+                      <span className="font-medium text-sm">
+                        {message.sender}
+                      </span>
+                      <span className="text-xs opacity-75">
+                        {message.timestamp}
+                      </span>
                     </div>
                     <p className="text-sm break-words">{message.content}</p>
                   </div>

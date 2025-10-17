@@ -1,9 +1,9 @@
-import { Queue_Type, Status } from '@prisma/client';
-import prisma from '../../prisma/prisma.js';
-import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
-import generateReferenceNumber from '../services/queue/generateReferenceNumber.js';
-import { formatQueueNumber } from '../services/queue/QueueNumber.js';
-
+import { Queue_Type, Status } from "@prisma/client";
+import prisma from "../../prisma/prisma.js";
+import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { SocketEvents } from "../services/enums/SocketEvents.js";
+import generateReferenceNumber from "../services/queue/generateReferenceNumber.js";
+import { formatQueueNumber } from "../services/queue/QueueNumber.js";
 // export const generateQueue = async (req, res) => {
 //   try {
 //     const {
@@ -11,11 +11,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       studentId,
 //       courseId,
 //       courseCode,
-//       yearLevel, 
+//       yearLevel,
 //       queueType,
 //       serviceRequests, // Should be an array of requests
 //     } = req.body;
-    
+
 //     if (
 //       !fullName?.trim() ||
 //       !studentId?.trim() ||
@@ -56,15 +56,15 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         courseCode: true,
 //         courseName: true,
 //         isActive: true
-//       } 
+//       }
 //     });
-    
+
 //     if (!course || !course.isActive) {
 //       return res
 //         .status(404)
 //         .json({ success: false, message: 'Course not found' });
 //     }
-  
+
 //     if (!serviceRequests || !Array.isArray(serviceRequests) || serviceRequests.length === 0) {
 //       return res.status(403).json({
 //         success: false,
@@ -79,18 +79,18 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       });
 //     }
 
-//     const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase() 
+//     const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase()
 //       ? Queue_Type.REGULAR
 //       : Queue_Type.PRIORITY;
 
 //     return await prisma.$transaction(async(tx) => {
 //       // Get start of day in Manila timezone, converted to UTC for database storage
 //       const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-      
+
 //       // // Debug logs to verify timezone handling
 //       // const currentManilaTime = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
 //       // const currentUTCTime = new Date();
-      
+
 //       // console.log('=== TIMEZONE DEBUG LOGS ===');
 //       // console.log('Current UTC Time:', currentUTCTime.toISOString());
 //       // console.log('Current Manila Time:', DateAndTimeFormatter.formatInTimeZone(currentManilaTime, 'yyyy-MM-dd HH:mm:ss zzz', 'Asia/Manila'));
@@ -113,7 +113,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //           maxQueueNo: true
 //         }
 //       });
-      
+
 //       if (!session) {
 //         // Reset sequences when creating a new session
 //         await tx.queueSession.updateMany({
@@ -123,11 +123,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //         await tx.$executeRaw`ALTER SEQUENCE queue_priority_seq RESTART WITH 1`;
 //         await tx.$executeRaw`ALTER SEQUENCE queue_regular_seq RESTART WITH 1`;
-        
+
 //         session = await tx.queueSession.create({
-//           data: { 
-//             sessionNumber: 1, 
-//             sessionDate: todayUTC, 
+//           data: {
+//             sessionNumber: 1,
+//             sessionDate: todayUTC,
 //             maxQueueNo: 500,
 //           },
 //           select: {
@@ -137,10 +137,10 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //           }
 //         });
 //       }
-      
+
 //       const sessionId = session.sessionId;
 //       const sessionNo = session.sessionNumber;
-      
+
 //       // Determine sequence name (global)
 //       const sequenceName =
 //         QUEUETYPE === Queue_Type.PRIORITY ? 'queue_priority_seq' : 'queue_regular_seq';
@@ -178,11 +178,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //       const existingIds = existingRequestData.map(r => r.requestTypeId);
 //       const invalidIds = reqTypeIds.filter(id => !existingIds.includes(id));
-      
+
 //       if (invalidIds.length > 0) {
 //         throw new Error(`Request Types Not Found: ${invalidIds.join(', ')}`);
 //       }
-      
+
 //       const requests = await Promise.all(
 //         reqTypeIds.map(id =>
 //           tx.request.create({
@@ -230,8 +230,6 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       .json({ success: false, message: 'Internal Server Error' });
 //   }
 // };
-
-
 
 // export const generateQueue = async (req, res) => {
 //   try {
@@ -566,11 +564,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       studentId,
 //       courseId,
 //       courseCode,
-//       yearLevel, 
+//       yearLevel,
 //       queueType,
 //       serviceRequests,
 //     } = req.body;
-    
+
 //     // Validation code remains the same...
 //     if (
 //       !fullName?.trim() ||
@@ -597,13 +595,13 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         courseId: courseId,
 //         isActive: true,
 //       },
-//       select: { courseId: true, courseCode: true, courseName: true, isActive: true } 
+//       select: { courseId: true, courseCode: true, courseName: true, isActive: true }
 //     });
-    
+
 //     if (!course || !course.isActive) {
 //       return res.status(404).json({ success: false, message: 'Course not found' });
 //     }
-  
+
 //     if (!serviceRequests || !Array.isArray(serviceRequests) || serviceRequests.length === 0) {
 //       return res.status(403).json({
 //         success: false,
@@ -618,13 +616,13 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       });
 //     }
 
-//     const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase() 
+//     const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase()
 //       ? Queue_Type.REGULAR
 //       : Queue_Type.PRIORITY;
 
 //     return await prisma.$transaction(async (tx) => {
 //       const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-      
+
 //       // 🔥 ATOMIC SESSION MANAGEMENT - Use upsert to handle race conditions
 //       const session = await tx.queueSession.upsert({
 //         where: {
@@ -635,8 +633,8 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         },
 //         update: {}, // No updates if exists
 //         create: {
-//           sessionNumber: 1, 
-//           sessionDate: todayUTC, 
+//           sessionNumber: 1,
+//           sessionDate: todayUTC,
 //           maxQueueNo: 500,
 //           isActive: true
 //         },
@@ -648,7 +646,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       });
 
 //       const sessionId = session.sessionId;
-      
+
 //       // ✅ SEQUENCES ARE ATOMIC - This part is fine
 //       const sequenceName = QUEUETYPE === Queue_Type.PRIORITY ? 'queue_priority_seq' : 'queue_regular_seq';
 //       const nextSeqResult = await tx.$queryRaw`
@@ -674,7 +672,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       });
 
 //       const formattedQueueNumber = formatQueueNumber(QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R', newQueue.queueNumber);
-      
+
 //       const reqTypeIds = serviceRequests.map(r => r.requestTypeId);
 //       const existingRequestData = await tx.requestType.findMany({
 //         where: { requestTypeId: { in: reqTypeIds } },
@@ -683,11 +681,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //       const existingIds = existingRequestData.map(r => r.requestTypeId);
 //       const invalidIds = reqTypeIds.filter(id => !existingIds.includes(id));
-      
+
 //       if (invalidIds.length > 0) {
 //         throw new Error(`Request Types Not Found: ${invalidIds.join(', ')}`);
 //       }
-      
+
 //       const requests = await Promise.all(
 //         reqTypeIds.map(id =>
 //           tx.request.create({
@@ -704,17 +702,17 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       return res.status(201).json({
 //         success: true,
 //         message: "Queue Generated Successfully!",
-//         data: { 
-//           queueDetails: newQueue, 
-//           queueNumber: formattedQueueNumber, 
-//           serviceRequests: requests 
+//         data: {
+//           queueDetails: newQueue,
+//           queueNumber: formattedQueueNumber,
+//           serviceRequests: requests
 //         }
 //       });
 //     });
 
 //   } catch (error) {
 //     console.error("Error generating queue:", error);
-    
+
 //     // Handle unique constraint violations gracefully
 //     if (error.code === 'P2002') {
 //       return res.status(409).json({
@@ -722,20 +720,19 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         message: "Queue generation conflict, please try again"
 //       });
 //     }
-    
-//     return res.status(500).json({ 
-//       success: false, 
-//       message: 'Internal Server Error' 
+
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Internal Server Error'
 //     });
 //   }
 // };
-
 
 // import { Prisma } from '@prisma/client';
 
 /**
  * Generate Queue with Automatic Reset Functionality
- * 
+ *
  * Features:
  * - Atomic queue number generation using PostgreSQL sequences
  * - Automatic session reset when hitting 500 queue limit
@@ -751,13 +748,13 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       studentId,
 //       courseId,
 //       courseCode,
-//       yearLevel, 
+//       yearLevel,
 //       queueType,
 //       serviceRequests,
 //     } = req.body;
-    
+
 //     // =================== VALIDATION ===================
-    
+
 //     if (
 //       !fullName?.trim() ||
 //       !studentId?.trim() ||
@@ -765,27 +762,27 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       !yearLevel?.trim() ||
 //       !queueType?.trim()
 //     ) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: 'Missing required fields' 
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Missing required fields'
 //       });
 //     }
 
 //     // Validate student ID format (8 digits)
 //     const regexId = /^\d{8}$/;
 //     if (!regexId.test(studentId)) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: 'Invalid student id format. Must be 8 digits.' 
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid student id format. Must be 8 digits.'
 //       });
 //     }
 
 //     // Validate year level
 //     const validYearLevels = ['1st', '2nd', '3rd', '4th', '5th', '6th', 'Irregular'];
 //     if (!validYearLevels.includes(yearLevel)) {
-//       return res.status(400).json({ 
-//         success: false, 
-//         message: 'Invalid year level' 
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid year level'
 //       });
 //     }
 
@@ -796,18 +793,18 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         courseId: courseId,
 //         isActive: true,
 //       },
-//       select: { 
-//         courseId: true, 
-//         courseCode: true, 
-//         courseName: true, 
-//         isActive: true 
-//       } 
+//       select: {
+//         courseId: true,
+//         courseCode: true,
+//         courseName: true,
+//         isActive: true
+//       }
 //     });
-    
+
 //     if (!course || !course.isActive) {
-//       return res.status(404).json({ 
-//         success: false, 
-//         message: 'Course not found or inactive' 
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Course not found or inactive'
 //       });
 //     }
 
@@ -828,7 +825,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       });
 //     }
 
-//     const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase() 
+//     const QUEUETYPE = queueType.toLowerCase() === Queue_Type.REGULAR.toString().toLowerCase()
 //       ? Queue_Type.REGULAR
 //       : Queue_Type.PRIORITY;
 
@@ -836,13 +833,13 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //     return await prisma.$transaction(async (tx) => {
 //       const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-      
+
 //       // 🔒 CRITICAL: Advisory lock prevents concurrent session creation race conditions
 //       // This ensures only ONE transaction can check/create sessions at a time
 //       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('queue_session_lock'))`;
-      
+
 //       // =================== SESSION MANAGEMENT ===================
-      
+
 //       // Find active session for today that's accepting new queues
 //       let session = await tx.queueSession.findFirst({
 //         where: {
@@ -867,11 +864,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         if (session.currentQueueCount >= session.maxQueueNo) {
 //           shouldCreateNewSession = true;
 //           nextSessionNumber = session.sessionNumber + 1;
-          
+
 //           // Close current session (no longer accepting, but still serving)
 //           await tx.queueSession.update({
 //             where: { sessionId: session.sessionId },
-//             data: { 
+//             data: {
 //               isAcceptingNew: false,
 //               // isServing stays true - old queues still servable
 //             }
@@ -888,7 +885,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         // Reset sequences for new session
 //         await tx.$executeRaw`ALTER SEQUENCE queue_priority_seq RESTART WITH 1`;
 //         await tx.$executeRaw`ALTER SEQUENCE queue_regular_seq RESTART WITH 1`;
-        
+
 //         session = await tx.queueSession.create({
 //           data: {
 //             sessionDate: todayUTC,
@@ -906,25 +903,25 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //             currentQueueCount: true
 //           }
 //         });
-        
+
 //         console.log(`🔄 New session created: Session ${nextSessionNumber} for ${todayUTC.toISOString()}`);
 //       }
 
 //       // =================== QUEUE NUMBER GENERATION ===================
-      
+
 //       // Get next sequence number (atomic operation, no race condition)
-//       const sequenceName = QUEUETYPE === Queue_Type.PRIORITY 
-//         ? 'queue_priority_seq' 
+//       const sequenceName = QUEUETYPE === Queue_Type.PRIORITY
+//         ? 'queue_priority_seq'
 //         : 'queue_regular_seq';
-        
+
 //       const nextSeqResult = await tx.$queryRaw`
 //         SELECT nextval(${sequenceName}) as next_seq
 //       `;
 //       const sequenceNumber = Number(nextSeqResult[0].next_seq);
-      
+
 //       // Calculate display queue number with wrapping (1-500)
 //       const queueNumber = ((sequenceNumber - 1) % session.maxQueueNo) + 1;
-      
+
 //       // Track which reset iteration this queue belongs to
 //       // Iteration 0: sequences 1-500
 //       // Iteration 1: sequences 501-1000 (displays as 1-500)
@@ -933,14 +930,14 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //       // Generate reference number
 //       const refNumber = generateReferenceNumber(
-//         todayUTC, 
-//         QUEUETYPE, 
-//         sequenceNumber, 
+//         todayUTC,
+//         QUEUETYPE,
+//         sequenceNumber,
 //         session.sessionNumber
 //       );
 
 //       // =================== CREATE QUEUE ===================
-      
+
 //       const newQueue = await tx.queue.create({
 //         data: {
 //           sessionId: session.sessionId,
@@ -966,9 +963,9 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       });
 
 //       // =================== CREATE SERVICE REQUESTS ===================
-      
+
 //       const reqTypeIds = serviceRequests.map(r => r.requestTypeId);
-      
+
 //       // Validate all request types exist
 //       const existingRequestData = await tx.requestType.findMany({
 //         where: { requestTypeId: { in: reqTypeIds } },
@@ -977,11 +974,11 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //       const existingIds = existingRequestData.map(r => r.requestTypeId);
 //       const invalidIds = reqTypeIds.filter(id => !existingIds.includes(id));
-      
+
 //       if (invalidIds.length > 0) {
 //         throw new Error(`Request Types Not Found: ${invalidIds.join(', ')}`);
 //       }
-      
+
 //       // Create all requests
 //       const requests = await Promise.all(
 //         reqTypeIds.map(id =>
@@ -1005,9 +1002,9 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       );
 
 //       // =================== FORMAT RESPONSE ===================
-      
+
 //       const formattedQueueNumber = formatQueueNumber(
-//         QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R', 
+//         QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R',
 //         newQueue.queueNumber
 //       );
 
@@ -1016,7 +1013,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //       return res.status(201).json({
 //         success: true,
 //         message: "Queue Generated Successfully!",
-//         data: { 
+//         data: {
 //           queueDetails: {
 //             queueId: newQueue.queueId,
 //             queueNumber: newQueue.queueNumber,
@@ -1053,7 +1050,7 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 //   } catch (error) {
 //     console.error("Error generating queue:", error);
-    
+
 //     // Handle specific errors
 //     if (error instanceof Prisma.PrismaClientKnownRequestError) {
 //       if (error.code === 'P2002') {
@@ -1070,219 +1067,347 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 //         message: error.message
 //       });
 //     }
-    
-//     return res.status(500).json({ 
-//       success: false, 
+
+//     return res.status(500).json({
+//       success: false,
 //       message: 'Internal Server Error',
 //       error: process.env.NODE_ENV === 'development' ? error.message : undefined
 //     });
 //   }
 // };
 
-
-
 export const generateQueue = async (req, res) => {
   try {
+    const io = req.app.get("io");
     const {
       fullName,
       studentId,
       courseId,
       courseCode,
-      yearLevel, 
+      yearLevel,
       queueType,
       serviceRequests,
     } = req.body;
 
     // =================== VALIDATION ===================
-    if (!fullName?.trim() || !studentId?.trim() || !courseCode?.trim() || !yearLevel?.trim() || !queueType?.trim()) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (
+      !fullName?.trim() ||
+      !studentId?.trim() ||
+      !courseCode?.trim() ||
+      !yearLevel?.trim() ||
+      !queueType?.trim()
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields" });
     }
 
     // Student ID format (8 digits)
     const regexId = /^\d{8}$/;
     if (!regexId.test(studentId)) {
-      return res.status(400).json({ success: false, message: 'Invalid student id format. Must be 8 digits.' });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid student id format. Must be 8 digits.",
+      });
     }
 
-    const validYearLevels = ['1st', '2nd', '3rd', '4th', '5th', '6th', 'Irregular'];
+    const validYearLevels = [
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "5th",
+      "6th",
+      "Irregular",
+    ];
     if (!validYearLevels.includes(yearLevel)) {
-      return res.status(400).json({ success: false, message: 'Invalid year level' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid year level" });
     }
 
     // Course validation
     const course = await prisma.course.findFirst({
-      where: { courseId, courseCode: { equals: courseCode, mode: 'insensitive' }, isActive: true },
-      select: { courseId: true, courseCode: true, courseName: true }
+      where: {
+        courseId,
+        courseCode: { equals: courseCode, mode: "insensitive" },
+        isActive: true,
+      },
+      select: { courseId: true, courseCode: true, courseName: true },
     });
 
-    if (!course) return res.status(404).json({ success: false, message: 'Course not found or inactive' });
+    if (!course)
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found or inactive" });
 
     // Validate service requests
-    if (!serviceRequests?.length) return res.status(400).json({ success: false, message: "Service requests are required" });
+    if (!serviceRequests?.length)
+      return res
+        .status(400)
+        .json({ success: false, message: "Service requests are required" });
 
-    const validQueueTypes = [Queue_Type.REGULAR.toLowerCase(), Queue_Type.PRIORITY.toLowerCase()];
-        if (!validQueueTypes.includes(queueType.toLowerCase())) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid Queue Type! Must be REGULAR or PRIORITY"
+    const validQueueTypes = [
+      Queue_Type.REGULAR.toLowerCase(),
+      Queue_Type.PRIORITY.toLowerCase(),
+    ];
+    if (!validQueueTypes.includes(queueType.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Queue Type! Must be REGULAR or PRIORITY",
+      });
+    }
+
+    const QUEUETYPE =
+      queueType.toUpperCase() === Queue_Type.REGULAR
+        ? Queue_Type.REGULAR
+        : Queue_Type.PRIORITY;
+
+    // =================== TRANSACTION ===================
+    return await prisma.$transaction(
+      async (tx) => {
+        const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+          new Date(),
+          "Asia/Manila"
+        );
+
+        // Advisory lock to prevent session race conditions
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('queue_session_lock'))`;
+
+        // Find or create today's active session
+        let session = await tx.queueSession.findFirst({
+          where: { sessionDate: todayUTC, isActive: true },
+          orderBy: { sessionNumber: "desc" },
+        });
+
+        if (!session) {
+          const lastSession = await tx.queueSession.findFirst({
+            where: { sessionDate: todayUTC },
+            orderBy: { sessionNumber: "desc" },
+          });
+
+          const nextSessionNumber = lastSession
+            ? lastSession.sessionNumber + 1
+            : 1;
+          session = await tx.queueSession.create({
+            data: {
+              sessionDate: todayUTC,
+              sessionNumber: nextSessionNumber,
+              maxQueueNo: 500,
+              currentQueueCount: 0,
+              regularCount: 0,
+              priorityCount: 0,
+              isAcceptingNew: true,
+              isServing: true,
+              isActive: true,
+            },
           });
         }
 
-    const QUEUETYPE = queueType.toUpperCase() === Queue_Type.REGULAR ? Queue_Type.REGULAR : Queue_Type.PRIORITY;
+        // =================== QUEUE NUMBER & AUTO-WRAP ===================
+        const counterField =
+          QUEUETYPE === Queue_Type.REGULAR ? "regularCount" : "priorityCount";
 
-    // =================== TRANSACTION ===================
-    return await prisma.$transaction(async (tx) => {
-      const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-
-      // Advisory lock to prevent session race conditions
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('queue_session_lock'))`;
-
-      // Find or create today's active session
-      let session = await tx.queueSession.findFirst({
-        where: { sessionDate: todayUTC, isActive: true },
-        orderBy: { sessionNumber: 'desc' }
-      });
-
-      if (!session) {
-        const lastSession = await tx.queueSession.findFirst({
-          where: { sessionDate: todayUTC },
-          orderBy: { sessionNumber: 'desc' }
+        const updatedSession = await tx.queueSession.update({
+          where: { sessionId: session.sessionId },
+          data: { [counterField]: { increment: 1 } },
+          select: { regularCount: true, priorityCount: true, maxQueueNo: true },
         });
 
-        const nextSessionNumber = lastSession ? lastSession.sessionNumber + 1 : 1;
-        session = await tx.queueSession.create({
+        const currentCount =
+          QUEUETYPE === Queue_Type.REGULAR
+            ? updatedSession.regularCount
+            : updatedSession.priorityCount;
+        const queueNumber =
+          ((currentCount - 1) % updatedSession.maxQueueNo) + 1;
+        const resetIteration = Math.floor(
+          (currentCount - 1) / updatedSession.maxQueueNo
+        );
+
+        // =================== CREATE QUEUE ===================
+        const refNumber = generateReferenceNumber(
+          todayUTC,
+          QUEUETYPE,
+          currentCount,
+          session.sessionNumber
+        );
+
+        const newQueue = await tx.queue.create({
           data: {
-            sessionDate: todayUTC,
-            sessionNumber: nextSessionNumber,
-            maxQueueNo: 500,
-            currentQueueCount: 0,
-            regularCount: 0,
-            priorityCount: 0,
-            isAcceptingNew: true,
-            isServing: true,
-            isActive: true
-          }
-        });
-      }
-
-      // =================== QUEUE NUMBER & AUTO-WRAP ===================
-      const counterField = QUEUETYPE === Queue_Type.REGULAR ? 'regularCount' : 'priorityCount';
-
-      const updatedSession = await tx.queueSession.update({
-        where: { sessionId: session.sessionId },
-        data: { [counterField]: { increment: 1 } },
-        select: { regularCount: true, priorityCount: true, maxQueueNo: true }
-      });
-
-      const currentCount = QUEUETYPE === Queue_Type.REGULAR ? updatedSession.regularCount : updatedSession.priorityCount;
-      const queueNumber = ((currentCount - 1) % updatedSession.maxQueueNo) + 1;
-      const resetIteration = Math.floor((currentCount - 1) / updatedSession.maxQueueNo);
-
-      // =================== CREATE QUEUE ===================
-      const refNumber = generateReferenceNumber(todayUTC, QUEUETYPE, currentCount, session.sessionNumber);
-
-      const newQueue = await tx.queue.create({
-        data: {
-          sessionId: session.sessionId,
-          studentId,
-          studentFullName: fullName,
-          courseCode: course.courseCode,
-          courseName: course.courseName,
-          yearLevel,
-          queueNumber,
-          sequenceNumber: currentCount, // atomic unique
-          resetIteration,
-          queueType: QUEUETYPE,
-          queueStatus: 'WAITING',
-          referenceNumber: refNumber,
-          isActive: true
-        }
-      });
-      console.log(`✅ Queue generated: ${formatQueueNumber(QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R', queueNumber)} (Seq: ${currentCount}, Session: ${session.sessionNumber}, Iteration: ${resetIteration})`);
-      // Increment total session count
-      await tx.queueSession.update({
-        where: { sessionId: session.sessionId },
-        data: { currentQueueCount: { increment: 1 } }
-      });
-
-      // =================== CREATE SERVICE REQUESTS ===================
-      const reqTypeIds = serviceRequests.map(r => r.requestTypeId);
-      const existingRequestData = await tx.requestType.findMany({ where: { requestTypeId: { in: reqTypeIds } } });
-      const existingIds = existingRequestData.map(r => r.requestTypeId);
-      const invalidIds = reqTypeIds.filter(id => !existingIds.includes(id));
-      if (invalidIds.length > 0) throw new Error(`Request Types Not Found: ${invalidIds.join(', ')}`);
-
-      const requests = await Promise.all(reqTypeIds.map(id =>
-        tx.request.create({
-          data: { queueId: newQueue.queueId, requestTypeId: id, requestStatus: 'WAITING', isActive: true },
-          include: { requestType: { select: { requestTypeId: true, requestName: true } } }
-        })
-      ));
-
-      // =================== FORMAT RESPONSE ===================
-      const formattedQueueNumber = formatQueueNumber(QUEUETYPE === Queue_Type.PRIORITY ? 'P' : 'R', queueNumber);
-
-      return res.status(201).json({
-        success: true,
-        message: "Queue Generated Successfully!",
-        data: {
-          queueDetails: {
-            queueId: newQueue.queueId,
-            queueNumber,
-            formattedQueueNumber,
-            sequenceNumber: currentCount,
-            resetIteration,
-            queueType: newQueue.queueType,
-            queueStatus: newQueue.queueStatus,
-            referenceNumber: newQueue.referenceNumber,
-            studentId: newQueue.studentId,
-            studentFullName: newQueue.studentFullName,
-            courseCode: newQueue.courseCode,
-            courseName: newQueue.courseName,
-            yearLevel: newQueue.yearLevel
-          },
-          sessionInfo: {
             sessionId: session.sessionId,
-            sessionNumber: session.sessionNumber,
-            currentCount: session.currentQueueCount + 1,
-            maxQueueNo: session.maxQueueNo
+            studentId,
+            studentFullName: fullName,
+            courseCode: course.courseCode,
+            courseName: course.courseName,
+            yearLevel,
+            queueNumber,
+            sequenceNumber: currentCount, // atomic unique
+            resetIteration,
+            queueType: QUEUETYPE,
+            queueStatus: "WAITING",
+            referenceNumber: refNumber,
+            isActive: true,
           },
-          serviceRequests: requests.map(req => ({
-            requestId: req.requestId,
-            requestTypeId: req.requestTypeId,
-            requestName: req.requestType.requestName,
-            requestStatus: req.requestStatus
-          }))
-        }
-      });
-    }, { maxWait: 5000, timeout: 10000 });
+        });
+        console.log(
+          `✅ Queue generated: ${formatQueueNumber(
+            QUEUETYPE === Queue_Type.PRIORITY ? "P" : "R",
+            queueNumber
+          )} (Seq: ${currentCount}, Session: ${
+            session.sessionNumber
+          }, Iteration: ${resetIteration})`
+        );
+        // Increment total session count
+        await tx.queueSession.update({
+          where: { sessionId: session.sessionId },
+          data: { currentQueueCount: { increment: 1 } },
+        });
 
+        // =================== CREATE SERVICE REQUESTS ===================
+        const reqTypeIds = serviceRequests.map((r) => r.requestTypeId);
+        const existingRequestData = await tx.requestType.findMany({
+          where: { requestTypeId: { in: reqTypeIds } },
+        });
+        const existingIds = existingRequestData.map((r) => r.requestTypeId);
+        const invalidIds = reqTypeIds.filter((id) => !existingIds.includes(id));
+        if (invalidIds.length > 0)
+          throw new Error(`Request Types Not Found: ${invalidIds.join(", ")}`);
+
+        const requests = await Promise.all(
+          reqTypeIds.map((id) =>
+            tx.request.create({
+              data: {
+                queueId: newQueue.queueId,
+                requestTypeId: id,
+                requestStatus: "WAITING",
+                isActive: true,
+              },
+              include: {
+                requestType: {
+                  select: { requestTypeId: true, requestName: true },
+                },
+              },
+            })
+          )
+        );
+
+        // =================== FORMAT RESPONSE ===================
+        const formattedQueueNumber = formatQueueNumber(
+          QUEUETYPE === Queue_Type.PRIORITY ? "P" : "R",
+          queueNumber
+        );
+        const newQueueData = {
+          queueId: newQueue.queueId,
+          sessionId: session.sessionId,
+          studentId: newQueue.studentId,
+          studentFullName: newQueue.studentFullName,
+          courseCode: newQueue.courseCode,
+          courseName: newQueue.courseName,
+          yearLevel: newQueue.yearLevel,
+          queueNumber: newQueue.queueNumber,
+          sequenceNumber: currentCount,
+          resetIteration: resetIteration,
+          queueType: newQueue.queueType,
+          queueStatus: newQueue.queueStatus,
+          referenceNumber: newQueue.referenceNumber,
+          isActive: newQueue.isActive,
+          windowId: null,
+          servedByStaff: null,
+          calledAt: null,
+          completedAt: null,
+          deletedAt: null,
+          createdAt: newQueue.createdAt,
+          updatedAt: newQueue.updatedAt,
+
+          // Match the exact structure from fetch
+          requests: requests.map((req) => ({
+            requestId: req.requestId,
+            queueId: newQueue.queueId,
+            requestTypeId: req.requestTypeId,
+            requestStatus: req.requestStatus,
+            isActive: req.isActive,
+            createdAt: req.createdAt,
+            updatedAt: req.updatedAt,
+            // Nested requestType object - this is what was missing!
+            requestType: {
+              requestTypeId: req.requestType.requestTypeId,
+              requestName: req.requestType.requestName,
+            },
+          })),
+        };
+
+        io.emit(SocketEvents.QUEUE_CREATED, newQueueData);
+        return res.status(201).json({
+          success: true,
+          message: "Queue Generated Successfully!",
+          data: {
+            queueDetails: {
+              queueId: newQueue.queueId,
+              queueNumber,
+              formattedQueueNumber,
+              sequenceNumber: currentCount,
+              resetIteration,
+              queueType: newQueue.queueType,
+              queueStatus: newQueue.queueStatus,
+              referenceNumber: newQueue.referenceNumber,
+              studentId: newQueue.studentId,
+              studentFullName: newQueue.studentFullName,
+              courseCode: newQueue.courseCode,
+              courseName: newQueue.courseName,
+              yearLevel: newQueue.yearLevel,
+            },
+            sessionInfo: {
+              sessionId: session.sessionId,
+              sessionNumber: session.sessionNumber,
+              currentCount: session.currentQueueCount + 1,
+              maxQueueNo: session.maxQueueNo,
+            },
+            serviceRequests: requests.map((req) => ({
+              requestId: req.requestId,
+              requestTypeId: req.requestTypeId,
+              requestName: req.requestType.requestName,
+              requestStatus: req.requestStatus,
+            })),
+          },
+        });
+      },
+      { maxWait: 5000, timeout: 10000 }
+    );
   } catch (error) {
     console.error("Error generating queue:", error);
-    if (error.message?.includes('Request Types Not Found')) {
+    if (error.message?.includes("Request Types Not Found")) {
       return res.status(400).json({ success: false, message: error.message });
     }
-    return res.status(500).json({ success: false, message: 'Internal Server Error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
 export const getQueue = async (req, res) => {
   try {
-    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-    const {studentId, referenceNumber} = req.query;
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    const { studentId, referenceNumber } = req.query;
     console.log("Student ID:", studentId);
     console.log("Reference Number:", referenceNumber);
-    if(!studentId?.trim() || !referenceNumber?.trim()){
-      return res.status(400).json({success: false, message: "Missing required fields"});
+    if (!studentId?.trim() || !referenceNumber?.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields" });
     }
 
     let whereClause = {
       queueDate: todayUTC,
       isActive: true,
-      queueStatus: Status.WAITING
+      queueStatus: Status.WAITING,
     };
 
-     if (studentId) {
+    if (studentId) {
       whereClause.schoolId = studentId;
     } else if (referenceNumber) {
       whereClause.referenceNumber = referenceNumber;
@@ -1290,18 +1415,15 @@ export const getQueue = async (req, res) => {
 
     const queues = await prisma.queue.findMany({
       where: whereClause,
-      orderBy: [
-        { queueSessionId: 'desc' },
-        { queueNumber: 'desc' }
-      ],
+      orderBy: [{ queueSessionId: "desc" }, { queueNumber: "desc" }],
       select: {
         queueId: true,
         studentFullName: true,
         schoolId: true,
         course: {
           select: {
-            courseCode: true
-          }
+            courseCode: true,
+          },
         },
         yearLevel: true,
         queueSessionId: true,
@@ -1319,42 +1441,40 @@ export const getQueue = async (req, res) => {
             requestType: {
               select: {
                 requestName: true,
-                description: true
-              }
-            }
+                description: true,
+              },
+            },
           },
           where: {
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (!queues || queues.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No queues found for today"
+        message: "No queues found for today",
       });
     }
 
     return res.status(200).json({
       success: true,
       message: "Queues fetched successfully!",
-      queue: queues
+      queue: queues,
     });
-
   } catch (error) {
-    console.error('Error fetching queue:', error);
+    console.error("Error fetching queue:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch queue"
+      message: "Failed to fetch queue",
     });
   }
 };
 
-
 export const getQueueStatus = async (req, res) => {
-  const { schoolId} = req.params;
+  const { schoolId } = req.params;
 
   try {
     const studentQueue = await prisma.queue.findFirst({
@@ -1374,20 +1494,20 @@ export const getQueueStatus = async (req, res) => {
     if (!studentQueue) {
       return res
         .status(404)
-        .json({ success: false, message: 'Student not found in queue' });
+        .json({ success: false, message: "Student not found in queue" });
     }
     const aheadCount = await prisma.queue.count({
       where: {
         queueSessionId: studentQueue.queueSessionId,
         queueType: studentQueue.queueType,
         isActive: true,
-        queueStatus: 'WAITING',
+        queueStatus: "WAITING",
         queueNumber: { lt: studentQueue.queueNumber },
       },
     });
     const response = {
       success: true,
-      message: 'Queue status received successfully',
+      message: "Queue status received successfully",
       data: {
         queueNumber: studentQueue.queueNumber,
         position: aheadCount + 1,
@@ -1396,7 +1516,7 @@ export const getQueueStatus = async (req, res) => {
     };
     res.json(response);
   } catch (error) {
-    res.stattus(500).json({ message: 'Server error' });
+    res.stattus(500).json({ message: "Server error" });
   }
 };
 
@@ -1412,35 +1532,34 @@ export const getQueueOverview = async (req, res) => {
         isActive: true,
       },
       select: {
-          queueId: true,
-          queueNumber: true,
-          queueStatus: true,
-          queueSessionId: true,
-          queueType: true,
-          studentFullName: true,
-          schoolId: true,
-          requests: {
-            select: {
-              requestId: true,
-              requestType: {
-                select: { requestName: true },
-              },
+        queueId: true,
+        queueNumber: true,
+        queueStatus: true,
+        queueSessionId: true,
+        queueType: true,
+        studentFullName: true,
+        schoolId: true,
+        requests: {
+          select: {
+            requestId: true,
+            requestType: {
+              select: { requestName: true },
             },
           },
-
+        },
       },
     });
 
     if (!studentQueue)
       return res
         .status(404)
-        .json({ success: false, message: 'Student not found in queue' });
-    console.log("Student Queue:", studentQueue)
+        .json({ success: false, message: "Student not found in queue" });
+    console.log("Student Queue:", studentQueue);
     //Queue Status
     const currentServing = await prisma.queue.findMany({
       where: {
         queueSessionId: studentQueue.queueSessionId,
-        queueStatus: 'IN_SERVICE',
+        queueStatus: "IN_SERVICE",
         isActive: true,
       },
       select: {
@@ -1449,17 +1568,17 @@ export const getQueueOverview = async (req, res) => {
         windowId: true,
       },
     });
-    console.log("Current Serving:", currentServing)
+    console.log("Current Serving:", currentServing);
     //Next in Line(window 1 = all regular)
     const window1Next = await prisma.queue.findFirst({
       where: {
         queueSessionId: studentQueue.queueSessionId,
-        queueStatus: 'WAITING',
+        queueStatus: "WAITING",
         isActive: true,
-        queueType: 'REGULAR',
+        queueType: "REGULAR",
         windowId: 1,
       },
-      orderBy: { queueNumber: 'asc' },
+      orderBy: { queueNumber: "asc" },
       select: {
         queueNumber: true,
         queueType: true,
@@ -1470,12 +1589,12 @@ export const getQueueOverview = async (req, res) => {
     let window2Next = await prisma.queue.findFirst({
       where: {
         queueSessionId: studentQueue.queueSessionId,
-        queueStatus: 'WAITING',
+        queueStatus: "WAITING",
         isActive: true,
-        queueType: 'PRIORITY',
+        queueType: "PRIORITY",
         windowId: 2,
       },
-      orderBy: { queueNumber: 'asc' },
+      orderBy: { queueNumber: "asc" },
       select: {
         queueNumber: true,
         queueType: true,
@@ -1487,12 +1606,12 @@ export const getQueueOverview = async (req, res) => {
       window2Next = await prisma.queue.findFirst({
         where: {
           queueSessionId: studentQueue.queueSessionId,
-          queueStatus: 'WAITING',
+          queueStatus: "WAITING",
           isActive: true,
-          queueType: 'REGULAR',
+          queueType: "REGULAR",
           windowId: 1,
         },
-        orderBy: { queueNumber: 'asc' },
+        orderBy: { queueNumber: "asc" },
         select: {
           queueNumber: true,
           queueType: true,
@@ -1506,16 +1625,16 @@ export const getQueueOverview = async (req, res) => {
       prisma.queue.count({
         where: {
           queueSessionId: studentQueue.queueSessionId,
-          queueStatus: 'WAITING',
-          queueType: 'REGULAR',
+          queueStatus: "WAITING",
+          queueType: "REGULAR",
           isActive: true,
         },
       }),
       prisma.queue.count({
         where: {
           queueSessionId: studentQueue.queueSessionId,
-          queueStatus: 'WAITING',
-          queueType: 'PRIORITY',
+          queueStatus: "WAITING",
+          queueType: "PRIORITY",
           isActive: true,
         },
       }),
@@ -1526,14 +1645,14 @@ export const getQueueOverview = async (req, res) => {
         queueSessionId: studentQueue.queueSessionId,
         queueType: studentQueue.queueType,
         isActive: true,
-        queueStatus: 'WAITING',
+        queueStatus: "WAITING",
         queueNumber: { lt: studentQueue.queueNumber },
       },
     });
 
     return res.json({
       success: true,
-      message: 'Queue overview fetched successfully',
+      message: "Queue overview fetched successfully",
       data: {
         student: {
           fullName: studentQueue.studentFullName,
@@ -1554,20 +1673,19 @@ export const getQueueOverview = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error in Getting Overview:", error)
+    console.error("Error in Getting Overview:", error);
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
-
 
 // Get Course Data
 export const getCourseData = async (req, res) => {
   try {
     const courseData = await prisma.course.findMany({
       orderBy: {
-        courseId: 'asc',
+        courseId: "asc",
       },
       select: {
         courseId: true,
@@ -1579,49 +1697,51 @@ export const getCourseData = async (req, res) => {
     if (!courseData)
       return res.status(403).json({
         success: false,
-        message: 'Error in fetching course data',
+        message: "Error in fetching course data",
       });
 
     return res.status(200).json({
       success: true,
-      message: 'Course data fetched successfully!',
+      message: "Course data fetched successfully!",
       courseData: courseData,
     });
   } catch (error) {
-    console.error('Error in Course Route: ', error);
+    console.error("Error in Course Route: ", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error!',
+      message: "Internal Server Error!",
     });
   }
 };
 
 // Get Request Types
-export const getRequestTypes = async(req,res) =>{
+export const getRequestTypes = async (req, res) => {
   try {
-    
     const requestTypes = await prisma.requestType.findMany({
-      orderBy:{
-        requestTypeId: "asc"
+      orderBy: {
+        requestTypeId: "asc",
       },
-      select:{
+      select: {
         requestTypeId: true,
         requestName: true,
-      }
-    })
-    if(!requestTypes) return res.status(403).json({success: false, message: "An error occurred when fetching request types"})
+      },
+    });
+    if (!requestTypes)
+      return res.status(403).json({
+        success: false,
+        message: "An error occurred when fetching request types",
+      });
 
     return res.status(200).json({
       success: true,
       message: "Successfully fetched reqeust Types",
-      requestType: requestTypes
-    })
-
+      requestType: requestTypes,
+    });
   } catch (error) {
-    console.error("Error in Request ROute: ", error)
+    console.error("Error in Request ROute: ", error);
     return res.status(500).json({
-      success:false,
-      message: "Internal Server Error!"
-    })
+      success: false,
+      message: "Internal Server Error!",
+    });
   }
-}
+};

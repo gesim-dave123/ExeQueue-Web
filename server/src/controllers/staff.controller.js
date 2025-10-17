@@ -1,472 +1,512 @@
-import { Queue_Type, Status } from '@prisma/client';
-import prisma from '../../prisma/prisma.js';
-import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { Status } from "@prisma/client";
+import prisma from "../../prisma/prisma.js";
+import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { getShiftTag } from "../../utils/shiftTag.js";
+import {
+  QueueActions,
+  QueueEvents,
+  WindowEvents,
+} from "../services/enums/SocketEvents.js";
 
+const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+  new Date(),
+  "Asia/Manila"
+);
+const isIntegerParam = (val) => /^\d+$/.test(val);
 
-const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila')
+export const assignServiceWindow = async (req, res) => {
+  const { sasStaffId } = req.user;
+  const { windowId: windowIdStr } = req.params;
+  const io = req.app.get("io");
+  const shift = getShiftTag();
 
-export const viewQueues = async (req, res) => {
   try {
-    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-    const { query: { filter, value } } = req;
-
-    // Build where clause dynamically
-    let whereClause = {
-      queueDate: todayUTC,
-      isActive: true,
-      queueStatus: Status.WAITING
-    };
-
-    // Add filter conditions to the database query if provided
-    if (filter && value) {
-      if (filter === 'studentId') {
-        whereClause.schoolId = { equals: value, mode: 'insensitive' };
-      } else if (filter === 'fullName') {
-        whereClause.studentFullName = { contains: value, mode: 'insensitive' };
-      } else if (filter === 'referenceNumber') {
-        whereClause.referenceNumber = { equals: value, mode: 'insensitive' };
-      }
-      else if( filter === 'queueType'){
-        if([Queue_Type.PRIORITY, Queue_Type.REGULAR].toString().includes(value)){
-          whereClause.queueType = value.toUpperCase() === 'REGULAR' ? Queue_Type.REGULAR : Queue_Type.PRIORITY;
-        }
-      }
-    }
-
-    const queues = await prisma.queue.findMany({
-      where: whereClause,
-      orderBy: [
-        { queueSessionId: 'desc' },
-        { queueNumber: 'desc' }
-      ],
-      select: {
-        queueId: true,
-        studentFullName: true,
-        schoolId: true,
-        course: {
-          select: {
-            courseCode: true
-          }
-        },
-        yearLevel: true,
-        queueSessionId: true,
-        queueStatus: true,
-        queueDate: true,
-        referenceNumber: true,
-        queueType: true,
-        queueNumber: true,
-        createdAt: true,
-        isActive: true,
-        requests: {
-          select: {
-            requestId: true,
-            requestStatus: true,
-            requestType: {
-              select: {
-                requestName: true,
-                description: true
-              }
-            }
-          },
-          where: {
-            isActive: true
-          }
-        }
-      }
-    });
-
-    if (!queues || queues.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No queues found for today"
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Queues fetched successfully!",
-      queue: queues
-    });
-
-  } catch (error) {
-    console.error('Error fetching queue:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch queue"
-    });
-  }
-};
-
-export const determineNextQueue = async (req, res) => {
-  try {
-    const { sasStaffId, role, serviceWindowId } = req.user;
-    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-    if(!serviceWindowId || serviceWindowId === null){
-      return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."});
-    }
-    // Get window rules
-    const windowRule = await prisma.serviceWindow.findUnique({
-      where: { windowId: serviceWindowId, isActive: true },
-      select: { canServePriority: true, canServeRegular: true }
-    });
-
-    if (!windowRule) {
+    // Validate integer params
+    if (!isIntegerParam(windowIdStr)) {
       return res.status(400).json({
         success: false,
-        message: "Bad Request: No valid window rule found!"
+        message: "Invalid param. windowID must be an integer.",
       });
     }
 
-    let allowedTypes = [];
-    if (windowRule.canServePriority) allowedTypes.push(Queue_Type.PRIORITY);
-    if (windowRule.canServeRegular) allowedTypes.push(Queue_Type.REGULAR);
+    const windowId = Number(windowIdStr);
 
-    if (allowedTypes.length === 0) {
-      return res.status(403).json({
+    if (isNaN(windowIdStr)) {
+      return res.status(400).json({
         success: false,
-        message: "This window is not allowed to serve any queue types."
+        message: "Invalid Type. windowID must be a Number.",
       });
     }
-    console.log("Allowed Queue Types for this window:", allowedTypes);
-    // Use transaction with retry logic for concurrency
+
     const result = await prisma.$transaction(async (tx) => {
-      // Find and immediately update in one atomic operation
-      const nextQueue = await tx.queue.findFirst({
-        where: {
-          queueDate: todayUTC,
-          queueType: { in: allowedTypes },
-          queueStatus: Status.WAITING,
-          windowId: null, // Only unassigned queues
-        },
-        // include:{
-        //   requests: {
-        //     select: {
-        //       requestId: true,
-        //       requestStatus: true,
-        //       requestType: {
-        //         select: {
-        //           requestName: true,
-        //           description: true
-        //         }
-        //       }
-        //     },
-        //     where: {
-        //       isActive: true
-        //     }
-        //   },
-        // },
-        orderBy: [
-          { queueType: "desc" }, // PRIORITY first
-          { queueNumber: "asc" }
-        ]
-      });
-
-      if (!nextQueue) {
-        return res.status(404).json({
-          success:false,
-          message: "No waiting queue available for this window."
-        });
-      }
-
-      // Atomic update with additional safety check
-      const updatedQueue = await tx.queue.updateMany({
-        where: {
-          queueId: nextQueue.queueId,
-          windowId: null, // Extra safety: only update if still unassigned
-          queueStatus: Status.WAITING // Extra safety: only update if still waiting
-        },
-        data: {
-          windowId: serviceWindowId,
-          queueStatus: Status.IN_SERVICE // Update status too!
-        }
-      });
-
-      // Check if update actually happened
-      if (updatedQueue.count === 0) {
-        throw new Error("QUEUE_ALREADY_ASSIGNED");
-      }
-
-      // Get the updated queue with full details
-      const finalQueue = await tx.queue.findUnique({
-        where: { queueId: nextQueue.queueId },
+      // Step 1: Check again within transaction
+      const existing = await tx.windowAssignment.findFirst({
+        where: { windowId, shiftTag: shift, releasedAt: null },
         include: {
-          requests: {
-            include: { requestType: { select: { requestName: true } } }
+          staff: {
+            select: { sasStaffId: true, firstName: true, lastName: true },
           },
-        }
-      });
-
-      // Log the action
-      // await tx.transactionHistory.create({
-      //   data: {
-      //     queueId: nextQueue.queueId,
-      //     performedById: sasStaffId,
-      //     performedByRole: role,
-      //     transactionStatus: Status.IN_SERVICE
-      //   }
-      // });
-
-      return finalQueue;
-    }, {
-      // Transaction options for better concurrency handling
-      maxWait: 5000, // Maximum time to wait for a transaction slot
-      timeout: 10000 // Maximum time for the transaction to complete
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Next queue assigned to this window.",
-      nextQueue: result
-    });
-
-  } catch (error) {
-    console.error("Error in Getting Next Queue Number:", error);
-
-    // Handle specific concurrency errors
-    if (error.message === "NO_QUEUE_AVAILABLE") {
-      return res.status(404).json({
-        success: false,
-        message: "No waiting queue available for this window."
-      });
-    }
-
-    if (error.message === "QUEUE_ALREADY_ASSIGNED") {
-      return res.status(409).json({
-        success: false,
-        message: "Queue was assigned to another window. Please try again."
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error!"
-    });
-  }
-};
-
-export const getQueueList = async (req, res) => {
-  try {
-    // const {sasStaffId, role, serviceWindowId} = req.user;
-    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-    // if(!serviceWindowId || serviceWindowId === null){
-    //   return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."});
-    // }
-
-    const activeWindow = await prisma.serviceWindow.findMany({
-      where: {isActive: true},
-      select: {
-        windowNo: true,
-        windowName: true,
-        isActive: true
-      }
-    })
-
-    if(activeWindow.length === 0 || !activeWindow){
-      return res.status(400).json({
-        success: false,
-        message: "There are no active windows currently"
-      })
-    }
-    const regularQueue = await prisma.queue.findMany({
-      where:{
-        queueDate: todayUTC,
-        queueStatus: { in: [Status.WAITING, Status.IN_SERVICE]},
-        queueType:Queue_Type.REGULAR,
-        isActive: true
-      },
-      orderBy: [
-        {queueType: 'desc'},
-        {queueNumber: "asc"}
-      ]
-    })
-    const priorityQueue = await prisma.queue.findMany({
-      where:{
-        queueDate: todayUTC,
-        queueStatus: { in: [Status.WAITING, Status.IN_SERVICE]},
-        queueType:  Queue_Type.PRIORITY,
-        isActive: true
-      },
-      orderBy: [
-        {queueType: 'desc'},
-        {queueNumber: "asc"}
-      ]
-    })
-
-    const queues = [{
-      regularQueue,
-      priorityQueue
-    }]
-    if(!queues){
-      return res.status(400).json({
-        success: false,
-        message: "Bad Request, Error in queue list"
-      })
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: queues.length === 0 ? "There are no queues currently in the system, please wait a moment" 
-      :"Queues successfully retrieved!",
-      queues : queues
-    })
-
-
-
-  } catch (error) {
-    console.error("Error in getting queue list: ", error);
-    return res.status(500).json({
-      success:false,
-      message: "Internal Server Error!"
-    })
-    
-  }
-}
-
-
-export const getRequest = async (req,res) =>{
-  try {
-    const {sasStaffId, role} = req.user
-    const {queueType} = req.body
-    if(!serviceWindowId || serviceWindowId === null){
-      return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."});
-    }
-    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila')
-
-
-  } catch (error) {
-    
-  }
-}
-
-export const setRequestStatus = async (req,res) =>{
-  try {
-    const {sasStaffId, role} = req.user
-    const {requestId, requestStatus, status} = req.body
-    if(!serviceWindowId || serviceWindowId === null){
-      return res.status(403).json({success: false, message: "No window assigned detected! Please assign which window you are using first."})
-    }
-
-    if(![Status.STALLED, Status.COMPLETED, Status.CANCELLED, Status.SKIPPED].includes(status)){
-      return res.status(400).json({success: false, message: "Invalid status update. Please provide a valid status."}``)
-    }
-
-    const requestTransaction = await prisma.$transaction(async (tx)=>{
-      const request = await tx.request.update({
-        where: {
-          requestId: requestId,
-          requestStatus: {not: Status.COMPLETED},
-          isActive: true
         },
-        data:{
+      });
 
-        }
-      })
-    })
-    
-    
+      if (existing && existing.sasStaffId !== sasStaffId) {
+        throw new Error(
+          `Window ${windowId} already assigned to ${existing.staff.firstName} ${existing.staff.lastName}`
+        );
+      }
 
+      const assignment = await tx.windowAssignment.create({
+        data: {
+          sasStaffId,
+          windowId,
+          shiftTag: shift,
+          lastHeartbeat: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        include: {
+          staff: {
+            select: { sasStaffId: true, firstName: true, lastName: true },
+          },
+          serviceWindow: true,
+        },
+      });
 
-    
+      return assignment;
+    });
 
+    io.emit(WindowEvents.WINDOW_ASSIGNED, {
+      windowId,
+      staff: result.staff,
+      message: `Window ${windowId} assigned to ${result.staff.firstName}`,
+    });
 
-  } catch (error) {
-    
-  }
-}
-export const createQueueSession = async (req, res) => {
-  // const { sessionName } = req.body;
-
-  try {
-    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(new Date(), 'Asia/Manila');
-
-    const result = await prisma.$transaction(async (tx) => {
-      await tx.queueSession.updateMany({
-        where: { isActive: true },
-        data:{ isActive:false}
-      })
-
-      const lastSession = await tx.queueSession.findFirst({
-        where: { sessionDate: todayUTC },
-        orderBy: { sessionNo: 'desc' },
-      })
-
-      const nextSessionNo = lastSession ? lastSession.sessionNo + 1 :1;
-      const newSession = await tx.queueSession.create({
-        data:{
-          sessionNo: nextSessionNo,
-          sessionDate: todayUTC,
-          isActive: true
-        }
-      })
-
-      await tx.$executeRawUnsafe(`ALTER SEQUENCE queue_regular_seq RESTART WITH 1`);
-      await tx.$executeRawUnsafe(`ALTER SEQUENCE queue_priority_seq RESTART WITH 1`);
-
-      return newSession
-    })
-    console.log('✅ New queue session created:', result);
     return res.status(201).json({
       success: true,
-      message: 'New queue session created, previous session deactivated, and sequences reset',
-      session: result,
+      message: `Successfully assigned to ${result.serviceWindow.windowName}`,
+      assignment: result,
     });
   } catch (error) {
-    console.error('❌ Error creating queue session:', error);
+    console.error("❌ Error assigning staff:", error);
+
+    // Handle unique constraint (window already taken)
+    if (error.code === "P2002" && error.meta?.target?.includes("windowId")) {
+      return res.status(409).json({
+        success: false,
+        message: "This window is already assigned to another staff.",
+      });
+    }
+
+    // 🧩 Handle custom logic errors (like already assigned)
+    if (error.message.includes("already assigned")) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
     return res.status(500).json({
       success: false,
-      message: 'Failed to create queue session',
+      message: "Internal Server Error!",
       error: error.message,
     });
   }
 };
 
-export const assignServiceWindow = async (req, res) => {
+export const releaseServiceWindow = async (req, res) => {
   try {
-    const {sasStaffId, role} = req.user;
-    const { serviceWindowNumber } = req.body; 
-    if(!serviceWindowNumber || serviceWindowNumber === null){
-      return res.status(400).json({
-        success: false,
-        message: "No service window selected. Please select a valid service window from the available options.",
-      })
-    } 
-    const windowId = await prisma.serviceWindow.findUnique({
-      where:{windowNo: serviceWindowNumber, isActive: true},
-      select:{ windowId: true}
-    })
-    if(!windowId|| windowId === null){
-      return res.status(400).json({
-        success: false,
-        message: "Invalid service window selected.",
-      })
-    }
-    console.log("Matched Window ID:", windowId); 
-    const assignWindow = await prisma.sasStaff.update({
-      where:{
-        sasStaffId: sasStaffId,
-      },
-      data:{
-        serviceWindowId: windowId.windowId
+    const { sasStaffId } = req.user;
+    const shift = getShiftTag();
+    const io = req.app.get("io");
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Find the active assignment first
+      const activeAssignment = await tx.windowAssignment.findFirst({
+        where: { sasStaffId, shiftTag: shift, releasedAt: null },
+        include: {
+          serviceWindow: {
+            select: {
+              windowName: true,
+            },
+          },
+        },
+      });
+
+      if (!activeAssignment) {
+        throw new Error("No active window assignment found");
       }
-    })
-    if(!assignWindow){
-      return res.status(400).json({
+
+      // 🆕 Check if there's a current queue being served by this window
+      const currentQueue = await tx.queue.findFirst({
+        where: {
+          windowId: activeAssignment.windowId,
+          queueStatus: Status.IN_SERVICE,
+          // servedAt: null, // Not yet completed
+        },
+      });
+
+      // 🆕 If there's a current queue, reset it back to WAITING
+      if (currentQueue) {
+        await tx.queue.update({
+          where: { queueId: currentQueue.queueId },
+          data: {
+            queueStatus: Status.WAITING,
+            windowId: null,
+            servedByStaff: null,
+            calledAt: null,
+          },
+        });
+
+        // ✅ Get complete queue data with requests for perfect sync
+        const queueWithRequests = await tx.queue.findUnique({
+          where: { queueId: currentQueue.queueId },
+          include: {
+            requests: {
+              where: { isActive: true },
+              include: {
+                requestType: {
+                  select: {
+                    requestTypeId: true,
+                    requestName: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        io.to(QueueEvents.REFETCH).emit(QueueActions.QUEUE_RESET, {
+          // ✅ Core queue identification & formatting
+          queueId: queueWithRequests.queueId,
+          queueType: queueWithRequests.queueType, // PRIORITY or REGULAR
+          queueNumber: queueWithRequests.queueNumber, // For queueNo formatting
+          queueStatus: Status.WAITING,
+          windowId: null,
+          studentFullName: queueWithRequests.studentFullName,
+          studentId: queueWithRequests.studentId,
+          courseCode: queueWithRequests.courseCode,
+          yearLevel: queueWithRequests.yearLevel,
+          createdAt: queueWithRequests.createdAt,
+          referenceNumber: queueWithRequests.referenceNumber,
+          previousWindowId: activeAssignment.windowId,
+          reason: "Window released",
+          requests: queueWithRequests.requests.map((req) => ({
+            requestId: req.requestId,
+            queueId: queueWithRequests.queueId,
+            requestTypeId: req.requestTypeId,
+            requestStatus: req.requestStatus,
+            isActive: req.isActive,
+            createdAt: req.createdAt,
+            updatedAt: req.updatedAt,
+            requestType: {
+              requestTypeId: req.requestType.requestTypeId,
+              requestName: req.requestType.requestName,
+            },
+          })),
+
+          timestamp: Date.now(),
+        });
+      }
+
+      // Release the window assignment
+      const released = await tx.windowAssignment.updateMany({
+        where: { sasStaffId, shiftTag: shift, releasedAt: null },
+        data: { releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila") },
+      });
+
+      return {
+        releasedCount: released.count,
+        windowId: activeAssignment.windowId,
+        windowName: activeAssignment.serviceWindow.windowName,
+        resetQueue: currentQueue,
+      };
+    });
+
+    io.to(QueueEvents.REFETCH).emit(WindowEvents.RELEASE_WINDOW, {
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNo,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.resetQueue
+        ? `Window released and queue ${result.resetQueue.queueNo} reset to waiting`
+        : "Window released successfully",
+      resetQueue: result.resetQueue,
+    });
+  } catch (error) {
+    console.error("❌ Error releasing window:", error);
+
+    if (error.message === "No active window assignment found") {
+      return res.status(404).json({
         success: false,
-        message: "Failed to assign service window."
-      })
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+export const getMyWindowAssignment = async (req, res) => {
+  try {
+    const { sasStaffId } = req.user;
+    const shift = getShiftTag();
+
+    const assignment = await prisma.windowAssignment.findFirst({
+      where: {
+        sasStaffId: sasStaffId,
+        shiftTag: shift,
+        releasedAt: null,
+      },
+      include: {
+        serviceWindow: true,
+        staff: {
+          select: {
+            sasStaffId: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      return res.status(200).json({
+        success: true,
+        message: "No active assignment",
+        assignment: null,
+      });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Service window assigned successfully.",
-      windowId: assignWindow.serviceWindowId
-    })
-  
+      message: "Active assignment found",
+      assignment: assignment,
+    });
   } catch (error) {
-    console.error('Error assigning service window:', error);
+    console.error("❌ Error getting assignment:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!"
+      message: "Internal Server Error!",
     });
   }
-}
+};
+
+export const checkAvailableWindow = async (req, res) => {
+  try {
+    const { windowIds } = req.body;
+
+    if (!Array.isArray(windowIds)) {
+      return res.status(400).json({
+        error: "windowIds must be an array",
+        example: { windowIds: [1, 2, 3] },
+      });
+    }
+
+    if (!windowIds || windowIds.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "Window Id array is empty",
+      });
+    }
+
+    const shift = getShiftTag(); // returns "MORNING", "AFTERNOON", "EVENING"
+    console.log(shift);
+    const assignedWindows = await prisma.windowAssignment.findMany({
+      where: {
+        windowId: { in: windowIds },
+        releasedAt: null,
+        // // assignedAt: todayUTC,
+        shiftTag: shift.toString(),
+      },
+      select: {
+        windowId: true,
+      },
+    });
+
+    const assignedIds = assignedWindows.map((a) => a.windowId);
+    console.log(assignedIds);
+    const availableWindows = windowIds.filter(
+      (id) => !assignedIds.includes(id)
+    );
+
+    return res.status(200).json({
+      success: true,
+      availableWindows,
+      assignedIds,
+    });
+  } catch (error) {
+    console.error("Error occurred checking window availability: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const updateWindowHeartbeat = async (req, res) => {
+  try {
+    const { sasStaffId } = req.user;
+    const { windowId } = req.body;
+    const io = req.app.get("io");
+    const shift = getShiftTag();
+    const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+
+    const assignment = await prisma.windowAssignment.findFirst({
+      where: {
+        sasStaffId,
+        windowId,
+        shiftTag: shift,
+        releasedAt: null,
+      },
+      select: { lastHeartbeat: true },
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: "No active assignment found",
+      });
+    }
+
+    const now = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
+    const timeSinceLastHeartbeat =
+      now.getTime() - new Date(assignment.lastHeartbeat).getTime();
+
+    // Only update if heartbeat is older than interval
+    if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
+      return res.status(200).json({
+        success: true,
+        message: "Heartbeat still fresh, skipped update",
+        skipped: true,
+      });
+    }
+
+    // Update only if needed
+    await prisma.windowAssignment.updateMany({
+      where: {
+        sasStaffId,
+        windowId,
+        shiftTag: shift,
+        releasedAt: null,
+      },
+      data: {
+        lastHeartbeat: now,
+      },
+    });
+
+    // Only emit socket event when actually updating
+    io.emit(WindowEvents.HEARTBEAT_UPDATE, {
+      windowId,
+      sasStaffId,
+      timestamp: now,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Heartbeat updated",
+      updated: true,
+    });
+  } catch (error) {
+    console.error("❌ Error updating heartbeat:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const checkAndReleaseStaleAssignments = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+    const HEARTBEAT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const now = new Date();
+    const timeoutThreshold = new Date(now.getTime() - HEARTBEAT_TIMEOUT);
+
+    const staleAssignments = await prisma.windowAssignment.findMany({
+      where: {
+        releasedAt: null,
+        lastHeartbeat: {
+          lt: timeoutThreshold,
+        },
+      },
+      include: {
+        staff: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+    });
+
+    if (staleAssignments.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No stale assignments found",
+        count: 0,
+      });
+    }
+
+    const released = await prisma.windowAssignment.updateMany({
+      where: {
+        releasedAt: null,
+        lastHeartbeat: {
+          lt: timeoutThreshold,
+        },
+      },
+      data: {
+        releasedAt: now,
+      },
+    });
+
+    staleAssignments.forEach((assignment) => {
+      io.emit(WindowEvents.AUTO_RELEASE_WINDOW, {
+        windowId: assignment.windowId,
+        sasStaffId: assignment.sasStaffId,
+        staffName: `${assignment.staff.firstName} ${assignment.staff.lastName}`,
+        reason: "No activity detected (5 minute timeout)",
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Released ${released.count} stale assignments`,
+      count: released.count,
+    });
+  } catch (error) {
+    console.error("❌ Error checking stale assignments:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const getServiceWindowDetails = async (req, res) => {
+  try {
+    const serviceWindows = await prisma.serviceWindow.findMany({
+      where: {
+        isActive: true,
+      },
+    });
+    if (serviceWindows === null) {
+      return res.status(200).json({
+        success: false,
+        message: "Error occured, returned null",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Service Windows:",
+      windows: serviceWindows,
+    });
+  } catch (error) {}
+};
