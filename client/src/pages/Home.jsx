@@ -1,26 +1,17 @@
-import React from "react";
-import { faClipboardList, faUserCog } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import Request from "./students/Request";
-import { Link } from "react-router-dom";
-import { ClipboardList, UserCheck } from "lucide-react";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
 export default function Home() {
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
   const handleRedirect = (destination) => {
     setLoading(true);
 
-    // simulate a loading process, then navigate
     setTimeout(() => {
       setLoading(false);
       navigate(destination);
     }, 2000);
-    if (destination === "/student") {
-      window.location.href = "/"; // or use your router
-    } else if (destination === "/staff/login") {
-      window.location.href = destination; // or use your router
-    } else if (destination === "/student/view-queue") {
-      console.log("View Queue");
-      window.location.href = destination;
-    }
   };
 
   return (
@@ -31,7 +22,7 @@ export default function Home() {
           <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-extrabold text-gray-900 leading-tight">
             <span className="bg-gradient-to-r from-[#1A73E8] via-[#F9AB00] to-[#1A73E8] bg-clip-text text-transparent bg-size-200 animate-gradient">
               Student
-            </span>{" "}
+            </span>{' '}
             Services, Simplified
           </h1>
         </div>
@@ -46,7 +37,7 @@ export default function Home() {
         {/* Buttons with improved styling and icons */}
         <div className="flex flex-col sm:flex-row mb-4 gap-5 justify-center ">
           {/* Proceed as Staff */}
-          <Link to="/staff-login">
+          <Link to="/staff/login">
             <button
               className="border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
               // onClick={() => handleRedirect("/staff/login")}
@@ -75,15 +66,17 @@ export default function Home() {
 
         <div className="items-center mb-8 text-center text-gray-500 text-sm sm:text-base">
           <p>
-            Already have a queue number?{" "}
-            <span>
-              <button
-                className="cursor-pointer underline "
-                onClick={() => handleRedirect("/student")} // change later to url destination for view queue
-              >
-                Search Queue
-              </button>
-            </span>
+            Already have a queue number?{' '}
+            <Link to="/student/queue/search">
+              <span>
+                <button
+                  className="cursor-pointer underline text-[#1A73E8] hover:text-blue-700 transition-colors"
+                  onClick={() => handleRedirect('/student/queue/search')} // change later to url destination for view queue
+                >
+                  Search Queue
+                </button>
+              </span>
+            </Link>
           </p>
         </div>
       </div>
