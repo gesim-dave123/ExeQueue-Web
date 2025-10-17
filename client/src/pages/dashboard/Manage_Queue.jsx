@@ -229,13 +229,32 @@ export default function Manage_Queue() {
   }, []);
 
   // Handle when this window is released
-  const handleWindowRelease = useCallback((data) => {
-    console.log("🟡 Window Released:", data);
-    showToast(data.message || "Window released", "info");
-    // Optional: reset state or redirect
-    // setSelectedWindow(null);
-    // setCurrentQueue(null);
-  }, []);
+  const handleWindowRelease = useCallback(
+    async (data) => {
+      // 🚨 CASE 1: The client who owns the released window
+      if (data.previousWindowId === selectedWindow?.id) {
+        // Clear local state
+        setSelectedWindow(null);
+        setCurrentQueue(null);
+        setIsLoading(true);
+        localStorage.removeItem("selectedWindow");
+
+        showToast("Your window has been released", "info");
+
+        // 🌀 Force refresh window list — same behavior as when first loading the page
+        await loadWindows(); // reuse your existing window loader
+        setShowWindowModal(true); // show the window selection modal again
+        return;
+      }
+
+      // 🚨 CASE 2: Other clients — just info toast + soft refresh
+      showToast(`${data.message}`, "info");
+
+      // Optional: also refresh window list in background for accuracy
+      await loadWindows();
+    },
+    [selectedWindow?.id]
+  );
 
   const handleError = useCallback((error) => {
     console.error("❌ Socket Error:", error);
@@ -378,11 +397,59 @@ export default function Manage_Queue() {
       );
 
       // Optional: Show notification for remote updates only
-      if (data.updatedBy !== currentStaffId) {
-        showToast(`Request in queue updated by another window`, "info");
-      }
+      // if (data.updatedBy !== currentStaffId) {
+      //   showToast(`Request in queue updated by another window`, "info");
+      // }
     };
 
+    const handleQueueReset = (data) => {
+      // console.log("🔄 Queue reset to waiting:", data);
+      if (data.previousWindowId === selectedWindow?.id) {
+        console.log("⏭️ Skipping reset event for own window");
+        return; // Don't show toast, don't process
+      }
+
+      // Format the reset data first
+      const formattedResetQueue = formatQueueData(data);
+
+      // Update global queue list with proper sorting
+      setGlobalQueueList((prev) => {
+        // Check if queue already exists in the list
+        const existingIndex = prev.findIndex((q) => q.queueId === data.queueId);
+
+        if (existingIndex === -1) {
+          // Queue doesn't exist, add it to the list
+          console.log(`Adding reset queue ${data.queueId} to list`);
+          const updated = [...prev, formattedResetQueue];
+          return sortByPriorityPattern(updated);
+        }
+
+        // Queue exists, update it
+        const updated = prev.map((q) =>
+          q.queueId === data.queueId ? formattedResetQueue : q
+        );
+
+        return sortByPriorityPattern(updated);
+      });
+
+      // Remove from current queue if it matches
+      if (currentQueue?.queueId === data.queueId) {
+        showToast("Duplicated", "warning");
+        setCurrentQueue(null);
+      }
+
+      // Remove from deferred list if it exists there
+      setDeferredQueue((prev) =>
+        prev.filter((q) => q.queueId !== data.queueId)
+      );
+
+      showToast(
+        `Queue ${formattedResetQueue.queueNo} was set to WAITING.`,
+        "warning"
+      );
+    };
+
+    socket.on(QueueActions.QUEUE_RESET, handleQueueReset);
     socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
     socket.on(
       QueueActions.REQUEST_DEFERRED_UPDATED,
@@ -398,6 +465,7 @@ export default function Manage_Queue() {
     socket.on("error", handleError);
 
     return () => {
+      socket.off(QueueActions.QUEUE_RESET, handleQueueReset);
       socket.off(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
       socket.off(QueueActions.QUEUE_CANCELLED, handleCancelled);
       socket.off(QueueActions.QUEUE_COMPLETED, handleCompleted);
@@ -933,6 +1001,7 @@ export default function Manage_Queue() {
       return () => clearTimeout(timeoutId);
     }
   }, [globalQueueList.length, selectedWindow, handleCallNext, currentQueue]);
+
   const openActionPanel = (queue) => {
     setSelectedQueue(queue);
     setShowActionPanel(true);
