@@ -52,3 +52,9 @@ ALTER TABLE "public"."WindowAssignment" ADD CONSTRAINT "WindowAssignment_sasStaf
 
 -- AddForeignKey
 ALTER TABLE "public"."WindowAssignment" ADD CONSTRAINT "WindowAssignment_windowId_fkey" FOREIGN KEY ("windowId") REFERENCES "public"."service_window"("window_id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE UNIQUE INDEX uniq_window_active_assignment
+ON "WindowAssignment"("windowId", "shiftTag")
+WHERE "releasedAt" IS NULL;
+
+
