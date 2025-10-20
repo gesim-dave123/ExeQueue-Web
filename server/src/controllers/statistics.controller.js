@@ -5,6 +5,22 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 export const getDashboardStatistics = async (req, res) => {
   try {
+    // ✅ AUTO-UPDATE: SKIPPED → CANCELLED after 1 hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    await prisma.queue.updateMany({
+      where: {
+        queueStatus: Status.SKIPPED,
+        updatedAt: {
+          lt: oneHourAgo,
+        },
+        isActive: true,
+      },
+      data: {
+        queueStatus: Status.CANCELLED,
+        updatedAt: new Date(),
+      },
+    });
     // 1) Get current active session for today
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
@@ -21,19 +37,28 @@ export const getDashboardStatistics = async (req, res) => {
     });
 
     if (!activeSession) {
-      // No active session — return empty/zeroed dashboard
       return res.status(200).json({
         success: true,
         message: 'No active session found. Dashboard empty.',
-        dashboardOverview: {
+        data: {
           session: null,
           windows: [
-            { windowNo: 1, currentServing: null, nextInLine: [] },
-            { windowNo: 2, currentServing: null, nextInLine: [] },
+            {
+              windowNo: 1,
+              displayName: 'Window 1',
+              currentServing: null,
+              nextInLine: [],
+            },
+            {
+              windowNo: 2,
+              displayName: 'Window 2',
+              currentServing: null,
+              nextInLine: [],
+            },
           ],
           totals: {
-            totalRegularWaiting: 0,
-            totalPriorityWaiting: 0,
+            totalRegular: 0,
+            totalPriority: 0,
             completed: 0,
             inProgress: 0,
             totalQueueToday: 0,
@@ -91,12 +116,13 @@ export const getDashboardStatistics = async (req, res) => {
           orderBy: { calledAt: 'desc' },
         });
 
+        // Find this section (around line where you format current serving):
         const formattedCurrent = currentServing
           ? {
               queueId: currentServing.queueId,
               queueNumber: currentServing.queueNumber,
               formattedQueueNumber: formatQueueNumber(
-                currentServing.queueType,
+                currentServing.queueType === 'PRIORITY' ? 'P' : 'R', // ✅ Convert to prefix
                 currentServing.queueNumber
               ),
               queueType: currentServing.queueType,
@@ -124,7 +150,10 @@ export const getDashboardStatistics = async (req, res) => {
         const nextInLine = nextInLineRaw.map((q) => ({
           queueId: q.queueId,
           queueNumber: q.queueNumber,
-          formattedQueueNumber: formatQueueNumber(q.queueType, q.queueNumber),
+          formattedQueueNumber: formatQueueNumber(
+            q.queueType === 'PRIORITY' ? 'P' : 'R', // ✅ Convert to prefix
+            q.queueNumber
+          ),
           queueType: q.queueType,
           studentFullName: q.studentFullName,
           studentId: q.studentId,
@@ -140,42 +169,38 @@ export const getDashboardStatistics = async (req, res) => {
       })
     );
     const [
-      totalRegularWaiting,
-      totalPriorityWaiting,
-      completedCount,
-      inProgressCount,
+      totalRegular,
+      totalPriority,
+      completedCount, // Now includes COMPLETED + CANCELLED
       totalQueueToday,
     ] = await Promise.all([
+      // All REGULAR queues
       prisma.queue.count({
         where: {
           sessionId,
           queueType: Queue_Type.REGULAR,
-          queueStatus: Status.WAITING,
           isActive: true,
         },
       }),
+      // All PRIORITY queues
       prisma.queue.count({
         where: {
           sessionId,
           queueType: Queue_Type.PRIORITY,
-          queueStatus: Status.WAITING,
           isActive: true,
         },
       }),
+      // ✅ NEW: Count COMPLETED + CANCELLED as completed
       prisma.queue.count({
         where: {
           sessionId,
-          queueStatus: Status.COMPLETED,
+          queueStatus: {
+            in: [Status.COMPLETED, Status.CANCELLED],
+          },
           isActive: true,
         },
       }),
-      prisma.queue.count({
-        where: {
-          sessionId,
-          queueStatus: Status.IN_SERVICE,
-          isActive: true,
-        },
-      }),
+      // All queues created today
       prisma.queue.count({
         where: {
           sessionId,
@@ -184,6 +209,9 @@ export const getDashboardStatistics = async (req, res) => {
       }),
     ]);
 
+    // ✅ NEW: In Progress = Total - (Completed + Cancelled)
+    const inProgress = totalQueueToday - completedCount;
+
     const dashboardOverview = {
       session: {
         sessionId: sessionId,
@@ -191,17 +219,17 @@ export const getDashboardStatistics = async (req, res) => {
       },
       windows: windowResults,
       totals: {
-        totalRegularWaiting,
-        totalPriorityWaiting,
+        totalRegular,
+        totalPriority,
         completed: completedCount,
-        inProgress: inProgressCount,
+        inProgress,
         totalQueueToday,
       },
     };
     return res.status(200).json({
       success: true,
       message: 'Dashboard statistics fetched successfully',
-      dashboardOverview,
+      data: dashboardOverview, // ✅ Changed from dashboardOverview to data
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);

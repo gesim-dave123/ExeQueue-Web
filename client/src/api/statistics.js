@@ -13,7 +13,7 @@ export const fetchDashboardStatistics = async () => {
     if (response.status === 200 && response.data.success) {
       return {
         success: true,
-        data: response.data.dashboardOverview,
+        data: response.data.data,
       };
     } else {
       return {
