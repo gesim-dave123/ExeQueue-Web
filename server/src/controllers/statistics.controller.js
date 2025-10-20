@@ -446,13 +446,14 @@ export const getTodayAnalytics = async (req, res) => {
       },
     });
 
-    // Count by status and type
+    // ✅ Count COMPLETED + CANCELLED as completed
     const completed = todayQueues.filter(
-      (q) => q.queueStatus === 'COMPLETED'
+      (q) => q.queueStatus === 'COMPLETED' || q.queueStatus === 'CANCELLED'
     ).length;
-    const inProgress = todayQueues.filter(
-      (q) => q.queueStatus === 'WAITING'
-    ).length;
+
+    // ✅ In Progress = Total - (Completed + Cancelled)
+    const inProgress = todayQueues.length - completed;
+
     const totalRegular = todayQueues.filter(
       (q) => q.queueType === 'REGULAR'
     ).length;

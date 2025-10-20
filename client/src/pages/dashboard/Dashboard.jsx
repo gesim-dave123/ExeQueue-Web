@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DoughnutChart from '../../components/graphs/DoughnutChart';
 import { fetchDashboardStatistics } from '../../api/statistics';
+import backendConnection from '../../api/backendConnection';
 
 // export default function Dashboard() {
 //   const [activeTab, setActiveTab] = useState('Today');
@@ -201,13 +202,39 @@ export default function Dashboard() {
     // Initial fetch
     getStats();
 
-    // Poll every 3 seconds
-    const interval = setInterval(() => {
-      getStats();
-    }, 3000);
+    // ✅ Connect to SSE endpoint
+    const eventSource = new EventSource(
+      `${backendConnection()}/api/statistics/dashboard/stream`,
+      { withCredentials: true }
+    );
+
+    eventSource.onopen = () => {
+      console.log('🟢 Dashboard SSE connection opened');
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📊 Dashboard update received:', data);
+
+        if (data.type === 'dashboard-update') {
+          getStats(); // Refresh dashboard data
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('🔴 Dashboard SSE error:', error);
+      // EventSource will auto-reconnect
+    };
 
     // Cleanup on unmount
-    return () => clearInterval(interval);
+    return () => {
+      console.log('🔴 Closing Dashboard SSE connection');
+      eventSource.close();
+    };
   }, []);
 
   if (loading) {
