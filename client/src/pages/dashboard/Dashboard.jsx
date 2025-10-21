@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DoughnutChart from '../../components/graphs/DoughnutChart';
 import { fetchDashboardStatistics } from '../../api/statistics';
+import backendConnection from '../../api/backendConnection';
 
 // export default function Dashboard() {
 //   const [activeTab, setActiveTab] = useState('Today');
@@ -179,21 +180,61 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
-    const getStats = async () => {
-      setLoading(true);
+  const getStats = async () => {
+    try {
       const response = await fetchDashboardStatistics();
 
       if (response.success) {
         setStats(response.data);
+        setErrorMsg('');
       } else {
         setErrorMsg(response.message || 'Failed to load dashboard data');
       }
-
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      setErrorMsg('Failed to load dashboard data');
+    } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    getStats();
+
+    // ✅ Connect to SSE endpoint
+    const eventSource = new EventSource(
+      `${backendConnection()}/api/statistics/dashboard/stream`,
+      { withCredentials: true }
+    );
+
+    eventSource.onopen = () => {
+      console.log('🟢 Dashboard SSE connection opened');
     };
 
-    getStats();
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📊 Dashboard update received:', data);
+
+        if (data.type === 'dashboard-update') {
+          getStats(); // Refresh dashboard data
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('🔴 Dashboard SSE error:', error);
+      // EventSource will auto-reconnect
+    };
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🔴 Closing Dashboard SSE connection');
+      eventSource.close();
+    };
   }, []);
 
   if (loading) {
@@ -233,7 +274,7 @@ export default function Dashboard() {
       ? {
           ...defWin,
           ...match,
-          currentServing: match.currentServing || defWin.currentServing, // fallback to placeholder
+          currentServing: match.currentServing || defWin.currentServing,
         }
       : defWin;
   });
@@ -242,11 +283,11 @@ export default function Dashboard() {
   const totalQueueToday = totals.totalQueueToday || 0;
   const inProgress = totals.inProgress || 0;
   const completed = totals.completed || 0;
-  const totalRegularWaiting = totals.totalRegularWaiting || 0;
-  const totalPriorityWaiting = totals.totalPriorityWaiting || 0;
+  const totalRegularWaiting = totals.totalRegular || 0; // ✅ Changed name
+  const totalPriorityWaiting = totals.totalPriority || 0; // ✅ Changed name
 
   return (
-    <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full ">
+    <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full">
       {/* Main Content */}
       <div className="flex-1 pr-8 xl:pt-17 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
         {/* Header */}
@@ -280,15 +321,13 @@ export default function Dashboard() {
                     : 'text-[#1A73E8]'
                 }`}
               >
-                {win.currentServing
-                  ? win.currentServing.formattedQueueNumber
-                  : '—'}
+                {win.currentServing?.formattedQueueNumber || 'R000'}
               </p>
-            <div className="flex justify-start">
-              <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
-                Currently Serving
-              </button>
-            </div>
+              <div className="flex justify-start">
+                <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
+                  Currently Serving
+                </button>
+              </div>
             </div>
           ))}
 
@@ -341,26 +380,16 @@ export default function Dashboard() {
             <div className="flex flex-col items-center justify-center p-6">
               <div className="w-28 sm:w-40 md:w-48 flex justify-center">
                 <DoughnutChart
-                  data={{
-                    datasets: [
-                      {
-                        data: [
-                          totalRegularWaiting,
-                          totalPriorityWaiting,
-                          inProgress,
-                          10, // empty filler
-                        ],
-                      },
-                    ],
-                  }}
-                  centerText={{
-                    total: totalQueueToday.toString(),
-                    label: 'Total Queue',
+                  totals={{
+                    totalQueueToday: totals.totalQueueToday,
+                    totalRegularWaiting: totals.totalRegular,
+                    totalPriorityWaiting: totals.totalPriority,
+                    inProgress: totals.inProgress,
                   }}
                 />
               </div>
 
-              {/* Legend */}
+              {/* Legend with Percentages */}
               <div className="mt-6 flex flex-col sm:flex-row sm:justify-center gap-4">
                 {[
                   {
@@ -378,18 +407,27 @@ export default function Dashboard() {
                     color: 'bg-[#E2E3E4]',
                     value: inProgress,
                   },
-                ].map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
-                    <span className="text-gray-600">{item.name}</span>
-                    <span className="font-medium text-[#202124]">
-                      {item.value}
-                    </span>
-                  </div>
-                ))}
+                ].map((item) => {
+                  const percentage =
+                    totalQueueToday > 0
+                      ? ((item.value / totalQueueToday) * 100).toFixed(1)
+                      : '0.0';
+
+                  return (
+                    <div
+                      key={item.name}
+                      className="flex items-center gap-2 text-sm"
+                    >
+                      <div
+                        className={`w-3 h-3 rounded-full ${item.color}`}
+                      ></div>
+                      <span className="text-gray-600">{item.name}</span>
+                      <span className="font-medium text-[#202124]">
+                        {percentage}%
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -410,7 +448,7 @@ export default function Dashboard() {
                   {completed}
                 </span>
               </div>
-              <div className="flex flex-col h-full xl:h-[20vh]  py-6 border border-gray-200 rounded-2xl text-center justify-center">
+              <div className="flex flex-col h-full xl:h-[20vh] py-6 border border-gray-200 rounded-2xl text-center justify-center">
                 <span className="font-medium">In Progress</span>
                 <span className="text-[#1A73E8] text-3xl md:text-6xl font-semibold">
                   {inProgress}

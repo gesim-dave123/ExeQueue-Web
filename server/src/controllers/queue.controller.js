@@ -1,11 +1,11 @@
-import { Queue_Type, Role, Status } from "@prisma/client";
-import prisma from "../../prisma/prisma.js";
-import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
-import { QueueActions } from "../services/enums/SocketEvents.js";
-
+import { Queue_Type, Role, Status } from '@prisma/client';
+import prisma from '../../prisma/prisma.js';
+import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { QueueActions } from '../services/enums/SocketEvents.js';
+import { sendDashboardUpdate } from './sse.controllers.js';
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
-  "Asia/Manila"
+  'Asia/Manila'
 );
 const isIntegerParam = (val) => /^\d+$/.test(val);
 
@@ -13,7 +13,7 @@ export const viewQueues = async (req, res) => {
   try {
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
     const {
       query: { filter, value },
@@ -28,18 +28,18 @@ export const viewQueues = async (req, res) => {
 
     // Add filter conditions to the database query if provided
     if (filter && value) {
-      if (filter === "studentId") {
-        whereClause.schoolId = { equals: value, mode: "insensitive" };
-      } else if (filter === "fullName") {
-        whereClause.studentFullName = { contains: value, mode: "insensitive" };
-      } else if (filter === "referenceNumber") {
-        whereClause.referenceNumber = { equals: value, mode: "insensitive" };
-      } else if (filter === "queueType") {
+      if (filter === 'studentId') {
+        whereClause.schoolId = { equals: value, mode: 'insensitive' };
+      } else if (filter === 'fullName') {
+        whereClause.studentFullName = { contains: value, mode: 'insensitive' };
+      } else if (filter === 'referenceNumber') {
+        whereClause.referenceNumber = { equals: value, mode: 'insensitive' };
+      } else if (filter === 'queueType') {
         if (
           [Queue_Type.PRIORITY, Queue_Type.REGULAR].toString().includes(value)
         ) {
           whereClause.queueType =
-            value.toUpperCase() === "REGULAR"
+            value.toUpperCase() === 'REGULAR'
               ? Queue_Type.REGULAR
               : Queue_Type.PRIORITY;
         }
@@ -48,7 +48,7 @@ export const viewQueues = async (req, res) => {
 
     const queues = await prisma.queue.findMany({
       where: whereClause,
-      orderBy: [{ queueSessionId: "desc" }, { queueNumber: "desc" }],
+      orderBy: [{ queueSessionId: 'desc' }, { queueNumber: 'desc' }],
       select: {
         queueId: true,
         studentFullName: true,
@@ -88,20 +88,20 @@ export const viewQueues = async (req, res) => {
     if (!queues || queues.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No queues found for today",
+        message: 'No queues found for today',
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Queues fetched successfully!",
+      message: 'Queues fetched successfully!',
       queue: queues,
     });
   } catch (error) {
-    console.error("Error fetching queue:", error);
+    console.error('Error fetching queue:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch queue",
+      message: 'Failed to fetch queue',
     });
   }
 };
@@ -111,13 +111,13 @@ export const determineNextQueue = async (req, res) => {
     const { sasStaffId, role, serviceWindowId } = req.user;
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
     if (!serviceWindowId || serviceWindowId === null) {
       return res.status(403).json({
         success: false,
         message:
-          "No window assigned detected! Please assign which window you are using first.",
+          'No window assigned detected! Please assign which window you are using first.',
       });
     }
     // Get window rules
@@ -129,7 +129,7 @@ export const determineNextQueue = async (req, res) => {
     if (!windowRule) {
       return res.status(400).json({
         success: false,
-        message: "Bad Request: No valid window rule found!",
+        message: 'Bad Request: No valid window rule found!',
       });
     }
 
@@ -140,10 +140,10 @@ export const determineNextQueue = async (req, res) => {
     if (allowedTypes.length === 0) {
       return res.status(403).json({
         success: false,
-        message: "This window is not allowed to serve any queue types.",
+        message: 'This window is not allowed to serve any queue types.',
       });
     }
-    console.log("Allowed Queue Types for this window:", allowedTypes);
+    console.log('Allowed Queue Types for this window:', allowedTypes);
     // Use transaction with retry logic for concurrency
     const result = await prisma.$transaction(
       async (tx) => {
@@ -173,15 +173,15 @@ export const determineNextQueue = async (req, res) => {
           //   },
           // },
           orderBy: [
-            { queueType: "desc" }, // PRIORITY first
-            { queueNumber: "asc" },
+            { queueType: 'desc' }, // PRIORITY first
+            { queueNumber: 'asc' },
           ],
         });
 
         if (!nextQueue) {
           return res.status(404).json({
             success: false,
-            message: "No waiting queue available for this window.",
+            message: 'No waiting queue available for this window.',
           });
         }
 
@@ -200,7 +200,7 @@ export const determineNextQueue = async (req, res) => {
 
         // Check if update actually happened
         if (updatedQueue.count === 0) {
-          throw new Error("QUEUE_ALREADY_ASSIGNED");
+          throw new Error('QUEUE_ALREADY_ASSIGNED');
         }
 
         // Get the updated queue with full details
@@ -234,30 +234,30 @@ export const determineNextQueue = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Next queue assigned to this window.",
+      message: 'Next queue assigned to this window.',
       nextQueue: result,
     });
   } catch (error) {
-    console.error("Error in Getting Next Queue Number:", error);
+    console.error('Error in Getting Next Queue Number:', error);
 
     // Handle specific concurrency errors
-    if (error.message === "NO_QUEUE_AVAILABLE") {
+    if (error.message === 'NO_QUEUE_AVAILABLE') {
       return res.status(404).json({
         success: false,
-        message: "No waiting queue available for this window.",
+        message: 'No waiting queue available for this window.',
       });
     }
 
-    if (error.message === "QUEUE_ALREADY_ASSIGNED") {
+    if (error.message === 'QUEUE_ALREADY_ASSIGNED') {
       return res.status(409).json({
         success: false,
-        message: "Queue was assigned to another window. Please try again.",
+        message: 'Queue was assigned to another window. Please try again.',
       });
     }
 
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -267,7 +267,7 @@ export const getQueueList = async (req, res) => {
     // const {sasStaffId, role, serviceWindowId} = req.user;
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
 
     const regularQueue = await prisma.queue.findMany({
@@ -277,7 +277,7 @@ export const getQueueList = async (req, res) => {
         queueType: Queue_Type.REGULAR,
         isActive: true,
       },
-      orderBy: [{ queueType: "desc" }, { queueNumber: "asc" }],
+      orderBy: [{ queueType: 'desc' }, { queueNumber: 'asc' }],
     });
     const priorityQueue = await prisma.queue.findMany({
       where: {
@@ -286,7 +286,7 @@ export const getQueueList = async (req, res) => {
         queueType: Queue_Type.PRIORITY,
         isActive: true,
       },
-      orderBy: [{ queueType: "desc" }, { queueNumber: "asc" }],
+      orderBy: [{ queueType: 'desc' }, { queueNumber: 'asc' }],
     });
 
     const queues = [
@@ -298,7 +298,7 @@ export const getQueueList = async (req, res) => {
     if (!queues) {
       return res.status(400).json({
         success: false,
-        message: "Bad Request, Error in queue list",
+        message: 'Bad Request, Error in queue list',
       });
     }
 
@@ -306,15 +306,15 @@ export const getQueueList = async (req, res) => {
       success: true,
       message:
         queues.length === 0
-          ? "There are no queues currently in the system, please wait a moment"
-          : "Queues successfully retrieved!",
+          ? 'There are no queues currently in the system, please wait a moment'
+          : 'Queues successfully retrieved!',
       queues: queues,
     });
   } catch (error) {
-    console.error("Error in getting queue list: ", error);
+    console.error('Error in getting queue list: ', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -327,14 +327,14 @@ export const getQueueListByStatus = async (req, res) => {
     if (!sasStaffId) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized access, no Staff ID Provided!",
+        message: 'Unauthorized access, no Staff ID Provided!',
       });
     }
 
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access, Invalid Role!",
+        message: 'Unauthorized access, Invalid Role!',
       });
     }
 
@@ -349,7 +349,7 @@ export const getQueueListByStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Bad Request, Invalid Queue Status!",
+        message: 'Bad Request, Invalid Queue Status!',
       });
     }
     const whereClause = {
@@ -375,7 +375,7 @@ export const getQueueListByStatus = async (req, res) => {
         return res.status(400).json({
           success: false,
           message:
-            "An error occurred. Expecting a number but received a string. (windowId)",
+            'An error occurred. Expecting a number but received a string. (windowId)',
         });
       }
       whereClause.windowId = windowId;
@@ -385,7 +385,7 @@ export const getQueueListByStatus = async (req, res) => {
         where: requestStatus
           ? {
               requestStatus: {
-                in: requestStatus.split(","), // Support multiple: "STALLED,SKIPPED"
+                in: requestStatus.split(','), // Support multiple: "STALLED,SKIPPED"
               },
             }
           : undefined, // If no requestStatus, include all
@@ -400,17 +400,17 @@ export const getQueueListByStatus = async (req, res) => {
       orderBy: [
         {
           session: {
-            sessionNumber: "asc",
+            sessionNumber: 'asc',
           },
         },
-        { sequenceNumber: "asc" },
+        { sequenceNumber: 'asc' },
       ],
     });
 
     let filteredQueueList = queueList;
 
     if (requestStatus) {
-      const allowedStatuses = requestStatus.split(","); // ["STALLED", "SKIPPED"]
+      const allowedStatuses = requestStatus.split(','); // ["STALLED", "SKIPPED"]
 
       filteredQueueList = queueList
         .map((queue) => ({
@@ -441,10 +441,10 @@ export const getQueueListByStatus = async (req, res) => {
       queueList: filteredQueueList,
     });
   } catch (error) {
-    console.error("An error occurred in get queue list controller!", error);
+    console.error('An error occurred in get queue list controller!', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -457,12 +457,12 @@ export const getRequest = async (req, res) => {
       return res.status(403).json({
         success: false,
         message:
-          "No window assigned detected! Please assign which window you are using first.",
+          'No window assigned detected! Please assign which window you are using first.',
       });
     }
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
   } catch (error) {}
 };
@@ -478,7 +478,7 @@ export const setRequestStatus = async (req, res) => {
       requestStatus,
     } = req.params;
 
-    console.log("Request Params:", req.params);
+    console.log('Request Params:', req.params);
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -487,7 +487,7 @@ export const setRequestStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Invalid param(s). queueId, requestId, and windowId must be integers.",
+          'Invalid param(s). queueId, requestId, and windowId must be integers.',
       });
     }
 
@@ -500,14 +500,14 @@ export const setRequestStatus = async (req, res) => {
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access — invalid role.",
+        message: 'Unauthorized access — invalid role.',
       });
     }
 
     if (!requestStatus) {
       return res.status(400).json({
         success: false,
-        message: "Missing required filed. (requestStatus)",
+        message: 'Missing required filed. (requestStatus)',
       });
     }
 
@@ -516,7 +516,7 @@ export const setRequestStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Invalid Type, should receive a number but recieved a string (queueId, requestId, windowId).",
+          'Invalid Type, should receive a number but recieved a string (queueId, requestId, windowId).',
       });
     }
 
@@ -531,7 +531,7 @@ export const setRequestStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status update. Please provide a valid status.",
+        message: 'Invalid status update. Please provide a valid status.',
       });
     }
 
@@ -544,7 +544,7 @@ export const setRequestStatus = async (req, res) => {
     if (!queueCheck) {
       return res.status(404).json({
         success: false,
-        message: "Queue not found.",
+        message: 'Queue not found.',
       });
     }
 
@@ -552,7 +552,7 @@ export const setRequestStatus = async (req, res) => {
       return res.status(403).json({
         success: false,
         message:
-          "This queue is being served by another window. Cannot update request status.",
+          'This queue is being served by another window. Cannot update request status.',
       });
     }
 
@@ -562,7 +562,7 @@ export const setRequestStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Queue not be WAITING to update request status.",
+        message: 'Queue not be WAITING to update request status.',
       });
     }
 
@@ -576,9 +576,9 @@ export const setRequestStatus = async (req, res) => {
           processedBy: sasStaffId,
           processedAt:
             mapToStatus(requestStatus) === Status.COMPLETED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              ? DateAndTimeFormatter.nowInTimeZone('Asia/Manila')
               : null,
-          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          updatedAt: DateAndTimeFormatter.nowInTimeZone('Asia/Manila'),
         },
       });
       const queueUpdate = await tx.queue.findUnique({
@@ -610,6 +610,13 @@ export const setRequestStatus = async (req, res) => {
     //   windowId: windowId,
     // });
 
+    // ✅ Add this before responding
+    sendDashboardUpdate({
+      message: `Request ${requestStatus}`,
+      queueId: updated.queueUpdate.queueId,
+      requestId: requestId,
+    });
+
     // ✅ Respond to the calling client
     return res.status(200).json({
       success: true,
@@ -617,18 +624,18 @@ export const setRequestStatus = async (req, res) => {
       data: updated,
     });
   } catch (error) {
-    console.error("❌ Error setting request status:", error);
+    console.error('❌ Error setting request status:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
 
 export const setDeferredRequestStatus = async (req, res) => {
   try {
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const { sasStaffId, role } = req.user;
 
     const {
@@ -647,7 +654,7 @@ export const setDeferredRequestStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Invalid param(s). queueId, requestId, and windowId must be integers.",
+          'Invalid param(s). queueId, requestId, and windowId must be integers.',
       });
     }
 
@@ -659,14 +666,14 @@ export const setDeferredRequestStatus = async (req, res) => {
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access — invalid role.",
+        message: 'Unauthorized access — invalid role.',
       });
     }
 
     if (!requestStatus) {
       return res.status(400).json({
         success: false,
-        message: "Missing required field. (requestStatus)",
+        message: 'Missing required field. (requestStatus)',
       });
     }
 
@@ -681,7 +688,7 @@ export const setDeferredRequestStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status update. Please provide a valid status.",
+        message: 'Invalid status update. Please provide a valid status.',
       });
     }
 
@@ -694,7 +701,7 @@ export const setDeferredRequestStatus = async (req, res) => {
     if (!queueCheck) {
       return res.status(404).json({
         success: false,
-        message: "Queue not found.",
+        message: 'Queue not found.',
       });
     }
 
@@ -702,7 +709,7 @@ export const setDeferredRequestStatus = async (req, res) => {
       return res.status(403).json({
         success: false,
         message:
-          "This queue is being served by another window. Cannot update request status.",
+          'This queue is being served by another window. Cannot update request status.',
       });
     }
 
@@ -712,7 +719,7 @@ export const setDeferredRequestStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Queue must not be WAITING to update deferred request status.",
+        message: 'Queue must not be WAITING to update deferred request status.',
       });
     }
 
@@ -727,9 +734,9 @@ export const setDeferredRequestStatus = async (req, res) => {
           processedBy: sasStaffId,
           processedAt:
             newStatus === Status.COMPLETED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              ? DateAndTimeFormatter.nowInTimeZone('Asia/Manila')
               : null,
-          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          updatedAt: DateAndTimeFormatter.nowInTimeZone('Asia/Manila'),
         },
         include: {
           requestType: true, // Include related data if needed
@@ -756,11 +763,11 @@ export const setDeferredRequestStatus = async (req, res) => {
       data: updated.requestUpdate, // Return only the updated request
     });
   } catch (error) {
-    console.error("❌ Error setting deferred request status:", error);
+    console.error('❌ Error setting deferred request status:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };
@@ -771,7 +778,7 @@ export const createQueueSession = async (req, res) => {
   try {
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
 
     const result = await prisma.$transaction(async (tx) => {
@@ -782,7 +789,7 @@ export const createQueueSession = async (req, res) => {
 
       const lastSession = await tx.queueSession.findFirst({
         where: { sessionDate: todayUTC },
-        orderBy: { sessionNo: "desc" },
+        orderBy: { sessionNo: 'desc' },
       });
 
       const nextSessionNo = lastSession ? lastSession.sessionNo + 1 : 1;
@@ -803,18 +810,18 @@ export const createQueueSession = async (req, res) => {
 
       return newSession;
     });
-    console.log("✅ New queue session created:", result);
+    console.log('✅ New queue session created:', result);
     return res.status(201).json({
       success: true,
       message:
-        "New queue session created, previous session deactivated, and sequences reset",
+        'New queue session created, previous session deactivated, and sequences reset',
       session: result,
     });
   } catch (error) {
-    console.error("❌ Error creating queue session:", error);
+    console.error('❌ Error creating queue session:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to create queue session",
+      message: 'Failed to create queue session',
       error: error.message,
     });
   }
@@ -822,7 +829,7 @@ export const createQueueSession = async (req, res) => {
 
 export const markQueueStatus = async (req, res) => {
   try {
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const { sasStaffId, role } = req.user;
     const { queueId: queueIdStr, windowId: windowIdStr } = req.params;
 
@@ -841,7 +848,7 @@ export const markQueueStatus = async (req, res) => {
       return res.sttaus(400).json({
         success: false,
         message:
-          "An error occurred. Expecting a number but recieved a string. (queueId, windowId)",
+          'An error occurred. Expecting a number but recieved a string. (queueId, windowId)',
       });
     }
 
@@ -849,7 +856,7 @@ export const markQueueStatus = async (req, res) => {
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized role.",
+        message: 'Unauthorized role.',
       });
     }
 
@@ -864,7 +871,7 @@ export const markQueueStatus = async (req, res) => {
     if (!existingQueue) {
       return res.status(404).json({
         success: false,
-        message: "Queue not found.",
+        message: 'Queue not found.',
       });
     }
 
@@ -872,7 +879,7 @@ export const markQueueStatus = async (req, res) => {
     if (existingQueue.windowId !== windowId) {
       return res.status(403).json({
         success: false,
-        message: "This queue is being served by another window.",
+        message: 'This queue is being served by another window.',
       });
     }
 
@@ -882,7 +889,7 @@ export const markQueueStatus = async (req, res) => {
     if (requests.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Cannot mark queue with no requests.",
+        message: 'Cannot mark queue with no requests.',
       });
     }
 
@@ -917,11 +924,11 @@ export const markQueueStatus = async (req, res) => {
           queueStatus: finalStatus,
           completedAt:
             finalStatus === Status.COMPLETED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              ? DateAndTimeFormatter.nowInTimeZone('Asia/Manila')
               : Status.CANCELLED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              ? DateAndTimeFormatter.nowInTimeZone('Asia/Manila')
               : null,
-          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          updatedAt: DateAndTimeFormatter.nowInTimeZone('Asia/Manila'),
         },
         include: {
           requests: {
@@ -953,7 +960,7 @@ export const markQueueStatus = async (req, res) => {
     };
     const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
 
-    console.log("Updated Queue: ", updatedQueue);
+    console.log('Updated Queue: ', updatedQueue);
 
     const newQueueData = {
       queueId: updatedQueue.queueId,
@@ -1004,6 +1011,12 @@ export const markQueueStatus = async (req, res) => {
     console.log(
       `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber} → window:${windowId}`
     );
+    // ✅ Add this line
+    sendDashboardUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
 
     return res.status(200).json({
       success: true,
@@ -1011,10 +1024,10 @@ export const markQueueStatus = async (req, res) => {
       queue: updatedQueue,
     });
   } catch (error) {
-    console.error("❌ Error in markQueueStatus:", error);
+    console.error('❌ Error in markQueueStatus:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: 'Internal server error',
     });
   }
 };
@@ -1028,13 +1041,13 @@ export const restoreSkippedQueue = async (req, res) => {
     if (!queue) {
       return res
         .status(404)
-        .json({ success: false, message: "Queue not found." });
+        .json({ success: false, message: 'Queue not found.' });
     }
 
     if (queue.queueStatus !== Status.SKIPPED) {
       return res
         .status(400)
-        .json({ success: false, message: "Queue is not marked as skipped." });
+        .json({ success: false, message: 'Queue is not marked as skipped.' });
     }
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -1042,7 +1055,7 @@ export const restoreSkippedQueue = async (req, res) => {
     if (queue.calledAt < oneHourAgo) {
       return res.status(400).json({
         success: false,
-        message: "Cannot restore skipped queue. More than 1 hour has passed.",
+        message: 'Cannot restore skipped queue. More than 1 hour has passed.',
       });
     }
 
@@ -1065,31 +1078,31 @@ export const restoreSkippedQueue = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Skipped queue restored to IN_SERVICE.",
+      message: 'Skipped queue restored to IN_SERVICE.',
       queue: restored,
     });
   } catch (error) {
-    console.error("Error restoring skipped queue:", error);
+    console.error('Error restoring skipped queue:', error);
     return res
       .status(500)
-      .json({ success: false, message: "Internal server error." });
+      .json({ success: false, message: 'Internal server error.' });
   }
 };
 
 export const callNextQueue = async (req, res) => {
   try {
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const { sasStaffId, role } = req.user;
     const windowId = parseInt(req.params.windowId, 10);
 
     if (isNaN(windowId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid windowId parameter",
+        message: 'Invalid windowId parameter',
       });
     }
 
-    const todayUTC = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
+    const todayUTC = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
 
     const result = await prisma.$transaction(async (tx) => {
       // 🧠 Step 1: Find the most recent queue served today (if any)
@@ -1102,7 +1115,7 @@ export const callNextQueue = async (req, res) => {
           session: { isActive: true, isServing: true },
           windowId: windowId,
         },
-        orderBy: { calledAt: "desc" },
+        orderBy: { calledAt: 'desc' },
       });
 
       // 🧩 Step 2: Determine next type to serve
@@ -1119,9 +1132,9 @@ export const callNextQueue = async (req, res) => {
         },
         orderBy: [
           {
-            session: { sessionNumber: "asc" },
+            session: { sessionNumber: 'asc' },
           },
-          { sequenceNumber: "asc" },
+          { sequenceNumber: 'asc' },
         ],
       });
 
@@ -1133,11 +1146,11 @@ export const callNextQueue = async (req, res) => {
             session: { isActive: true, isServing: true },
           },
           orderBy: [
-            { queueType: "desc" }, // PRIORITY first if possible
+            { queueType: 'desc' }, // PRIORITY first if possible
             {
-              session: { sessionNumber: "asc" },
+              session: { sessionNumber: 'asc' },
             },
-            { sequenceNumber: "asc" },
+            { sequenceNumber: 'asc' },
           ],
         });
       }
@@ -1158,7 +1171,7 @@ export const callNextQueue = async (req, res) => {
         },
       });
 
-      if (updated.count === 0) return "TAKEN";
+      if (updated.count === 0) return 'TAKEN';
 
       // 🧩 Step 6: Return the updated record
       return await tx.queue.findUnique({
@@ -1170,12 +1183,12 @@ export const callNextQueue = async (req, res) => {
     if (result === null)
       return res
         .status(404)
-        .json({ success: false, message: "No queues left." });
+        .json({ success: false, message: 'No queues left.' });
 
-    if (result === "TAKEN")
+    if (result === 'TAKEN')
       return res.status(409).json({
         success: false,
-        message: "Queue already taken by another window.",
+        message: 'Queue already taken by another window.',
       });
 
     // Broadcast: remove this queue globally
@@ -1186,6 +1199,11 @@ export const callNextQueue = async (req, res) => {
     console.log(
       `📣 Window ${windowId} called next queue ${result.referenceNumber}`
     );
+    // ✅ Add this line
+    sendDashboardUpdate({
+      message: 'Queue called - status changed to IN_SERVICE',
+      queueId: result.queueId,
+    });
 
     res.status(200).json({
       success: true,
@@ -1193,8 +1211,8 @@ export const callNextQueue = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ Error in callNextQueue:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    console.error('❌ Error in callNextQueue:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 };
 
@@ -1216,21 +1234,21 @@ export const currentServedQueue = async (req, res) => {
         // Fixed typo: sttaus → status
         success: false,
         message:
-          "An error occurred. Expecting a number but received a string. (windowId)",
+          'An error occurred. Expecting a number but received a string. (windowId)',
       });
     }
 
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized role.",
+        message: 'Unauthorized role.',
       });
     }
 
     if (!sasStaffId) {
       return res.status(404).json({
         success: false,
-        message: "Invalid Operation. SaS Staff ID not found!",
+        message: 'Invalid Operation. SaS Staff ID not found!',
       });
     }
     const currentQueue = await prisma.queue.findFirst({
@@ -1255,17 +1273,17 @@ export const currentServedQueue = async (req, res) => {
       orderBy: [
         {
           session: {
-            sessionNumber: "asc",
+            sessionNumber: 'asc',
           },
         },
-        { sequenceNumber: "asc" },
+        { sequenceNumber: 'asc' },
       ],
     });
 
     if (!currentQueue) {
       return res.status(200).json({
         success: true,
-        message: "No active queue for this window",
+        message: 'No active queue for this window',
         queue: null,
       });
     }
@@ -1295,7 +1313,7 @@ export const currentServedQueue = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: "Queue inherited from previous staff",
+        message: 'Queue inherited from previous staff',
         queue: updatedQueue,
         isInherited: true,
         previousStaff: currentQueue.servedByStaff,
@@ -1304,15 +1322,15 @@ export const currentServedQueue = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Current queue retrieved successfully",
+      message: 'Current queue retrieved successfully',
       queue: currentQueue,
       isInherited: false,
     });
   } catch (error) {
-    console.error("❌ Error fetching current served queue:", error);
+    console.error('❌ Error fetching current served queue:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch current queue",
+      message: 'Failed to fetch current queue',
       error: error.message,
     });
   }
