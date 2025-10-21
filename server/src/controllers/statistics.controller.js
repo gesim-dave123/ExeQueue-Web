@@ -1,7 +1,7 @@
-import { Queue_Type, Status } from '@prisma/client';
-import prisma from '../../prisma/prisma.js';
-import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
-import { formatQueueNumber } from '../services/queue/QueueNumber.js';
+import { Queue_Type, Status } from "@prisma/client";
+import prisma from "../../prisma/prisma.js";
+import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { formatQueueNumber } from "../services/queue/QueueNumber.js";
 
 export const getDashboardStatistics = async (req, res) => {
   try {
@@ -11,9 +11,7 @@ export const getDashboardStatistics = async (req, res) => {
     await prisma.queue.updateMany({
       where: {
         queueStatus: Status.SKIPPED,
-        updatedAt: {
-          lt: oneHourAgo,
-        },
+        updatedAt: { lt: oneHourAgo },
         isActive: true,
       },
       data: {
@@ -21,39 +19,46 @@ export const getDashboardStatistics = async (req, res) => {
         updatedAt: new Date(),
       },
     });
-    // 1) Get current active session for today
+
+    // ✅ Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      'Asia/Manila'
+      "Asia/Manila"
     );
 
+    // ✅ 1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
-      where: { sessionDate: todayUTC, isActive: true },
-      select: {
-        sessionId: true,
-        sessionNumber: true,
-      },
-      orderBy: { sessionNumber: 'desc' },
+      where: { sessionDate: todayUTC, isServing: true, isActive: true },
+      select: { sessionId: true, sessionNumber: true },
+      orderBy: { sessionNumber: "asc" },
     });
 
-    if (!activeSession) {
+    // ✅ 2) Get ALL today's sessions (for totals)
+    const allSessionsToday = await prisma.queueSession.findMany({
+      where: { sessionDate: todayUTC, isServing: true, isActive: true },
+      select: { sessionId: true },
+    });
+
+    const sessionIds = allSessionsToday.map((s) => s.sessionId);
+
+    if (!activeSession || sessionIds.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No active session found. Dashboard empty.',
+        message: "No active session found. Dashboard empty.",
         data: {
           session: null,
           windows: [
             {
               windowNo: 1,
-              displayName: 'Window 1',
+              // displayName: "Window 1",
               currentServing: null,
-              nextInLine: [],
+              // nextInLine: [],
             },
             {
               windowNo: 2,
-              displayName: 'Window 2',
+              // displayName: "Window 2",
               currentServing: null,
-              nextInLine: [],
+              // nextInLine: [],
             },
           ],
           totals: {
@@ -66,41 +71,42 @@ export const getDashboardStatistics = async (req, res) => {
         },
       });
     }
+
     const sessionId = activeSession.sessionId;
 
-    // 2) Get window info for windowNo 1 and 2 (if exists)
+    // ✅ 3) Get window info for windows 1 & 2
     const windows = await prisma.serviceWindow.findMany({
       where: { windowNo: { in: [1, 2] }, isActive: true },
       select: {
         windowId: true,
         windowNo: true,
         windowName: true,
-        displayName: true,
-        canServePriority: true,
-        canServeRegular: true,
+        // displayName: true,
+        // canServePriority: true,
+        // canServeRegular: true,
       },
-      orderBy: { windowNo: 'asc' },
+      orderBy: { windowNo: "asc" },
     });
 
-    // Ensure we have placeholder entries for windows 1 & 2 in correct order
+    // Map windows by number for clean access
     const windowsByNo = { 1: null, 2: null };
     for (const w of windows) windowsByNo[w.windowNo] = w;
 
-    // 3) For each window: get current serving (IN_SERVICE) and next 2 in line (WAITING)
+    // ✅ 4) Fetch serving + next-in-line queues per window
     const windowResults = await Promise.all(
       [1, 2].map(async (winNo) => {
         const win = windowsByNo[winNo];
-
         if (!win) {
           return {
             windowNo: winNo,
             currentServing: null,
-            nextInLine: [],
+            // nextInLine: [],
           };
         }
+
         const currentServing = await prisma.queue.findFirst({
           where: {
-            sessionId: sessionId,
+            // sessionId: sessionId,
             windowId: win.windowId,
             queueStatus: Status.IN_SERVICE,
             isActive: true,
@@ -108,115 +114,112 @@ export const getDashboardStatistics = async (req, res) => {
           select: {
             queueId: true,
             queueNumber: true,
-            queueType: true,
-            studentFullName: true,
-            studentId: true,
-            calledAt: true,
+            // queueType: true,
+            // studentFullName: true,
+            // studentId: true,
+            // calledAt: true,
           },
-          orderBy: { calledAt: 'desc' },
+          orderBy: { calledAt: "desc" },
         });
-
-        // Find this section (around line where you format current serving):
+        console.log("Current Serving for Window", winNo, ":", currentServing);
         const formattedCurrent = currentServing
           ? {
               queueId: currentServing.queueId,
               queueNumber: currentServing.queueNumber,
               formattedQueueNumber: formatQueueNumber(
-                currentServing.queueType === 'PRIORITY' ? 'P' : 'R', // ✅ Convert to prefix
+                currentServing.queueType === "PRIORITY" ? "P" : "R",
                 currentServing.queueNumber
               ),
               queueType: currentServing.queueType,
-              studentFullName: currentServing.studentFullName,
-              studentId: currentServing.studentId,
-              calledAt: currentServing.calledAt,
+              // studentFullName: currentServing.studentFullName,
+              // studentId: currentServing.studentId,
+              // calledAt: currentServing.calledAt,
             }
           : null;
-        const nextInLineRaw = await prisma.queue.findMany({
-          where: {
-            sessionId: sessionId,
-            queueStatus: Status.WAITING,
-            isActive: true,
-          },
-          orderBy: [{ queueType: 'asc' }, { queueNumber: 'asc' }],
-          take: 2,
-          select: {
-            queueId: true,
-            queueNumber: true,
-            queueType: true,
-            studentFullName: true,
-            studentId: true,
-          },
-        });
-        const nextInLine = nextInLineRaw.map((q) => ({
-          queueId: q.queueId,
-          queueNumber: q.queueNumber,
-          formattedQueueNumber: formatQueueNumber(
-            q.queueType === 'PRIORITY' ? 'P' : 'R', // ✅ Convert to prefix
-            q.queueNumber
-          ),
-          queueType: q.queueType,
-          studentFullName: q.studentFullName,
-          studentId: q.studentId,
-        }));
+
+        // const nextInLineRaw = await prisma.queue.findMany({
+        //   where: {
+        //     sessionId: sessionId,
+        //     queueStatus: Status.WAITING,
+        //     isActive: true,
+        //   },
+        //   orderBy: [{ queueType: "asc" }, { queueNumber: "asc" }],
+        //   take: 2,
+        //   select: {
+        //     queueId: true,
+        //     queueNumber: true,
+        //     queueType: true,
+        //     studentFullName: true,
+        //     studentId: true,
+        //   },
+        // });
+
+        // const nextInLine = nextInLineRaw.map((q) => ({
+        //   queueId: q.queueId,
+        //   queueNumber: q.queueNumber,
+        //   formattedQueueNumber: formatQueueNumber(
+        //     q.queueType === "PRIORITY" ? "P" : "R",
+        //     q.queueNumber
+        //   ),
+        //   queueType: q.queueType,
+        //   studentFullName: q.studentFullName,
+        //   studentId: q.studentId,
+        // }));
+
         return {
           windowNo: winNo,
           windowId: win.windowId,
-          windowName: win.windowName,
-          displayName: win.displayName,
+          // windowName: win.windowName,
+          // displayName: win.displayName,
           currentServing: formattedCurrent,
-          nextInLine,
+          // nextInLine,
         };
       })
     );
-    const [
-      totalRegular,
-      totalPriority,
-      completedCount, // Now includes COMPLETED + CANCELLED
-      totalQueueToday,
-    ] = await Promise.all([
-      // All REGULAR queues
-      prisma.queue.count({
-        where: {
-          sessionId,
-          queueType: Queue_Type.REGULAR,
-          isActive: true,
-        },
-      }),
-      // All PRIORITY queues
-      prisma.queue.count({
-        where: {
-          sessionId,
-          queueType: Queue_Type.PRIORITY,
-          isActive: true,
-        },
-      }),
-      // ✅ NEW: Count COMPLETED + CANCELLED as completed
-      prisma.queue.count({
-        where: {
-          sessionId,
-          queueStatus: {
-            in: [Status.COMPLETED, Status.CANCELLED],
-          },
-          isActive: true,
-        },
-      }),
-      // All queues created today
-      prisma.queue.count({
-        where: {
-          sessionId,
-          isActive: true,
-        },
-      }),
-    ]);
 
-    // ✅ NEW: In Progress = Total - (Completed + Cancelled)
+    // ✅ 5) Compute totals for *all* sessions today
+    const [totalRegular, totalPriority, completedCount, totalQueueToday] =
+      await Promise.all([
+        prisma.queue.count({
+          where: {
+            sessionId: { in: sessionIds },
+            queueType: Queue_Type.REGULAR,
+            isActive: true,
+          },
+        }),
+        prisma.queue.count({
+          where: {
+            sessionId: { in: sessionIds },
+            queueType: Queue_Type.PRIORITY,
+            isActive: true,
+          },
+        }),
+        prisma.queue.count({
+          where: {
+            sessionId: { in: sessionIds },
+            queueStatus: {
+              in: [
+                Status.COMPLETED,
+                Status.PARTIALLY_COMPLETE,
+                Status.CANCELLED,
+              ],
+            },
+            isActive: true,
+          },
+        }),
+        prisma.queue.count({
+          where: { sessionId: { in: sessionIds }, isActive: true },
+        }),
+      ]);
+
     const inProgress = totalQueueToday - completedCount;
 
+    // ✅ 6) Combine all data
     const dashboardOverview = {
-      session: {
-        sessionId: sessionId,
-        sessionNumber: activeSession.sessionNumber,
-      },
+      // session: {
+      //   sessionId: sessionId,
+      //   sessionNumber: activeSession.sessionNumber,
+      // },
       windows: windowResults,
       totals: {
         totalRegular,
@@ -226,16 +229,19 @@ export const getDashboardStatistics = async (req, res) => {
         totalQueueToday,
       },
     };
+
     return res.status(200).json({
       success: true,
-      message: 'Dashboard statistics fetched successfully',
-      data: dashboardOverview, // ✅ Changed from dashboardOverview to data
+      message: "Dashboard statistics fetched successfully",
+      data: dashboardOverview,
     });
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+    console.error("❌ Error fetching dashboard stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -253,7 +259,7 @@ export const getAnalyticsData = async (req, res) => {
     saturday.setDate(monday.getDate() + 5);
     saturday.setHours(23, 59, 59, 999);
 
-    console.log(' Week Range:', monday, 'to', saturday);
+    console.log(" Week Range:", monday, "to", saturday);
 
     // ---  FETCH QUEUES PER DAY ---
     const allQueues = await prisma.queueSession.findMany({
@@ -270,15 +276,15 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
 
-    console.log('Found queues:', allQueues.length);
+    console.log("Found queues:", allQueues.length);
 
     const DAYS_OF_WEEK = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
     ];
 
     const getDayName = (date) => {
@@ -325,7 +331,7 @@ export const getAnalyticsData = async (req, res) => {
       totalQueues: item.totalRegular + item.totalPriority,
     }));
 
-    console.log('Queue Summary:', queueSummary);
+    console.log("Queue Summary:", queueSummary);
 
     // --- FETCH REQUESTS OF THE WEEK ---
     const allRequestOfTheWeek = await prisma.request.findMany({
@@ -334,7 +340,10 @@ export const getAnalyticsData = async (req, res) => {
           gte: monday,
           lte: saturday,
         },
-        requestStatus: 'COMPLETED',
+        // requestStatus: 'COMPLETED',
+        requestStatus: {
+          in: [Status.COMPLETED, Status.CANCELLED],
+        },
       },
       select: {
         createdAt: true,
@@ -342,7 +351,7 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
 
-    console.log('Found requests:', allRequestOfTheWeek.length);
+    console.log("Found requests:", allRequestOfTheWeek.length);
 
     // --- GROUP REQUESTS BY REQUEST TYPE (Weekly total) ---
     const requestTypeMap = new Map();
@@ -361,12 +370,12 @@ export const getAnalyticsData = async (req, res) => {
       requestTypeMap,
       ([typeId, total]) => ({
         requestTypeId: typeId,
-        requestType: typeIdToNameMap.get(typeId) || 'Unknown',
+        requestType: typeIdToNameMap.get(typeId) || "Unknown",
         total,
       })
     );
 
-    console.log('Weekly Request Breakdown:', weeklyRequestBreakdown);
+    console.log("Weekly Request Breakdown:", weeklyRequestBreakdown);
 
     // --- GROUP REQUESTS BY DAY AND REQUEST TYPE ---
     const dayRequestMap = {};
@@ -377,7 +386,7 @@ export const getAnalyticsData = async (req, res) => {
     allRequestOfTheWeek.forEach((req) => {
       const day = getDayName(new Date(req.createdAt));
       const typeId = req.requestTypeId;
-      const typeName = typeIdToNameMap.get(typeId) || 'Unknown';
+      const typeName = typeIdToNameMap.get(typeId) || "Unknown";
 
       if (!dayRequestMap[day][typeName]) {
         dayRequestMap[day][typeName] = 0;
@@ -397,11 +406,11 @@ export const getAnalyticsData = async (req, res) => {
       });
     });
 
-    console.log('Everyday Request Breakdown:', everydayRequestBreakdown);
+    console.log("Everyday Request Breakdown:", everydayRequestBreakdown);
 
     return res.status(200).json({
       success: true,
-      message: 'Successfully fetched analytics data',
+      message: "Successfully fetched analytics data",
       weekRange: {
         from: monday,
         to: saturday,
@@ -413,10 +422,10 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching analytics data:', error);
+    console.error("Error fetching analytics data:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
@@ -424,102 +433,104 @@ export const getAnalyticsData = async (req, res) => {
 
 export const getTodayAnalytics = async (req, res) => {
   try {
-    // Get today's date range (start of day to now)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // 🕒 Date boundaries for today (Asia/Manila)
+    const today = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
     const now = new Date();
 
-    console.log('📅 Fetching today analytics:', today, 'to', now);
+    console.log("📅 Fetching today analytics:", today, "to", now);
 
-    // Get today's queues
-    const todayQueues = await prisma.queue.findMany({
-      where: {
-        createdAt: {
-          gte: today,
-          lte: now,
+    // ⚡ Fetch queues + requests in parallel for better performance
+    const [todayQueues, todayRequests, requestTypes] = await Promise.all([
+      prisma.queue.findMany({
+        where: {
+          createdAt: { gte: today, lte: now },
+          isActive: true,
         },
-        isActive: true,
-      },
-      select: {
-        queueStatus: true,
-        queueType: true,
-      },
-    });
+        select: {
+          queueStatus: true,
+          queueType: true,
+        },
+      }),
 
-    // ✅ Count COMPLETED + CANCELLED as completed
+      prisma.request.findMany({
+        where: {
+          createdAt: { gte: today, lte: now },
+          isActive: true,
+        },
+        select: {
+          requestId: true,
+          requestStatus: true,
+          requestTypeId: true,
+        },
+      }),
+
+      prisma.requestType.findMany({
+        select: {
+          requestTypeId: true,
+          requestName: true,
+        },
+      }),
+    ]);
+
+    // 🧮 Queue analytics
     const completed = todayQueues.filter(
-      (q) => q.queueStatus === 'COMPLETED' || q.queueStatus === 'CANCELLED'
+      (q) => q.queueStatus === "COMPLETED" || q.queueStatus === "CANCELLED"
     ).length;
 
-    // ✅ In Progress = Total - (Completed + Cancelled)
     const inProgress = todayQueues.length - completed;
-
     const totalRegular = todayQueues.filter(
-      (q) => q.queueType === 'REGULAR'
+      (q) => q.queueType === "REGULAR"
     ).length;
     const totalPriority = todayQueues.filter(
-      (q) => q.queueType === 'PRIORITY'
+      (q) => q.queueType === "PRIORITY"
     ).length;
 
-    // Get today's completed requests breakdown
-    const todayRequests = await prisma.request.findMany({
-      where: {
-        createdAt: {
-          gte: today,
-          lte: now,
-        },
-        requestStatus: 'COMPLETED',
-        isActive: true,
-      },
-      select: {
-        requestTypeId: true,
-      },
-    });
-
-    // Group by request type
+    // 🧩 Request breakdown by type
     const requestTypeMap = new Map();
-    todayRequests.forEach((req) => {
-      const typeId = req.requestTypeId;
-      requestTypeMap.set(typeId, (requestTypeMap.get(typeId) || 0) + 1);
-    });
+    todayRequests
+      .filter((r) => r.requestStatus === "COMPLETED")
+      .forEach((r) => {
+        requestTypeMap.set(
+          r.requestTypeId,
+          (requestTypeMap.get(r.requestTypeId) || 0) + 1
+        );
+      });
 
-    // Fetch request type names
-    const requestTypes = await prisma.requestType.findMany();
     const typeIdToNameMap = new Map(
       requestTypes.map((rt) => [rt.requestTypeId, rt.requestName])
     );
 
     const requestBreakdown = Array.from(requestTypeMap, ([typeId, total]) => ({
       requestTypeId: typeId,
-      requestType: typeIdToNameMap.get(typeId) || 'Unknown',
+      requestType: typeIdToNameMap.get(typeId) || "Unknown",
       total,
     }));
 
-    console.log('✅ Today analytics:', {
+    // ✅ Combine all analytics
+    const analytics = {
       completed,
       inProgress,
       totalRegular,
       totalPriority,
+      totalQueues: todayQueues.length,
       requestBreakdown,
-    });
+    };
+
+    console.log("✅ Today analytics:", analytics);
 
     return res.status(200).json({
       success: true,
-      message: 'Successfully fetched today analytics',
-      data: {
-        completed,
-        inProgress,
-        totalRegular,
-        totalPriority,
-        totalQueues: todayQueues.length,
-        requestBreakdown,
-      },
+      message: "Successfully fetched today analytics",
+      data: analytics,
     });
   } catch (error) {
-    console.error('❌ Error fetching today analytics:', error);
+    console.error("❌ Error fetching today analytics:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
