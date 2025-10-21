@@ -9,6 +9,8 @@ export const closeActiveSession = async () => {
     await prisma.queueSession.update({
       where: { id: activeSession.id },
       data: {
+        isAcceptingNew: false,
+        isServing: false,
         isActive: false,
         updatedAt: new Date(),
       },
