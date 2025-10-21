@@ -128,8 +128,8 @@ export default function ProfileSidebar() {
       </div>
 
       {/* ===== Desktop Sidebar (always open, fixed width) ===== */}
-      <div className="hidden min-h-screen w-[43vh] xl:flex bg-[#F5F5F5]">
-        <div className="min-w-[35vh] ml-20 flex flex-col py-10 px-6">
+      <div className="hidden xl:flex fixed top-0 left-0 h-screen bg-[#F5F5F5] w-90 z-40 lg:pl-15">
+        <div className="flex flex-col py-10 px-3 w-full overflow-y-auto">
           <ArrowLeftCircle
             onClick={() => navigate("/")}
             size={55}
