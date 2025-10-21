@@ -77,73 +77,88 @@ function App() {
         </Route>
 
         {/* Staff Protected Routes */}
+      <Route
+        path="/staff"
+        element={
+          <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+            <LayoutDashboard />
+          </ProtectedRoute>
+        }
+      >
         <Route
-          path="/staff"
+          path="dashboard"
           element={
             <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-              <LayoutDashboard />
+              <Dashboard />
             </ProtectedRoute>
           }
-        >
-          <Route
-            path="dashboard"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="queue/manage"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <Manage_Queue />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="queue/display"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <Display_Queue />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="manage/account"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL"]}>
-                <ManageAccount />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="transaction/history"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
-                <Transactions />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="analytics"
-            element={
-              <ProtectedRoute allowedRoles={["PERSONNEL"]}>
-                <Analytics />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
+        />
+        <Route
+          path="queue/manage"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+              <Manage_Queue />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="queue/display"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+              <Display_Queue />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="manage/account"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+              <ManageAccount />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="transaction/history"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+              <Transactions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="analytics"
+          element={
+            <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+      </Route>
 
-        <Route element={<LayoutProfile />}>
+      {/* Profile Routes - Separate from Dashboard Layout */}
+      <Route
+        path="/staff/profile"
+        element={
+          <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
+            <LayoutProfile />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="profile-settings" element={<Profile />} />
+        <Route path="release-window" element={<ReleaseWindow />} />
+        <Route path="reset-queue" element={<Reset_Queue />} />
+      </Route>
+
+        {/* <Route element={<LayoutProfile />}>
           <Route path="/profile/profile-settings" element={<Profile />}></Route>
           <Route
             path="/profile/release-window"
             element={<ReleaseWindow />}
           ></Route>
-        </Route>
+          <Route path= "/profile/reset-queue" element = {<Reset_Queue/>}></Route>
+        </Route> */}
 
-        <Route
+        {/* <Route
           path="/staff"
           element={
             <ProtectedRoute allowedRoles={["PERSONNEL", "WORKING_SCHOLAR"]}>
@@ -159,7 +174,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Route>
+        </Route> */}
 
         {/* Catch-all Not Found */}
         <Route path="/not-found" element={<NotFound />} />
