@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, User, Star, FileText, File } from 'lucide-react';
 import {
   BarChart,
@@ -23,6 +23,8 @@ export default function Analytics() {
   const [todayData, setTodayData] = useState(null);
   const [weekData, setWeekData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const viewRef = useRef(view);
 
   // Icon mapping for request types
   const iconMap = {
@@ -58,6 +60,10 @@ export default function Analytics() {
     }
   };
 
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
   // Initial data fetch
   useEffect(() => {
     fetchTodayData();
@@ -65,46 +71,44 @@ export default function Analytics() {
   }, []);
 
   // SSE for today's live updates
+  // ✅ SSE always connected, updates top cards on both views
   useEffect(() => {
-    let eventSource;
+    // Connect to SSE regardless of view
+    const eventSource = new EventSource(
+      `${backendConnection()}/api/statistics/dashboard/stream`,
+      { withCredentials: true }
+    );
 
-    if (view === 'today') {
-      // Connect to SSE only when on today view
-      eventSource = new EventSource(
-        `${backendConnection()}/api/statistics/dashboard/stream`,
-        { withCredentials: true }
-      );
+    eventSource.onopen = () => {
+      console.log('🟢 Analytics SSE connection opened');
+    };
 
-      eventSource.onopen = () => {
-        console.log('🟢 Analytics SSE connection opened');
-      };
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📊 Analytics update received:', data);
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('📊 Analytics update received:', data);
+        if (data.type === 'dashboard-update') {
+          // ✅ ONLY refresh today's data (top cards)
+          fetchTodayData();
 
-          if (data.type === 'dashboard-update') {
-            fetchTodayData(); // Refresh today's data
-          }
-        } catch (error) {
-          console.error('Error parsing SSE message:', error);
+          // ✅ Weekly data does NOT refresh here - only on button click
         }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('🔴 SSE error:', error);
-      };
-    }
-
-    // Cleanup on unmount or view change
-    return () => {
-      if (eventSource) {
-        console.log('🔴 Closing Analytics SSE connection');
-        eventSource.close();
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
       }
     };
-  }, [view]);
+
+    eventSource.onerror = (error) => {
+      console.error('🔴 SSE error:', error);
+    };
+
+    // Cleanup on unmount only (not on view change)
+    return () => {
+      console.log('🔴 Closing Analytics SSE connection');
+      eventSource.close();
+    };
+  }, []); // ✅ Empty dependency array - only mount/unmount
 
   const handleToday = () => {
     setView('today');
