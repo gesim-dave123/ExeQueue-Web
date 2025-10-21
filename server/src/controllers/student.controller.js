@@ -1190,7 +1190,9 @@ export const generateQueue = async (req, res) => {
     const QUEUETYPE =
       queueType.toUpperCase() === Queue_Type.REGULAR
         ? Queue_Type.REGULAR
-        : Queue_Type.PRIORITY;
+        : queueType.toUpperCase() === Queue_Type.PRIORITY ?
+        Queue_Type.PRIORITY
+        : "Unknown";
 
     // =================== TRANSACTION ===================
     return await prisma.$transaction(
@@ -1205,7 +1207,7 @@ export const generateQueue = async (req, res) => {
 
         // Find or create today's active session
         let session = await tx.queueSession.findFirst({
-          where: { sessionDate: todayUTC, isActive: true },
+          where: { sessionDate: todayUTC, isAcceptingNew: true, isServing: true, isActive: true },
           orderBy: { sessionNumber: 'desc' },
         });
 
