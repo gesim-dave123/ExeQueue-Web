@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import DoughnutChart from '../../components/graphs/DoughnutChart';
-import { fetchDashboardStatistics } from '../../api/statistics';
-import backendConnection from '../../api/backendConnection';
+import { useEffect, useState } from "react";
+import { SSE } from "../../api/sseApi";
+import { fetchDashboardStatistics } from "../../api/statistics";
+import DoughnutChart from "../../components/graphs/DoughnutChart";
 
 // export default function Dashboard() {
 //   const [activeTab, setActiveTab] = useState('Today');
@@ -178,7 +178,7 @@ import backendConnection from '../../api/backendConnection';
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
 
   const getStats = async () => {
     try {
@@ -186,55 +186,29 @@ export default function Dashboard() {
 
       if (response.success) {
         setStats(response.data);
-        setErrorMsg('');
+        setErrorMsg("");
       } else {
-        setErrorMsg(response.message || 'Failed to load dashboard data');
+        setErrorMsg(response.message || "Failed to load dashboard data");
       }
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
-      setErrorMsg('Failed to load dashboard data');
+      console.error("Error fetching dashboard stats:", error);
+      setErrorMsg("Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Initial fetch
     getStats();
 
-    // ✅ Connect to SSE endpoint
-    const eventSource = new EventSource(
-      `${backendConnection()}/api/statistics/dashboard/stream`,
-      { withCredentials: true }
-    );
-
-    eventSource.onopen = () => {
-      console.log('🟢 Dashboard SSE connection opened');
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📊 Dashboard update received:', data);
-
-        if (data.type === 'dashboard-update') {
-          getStats(); // Refresh dashboard data
-        }
-      } catch (error) {
-        console.error('Error parsing SSE message:', error);
+    SSE.subscribe("statistics/dashboard", (data) => {
+      if (data.type === "dashboard-update") {
+        console.log("Received Dashboard update:", data);
+        getStats();
       }
-    };
+    });
 
-    eventSource.onerror = (error) => {
-      console.error('🔴 Dashboard SSE error:', error);
-      // EventSource will auto-reconnect
-    };
-
-    // Cleanup on unmount
-    return () => {
-      console.log('🔴 Closing Dashboard SSE connection');
-      eventSource.close();
-    };
+    return () => SSE.unsubscribe("statistics/dashboard");
   }, []);
 
   if (loading) {
@@ -254,30 +228,44 @@ export default function Dashboard() {
   const backendWindows = stats?.windows || [];
 
   // ✅ Ensure we always have 2 windows (default placeholders)
-  const defaultWindows = [
-    {
-      windowNo: 1,
-      displayName: 'Window 1',
-      currentServing: { formattedQueueNumber: 'R000' },
-    },
-    {
-      windowNo: 2,
-      displayName: 'Window 2',
-      currentServing: { formattedQueueNumber: 'P000' },
-    },
-  ];
+  // const defaultWindows = [
+  //   {
+  //     windowNo: 1,
+  //     displayName: "Window 1",
+  //     currentServing: { formattedQueueNumber: "R000" },
+  //   },
+  //   {
+  //     windowNo: 2,
+  //     displayName: "Window 2",
+  //     currentServing: { formattedQueueNumber: "P000" },
+  //   },
+  // ];
 
-  // Merge backend windows with default ones
-  const windows = defaultWindows.map((defWin) => {
-    const match = backendWindows.find((w) => w.windowNo === defWin.windowNo);
-    return match
-      ? {
-          ...defWin,
-          ...match,
-          currentServing: match.currentServing || defWin.currentServing,
-        }
-      : defWin;
-  });
+  // // Merge backend windows with default ones
+  // const windows = defaultWindows.map((defWin) => {
+  //   const match = backendWindows.find((w) => w.windowNo === defWin.windowNo);
+  //   return match
+  //     ? {
+  //         ...defWin,
+  //         ...match,
+  //         currentServing: match.currentServing || defWin.currentServing,
+  //       }
+  //     : defWin;
+  // });
+
+  const formattedWindows = (stats?.windows || []).map((window) => ({
+    windowNo: window.windowNo,
+    // displayName: window.displayName,
+    currentServing: {
+      number: window.currentServing?.formattedQueueNumber || "0",
+      type:
+        window.currentServing?.queueType === "PRIORITY"
+          ? "Priority"
+          : window.currentServing?.queueType === "REGULAR"
+          ? "Regular"
+          : "None",
+    },
+  }));
 
   // Fallback-safe totals
   const totalQueueToday = totals.totalQueueToday || 0;
@@ -301,7 +289,7 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           {/* Dynamic Window Cards */}
-          {windows.map((win) => (
+          {formattedWindows.map((win) => (
             <div
               key={win.windowNo}
               className="bg-white rounded-xl shadow-xs p-5 flex flex-col gap-3"
@@ -316,21 +304,32 @@ export default function Dashboard() {
               </div>
               <p
                 className={`text-3xl md:text-5xl font-bold mt-7 xl:text-start ${
-                  win.currentServing?.formattedQueueNumber?.startsWith('P')
-                    ? 'text-[#F9AB00]'
-                    : 'text-[#1A73E8]'
+                  win.currentServing.type === "Priority"
+                    ? "text-[#F9A825]"
+                    : win.currentServing.type === "Regular"
+                    ? "text-[#1A73E8]"
+                    : "text-[#686969]"
                 }`}
               >
-                {win.currentServing?.formattedQueueNumber || 'R000'}
+                {win?.currentServing?.number !== "0"
+                  ? win?.currentServing?.number
+                  : "-"}
               </p>
               <div className="flex justify-start">
-                <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
-                  Currently Serving
-                </button>
+                <span
+                  className={`py-1 px-5 rounded-2xl text-xs md:text-sm lg:text-md font-medium ${
+                    win?.currentServing?.number !== "0"
+                      ? "bg-[#26BA33]/20  text-[#26BA33]" // Normal style
+                      : "text-[#686969] bg-[#E2E3E4]" // Greyed out for vacant
+                  }`}
+                >
+                  {win?.currentServing?.number !== "0"
+                    ? "Currently Serving"
+                    : "Vacant"}
+                </span>
               </div>
             </div>
           ))}
-
           {/* Total Regular */}
           <div className="bg-white rounded-xl shadow-xs p-5 flex flex-col justify-between">
             <div className="flex items-center gap-3">
@@ -393,25 +392,25 @@ export default function Dashboard() {
               <div className="mt-6 flex flex-col sm:flex-row sm:justify-center gap-4">
                 {[
                   {
-                    name: 'Regular',
-                    color: 'bg-[#1A73E8]',
+                    name: "Regular",
+                    color: "bg-[#1A73E8]",
                     value: totalRegularWaiting,
                   },
                   {
-                    name: 'Priority',
-                    color: 'bg-[#FDE5B0]',
+                    name: "Priority",
+                    color: "bg-[#FDE5B0]",
                     value: totalPriorityWaiting,
                   },
                   {
-                    name: 'In Progress',
-                    color: 'bg-[#E2E3E4]',
+                    name: "In Progress",
+                    color: "bg-[#E2E3E4]",
                     value: inProgress,
                   },
                 ].map((item) => {
                   const percentage =
                     totalQueueToday > 0
                       ? ((item.value / totalQueueToday) * 100).toFixed(1)
-                      : '0.0';
+                      : "0.0";
 
                   return (
                     <div
