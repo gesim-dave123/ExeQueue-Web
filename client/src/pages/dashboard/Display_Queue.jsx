@@ -165,10 +165,14 @@ export default function Display_Queue() {
                       }`}
                     >
                       {hasNumber
-                        ? windowData?.number
+                        ? windowData?.number !== "0"
+                          ? windowData?.number
+                          : "-"
                         : windowData?.type === "Priority"
                         ? "P000"
-                        : "R000"}
+                        : windowData?.type === "Regular"
+                        ? "R000"
+                        : "-"}
                     </h2>
                     <span
                       className={`inline-block px-6 py-2 rounded-full text-sm font-medium ${
