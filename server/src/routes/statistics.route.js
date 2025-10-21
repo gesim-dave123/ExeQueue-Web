@@ -9,6 +9,7 @@ import {
   authenticateToken,
   authorizeRoles,
 } from '../middlewares/auth.middleware.js';
+import { streamDashboardUpdates } from '../controllers/sse.controllers.js';
 
 const router = express.Router();
 
@@ -18,6 +19,12 @@ router.get(
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   getDashboardStatistics
 );
+router.get(
+  '/dashboard/stream',
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  streamDashboardUpdates
+); // ✅ Add this line
 //this week analytics
 router.get(
   '/week',

@@ -13,7 +13,7 @@ export const fetchDashboardStatistics = async () => {
     if (response.status === 200 && response.data.success) {
       return {
         success: true,
-        data: response.data.dashboardOverview,
+        data: response.data.data,
       };
     } else {
       return {
@@ -27,5 +27,41 @@ export const fetchDashboardStatistics = async () => {
       success: false,
       message: 'Internal Server Error',
     };
+  }
+};
+
+export const getTodayAnalytics = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/statistics/today`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching today analytics:', error);
+    throw error;
+  }
+};
+
+export const getWeeklyAnalytics = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/statistics/week`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching weekly analytics:', error);
+    throw error;
   }
 };

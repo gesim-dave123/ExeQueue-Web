@@ -4,6 +4,7 @@ import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
 import { SocketEvents } from '../services/enums/SocketEvents.js';
 import generateReferenceNumber from '../services/queue/generateReferenceNumber.js';
 import { formatQueueNumber } from '../services/queue/QueueNumber.js';
+import { sendDashboardUpdate } from './sse.controllers.js';
 // export const generateQueue = async (req, res) => {
 //   try {
 //     const {
@@ -1189,7 +1190,9 @@ export const generateQueue = async (req, res) => {
     const QUEUETYPE =
       queueType.toUpperCase() === Queue_Type.REGULAR
         ? Queue_Type.REGULAR
-        : Queue_Type.PRIORITY;
+        : queueType.toUpperCase() === Queue_Type.PRIORITY ?
+        Queue_Type.PRIORITY
+        : "Unknown";
 
     // =================== TRANSACTION ===================
     return await prisma.$transaction(
@@ -1204,7 +1207,7 @@ export const generateQueue = async (req, res) => {
 
         // Find or create today's active session
         let session = await tx.queueSession.findFirst({
-          where: { sessionDate: todayUTC, isActive: true },
+          where: { sessionDate: todayUTC, isAcceptingNew: true, isServing: true, isActive: true },
           orderBy: { sessionNumber: 'desc' },
         });
 
@@ -1363,6 +1366,11 @@ export const generateQueue = async (req, res) => {
         };
 
         io.emit(SocketEvents.QUEUE_CREATED, newQueueData);
+        // ✅ Add this line for SSE updates
+        sendDashboardUpdate({
+          message: 'New queue created',
+          sessionId: session.sessionId,
+        });
         return res.status(201).json({
           success: true,
           message: 'Queue Generated Successfully!',
