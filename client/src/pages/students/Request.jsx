@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
+
 // import { getCourseData } from "../../api/course.js";
 // import { getRequestType } from "../../api/request.js";
 import {
@@ -14,6 +16,9 @@ import Loading from '../../components/Loading';
 import ConfirmModal from '../../components/modal/ConfirmModal.jsx';
 
 export default function Request() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedQueue, setSelectedQueue] = useState(null);
@@ -226,7 +231,7 @@ export default function Request() {
     } else if (!/^\d{8}$/.test(formData.studentId)) {
       newErrors.studentId = 'Student ID must be exactly 8 digits';
     }
-    if (!formData.courseId.trim()) newErrors.course = 'Course is required';
+    // if (!formData.courseId.trim()) newErrors.course = 'Course is required';
     if (!formData.yearLevel.trim())
       newErrors.yearLevel = 'Year level is required';
 
@@ -304,7 +309,39 @@ export default function Request() {
   const handleBackCancel = () => {
     setShowBackConfirmModal(false);
   };
+    // Filter courses based on search
+  const filteredCourses = courseData.filter(course =>
+    course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    course.courseCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+// Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
+  const handleSelect = (courseId, courseName, courseCode) => {
+    setFormData({ courseId });
+    setSearchTerm(`${courseName} - ${courseCode}`);
+    setIsOpen(false);
+  };
+
+  const handleInputChange = (e) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+    if (!e.target.value) {
+      setFormData({ courseId: '' });
+    }
+  };
+
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
   // const handleChange = (e) => {
   //   setFormData({ ...formData, [e.target.name]: e.target.value });
   //   // Clear error when user starts typing
@@ -672,7 +709,10 @@ export default function Request() {
               className={`border rounded-xl p-4 md:p-5  cursor-pointer transition-all duration-200 ${
                 selectedQueue === 'Standard'
                   ? 'border-blue-500 bg-blue-50 shadow-sm'
+                  : selectedQueue === 'Priority'
+                  ? 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50' 
                   : 'border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50'
+
               } ${errors.step1 ? 'border-red-300' : ''}`}
               onClick={() => handleQueueSelect('Regular')}
               variants={itemVariants}
@@ -883,32 +923,66 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Course <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Course<span className="text-red-500">*</span>
               </label>
-              <select
-                name="courseId"
-                value={formData.courseId}
-                onChange={handleChange}
-                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.course ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="" disabled>
-                  Select your course
-                </option>
-                {/* <option value="BSIT">BSIT (Bachelor of Science in Information Technology)</option>
-                <option value="BSCS">BSCS</option>
-                <option value="BSECE">BSECE</option>
-                <option value="BSCE">BSCE</option>
-                <option value="BSEE">BSEE</option> */}
-                {courseData.map((course) => (
-                  <option key={course.courseId} value={course.courseId}>
-                    {course.courseName} - {course.courseCode}
-                  </option>
-                ))}
-                ;
-              </select>
+              
+              <div className="relative" ref={dropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsOpen(true)}
+                    placeholder="Select your course"
+                    className={`w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
+                      isOpen ? 'border-blue-500' : errors.course ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleDropdown}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  >
+                    <ChevronDown 
+                      size={20} 
+                      className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </div>
+                
+                {isOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-64 overflow-y-auto custom-scrollbar">
+                    {filteredCourses.length > 0 ? (
+                      filteredCourses.map((course, index) => (
+                        <div
+                          key={course.courseId}
+                          onClick={() => handleSelect(course.courseId, course.courseName, course.courseCode)}
+                          className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
+                            formData.courseId === course.courseId ? 'bg-blue-50' : ''
+                          } ${index === 0 ? 'rounded-t-2xl' : ''} ${
+                            index === filteredCourses.length - 1 ? 'rounded-b-2xl' : ''
+                          }`}
+                        >
+                          <div className="text-sm text-gray-900">
+                            {course.courseName} - {course.courseCode}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-5 py-3 text-gray-500 text-sm">No courses found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+                {/* Hidden input to store the actual courseId value */}
+                <input
+                  type="hidden"
+                  name="courseId"
+                  value={formData.courseId}
+                />
+
               {errors.course && (
                 <p className="mt-1 text-sm text-red-600">{errors.course}</p>
               )}
