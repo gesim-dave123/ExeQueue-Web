@@ -144,9 +144,18 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="profile-settings" element={<Profile />} />
-        <Route path="release-window" element={<ReleaseWindow />} />
-        <Route path="reset-queue" element={<Reset_Queue />} />
+        <Route path="profile-settings" element={ 
+          <ProtectedRoute allowedRoles={["WORKING_SCHOLAR"]}>
+            <Profile />
+            </ProtectedRoute>} />
+        <Route path="release-window" element={
+          <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+          <ReleaseWindow />
+            </ProtectedRoute>} />
+        <Route path="reset-queue" element={
+          <ProtectedRoute allowedRoles={["PERSONNEL"]}>
+          <Reset_Queue />
+           </ProtectedRoute>} />
       </Route>
 
         {/* <Route element={<LayoutProfile />}>
