@@ -1,7 +1,7 @@
-import { Queue_Type, Status } from "@prisma/client";
-import prisma from "../../prisma/prisma.js";
-import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
-import { formatQueueNumber } from "../services/queue/QueueNumber.js";
+import { Queue_Type, Status } from '@prisma/client';
+import prisma from '../../prisma/prisma.js';
+import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 export const getDashboardStatistics = async (req, res) => {
   try {
@@ -23,14 +23,14 @@ export const getDashboardStatistics = async (req, res) => {
     // ✅ Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
 
     // ✅ 1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true, sessionNumber: true },
-      orderBy: { sessionNumber: "asc" },
+      orderBy: { sessionNumber: 'asc' },
     });
 
     // ✅ 2) Get ALL today's sessions (for totals)
@@ -44,7 +44,7 @@ export const getDashboardStatistics = async (req, res) => {
     if (!activeSession || sessionIds.length === 0) {
       return res.status(200).json({
         success: true,
-        message: "No active session found. Dashboard empty.",
+        message: 'No active session found. Dashboard empty.',
         data: {
           session: null,
           windows: [
@@ -85,7 +85,7 @@ export const getDashboardStatistics = async (req, res) => {
         // canServePriority: true,
         // canServeRegular: true,
       },
-      orderBy: { windowNo: "asc" },
+      orderBy: { windowNo: 'asc' },
     });
 
     // Map windows by number for clean access
@@ -104,9 +104,8 @@ export const getDashboardStatistics = async (req, res) => {
           };
         }
 
-        const currentServing = await prisma.queue.findFirst({
+        let currentServing = await prisma.queue.findFirst({
           where: {
-            // sessionId: sessionId,
             windowId: win.windowId,
             queueStatus: Status.IN_SERVICE,
             isActive: true,
@@ -114,20 +113,37 @@ export const getDashboardStatistics = async (req, res) => {
           select: {
             queueId: true,
             queueNumber: true,
-            // queueType: true,
-            // studentFullName: true,
-            // studentId: true,
-            // calledAt: true,
+            queueType: true,
           },
-          orderBy: { calledAt: "desc" },
+          orderBy: { calledAt: 'desc' },
         });
-        console.log("Current Serving for Window", winNo, ":", currentServing);
+
+        if (!currentServing) {
+          currentServing = await prisma.queue.findFirst({
+            where: {
+              windowId: win.windowId,
+              queueStatus: {
+                in: [Status.COMPLETED, Status.CANCELLED],
+              },
+              isActive: true,
+              sessionId: sessionId, // ✅ Only from current session
+            },
+            select: {
+              queueId: true,
+              queueNumber: true,
+              queueType: true,
+            },
+            orderBy: { calledAt: 'desc' }, // Most recent
+          });
+        }
+
+        console.log('Current Serving for Window', winNo, ':', currentServing);
         const formattedCurrent = currentServing
           ? {
               queueId: currentServing.queueId,
               queueNumber: currentServing.queueNumber,
               formattedQueueNumber: formatQueueNumber(
-                currentServing.queueType === "PRIORITY" ? "P" : "R",
+                currentServing.queueType === 'PRIORITY' ? 'P' : 'R',
                 currentServing.queueNumber
               ),
               queueType: currentServing.queueType,
@@ -232,14 +248,14 @@ export const getDashboardStatistics = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Dashboard statistics fetched successfully",
+      message: 'Dashboard statistics fetched successfully',
       data: dashboardOverview,
     });
   } catch (error) {
-    console.error("❌ Error fetching dashboard stats:", error);
+    console.error('❌ Error fetching dashboard stats:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: 'Internal Server Error',
       error: error.message,
     });
   }
@@ -248,90 +264,103 @@ export const getDashboardStatistics = async (req, res) => {
 //weekly charts
 export const getAnalyticsData = async (req, res) => {
   try {
-    // Calculate week range (Monday to Saturday)
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
-    monday.setHours(0, 0, 0, 0);
+    // ✅ Get current time in Manila timezone
+    const nowManila = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
+    const day = nowManila.getDay();
 
-    const saturday = new Date(monday);
-    saturday.setDate(monday.getDate() + 5);
-    saturday.setHours(23, 59, 59, 999);
+    // Calculate Monday of current week in Manila time
+    const mondayManila = new Date(nowManila);
+    mondayManila.setDate(nowManila.getDate() - day + (day === 0 ? -6 : 1));
+    mondayManila.setHours(0, 0, 0, 0);
 
-    console.log(" Week Range:", monday, "to", saturday);
+    // Calculate Saturday of current week in Manila time
+    const saturdayManila = new Date(mondayManila);
+    saturdayManila.setDate(mondayManila.getDate() + 5);
+    saturdayManila.setHours(23, 59, 59, 999);
 
-    // ---  FETCH QUEUES PER DAY ---
-    const allQueues = await prisma.queueSession.findMany({
+    // Convert to UTC for database query
+    const monday = DateAndTimeFormatter.toUTC(mondayManila, 'Asia/Manila');
+    const saturday = DateAndTimeFormatter.toUTC(saturdayManila, 'Asia/Manila');
+
+    console.log('📅 Week Range (Manila):', mondayManila, 'to', saturdayManila);
+
+    // ✅ CHANGED: Query queue table directly instead of queueSession
+    const allQueues = await prisma.queue.findMany({
       where: {
         createdAt: {
           gte: monday,
           lte: saturday,
         },
+        isActive: true,
       },
       select: {
-        regularCount: true,
-        priorityCount: true,
-        sessionDate: true,
+        queueType: true,
+        createdAt: true,
       },
     });
 
-    console.log("Found queues:", allQueues.length);
+    console.log('Found queues:', allQueues.length);
 
     const DAYS_OF_WEEK = [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
     ];
 
+    // ✅ Use DateAndTimeFormatter for proper timezone conversion
     const getDayName = (date) => {
-      const dayIndex = date.getDay();
-      const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
-      return DAYS_OF_WEEK[adjustedIndex];
+      const dayName = DateAndTimeFormatter.formatInTimeZone(
+        new Date(date),
+        'EEEE', // Full day name
+        'Asia/Manila'
+      );
+
+      return dayName;
     };
 
-    // Combine queues by date
-    const combineQueuesByDate = Object.values(
-      allQueues.reduce((acc, curr) => {
-        const day = getDayName(new Date(curr.sessionDate));
+    // ✅ Group queues by day
+    const queuesByDay = allQueues.reduce((acc, queue) => {
+      const day = getDayName(queue.createdAt);
 
-        if (!acc[day]) {
-          acc[day] = {
-            day: day,
-            totalRegular: 0,
-            totalPriority: 0,
-          };
-        }
-
-        acc[day].totalRegular += curr.regularCount || 0;
-        acc[day].totalPriority += curr.priorityCount || 0;
-
-        return acc;
-      }, {})
-    );
-
-    //  Ensure all days are included (bisag walay data)
-    const queueSummary = DAYS_OF_WEEK.map((day) => {
-      const existing = combineQueuesByDate.find((item) => item.day === day);
-      return (
-        existing || {
-          day,
+      if (!acc[day]) {
+        acc[day] = {
+          day: day,
           totalRegular: 0,
           totalPriority: 0,
-          totalQueues: 0,
-        }
-      );
-    }).map((item) => ({
-      day: item.day,
-      totalRegular: item.totalRegular,
-      totalPriority: item.totalPriority,
-      totalQueues: item.totalRegular + item.totalPriority,
-    }));
+        };
+      }
 
-    console.log("Queue Summary:", queueSummary);
+      if (queue.queueType === Queue_Type.REGULAR) {
+        acc[day].totalRegular += 1;
+      } else if (queue.queueType === Queue_Type.PRIORITY) {
+        acc[day].totalPriority += 1;
+      }
+
+      return acc;
+    }, {});
+
+    // Ensure all days are included (even with 0 queues)
+    const queueSummary = DAYS_OF_WEEK.map((day) => {
+      const existing = queuesByDay[day];
+      return existing
+        ? {
+            day: existing.day,
+            totalRegular: existing.totalRegular,
+            totalPriority: existing.totalPriority,
+            totalQueues: existing.totalRegular + existing.totalPriority,
+          }
+        : {
+            day,
+            totalRegular: 0,
+            totalPriority: 0,
+            totalQueues: 0,
+          };
+    });
+
+    console.log('Queue Summary:', queueSummary);
 
     // --- FETCH REQUESTS OF THE WEEK ---
     const allRequestOfTheWeek = await prisma.request.findMany({
@@ -340,7 +369,6 @@ export const getAnalyticsData = async (req, res) => {
           gte: monday,
           lte: saturday,
         },
-        // requestStatus: 'COMPLETED',
         requestStatus: {
           in: [Status.COMPLETED, Status.CANCELLED],
         },
@@ -351,7 +379,7 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
 
-    console.log("Found requests:", allRequestOfTheWeek.length);
+    console.log('Found requests:', allRequestOfTheWeek.length);
 
     // --- GROUP REQUESTS BY REQUEST TYPE (Weekly total) ---
     const requestTypeMap = new Map();
@@ -370,12 +398,12 @@ export const getAnalyticsData = async (req, res) => {
       requestTypeMap,
       ([typeId, total]) => ({
         requestTypeId: typeId,
-        requestType: typeIdToNameMap.get(typeId) || "Unknown",
+        requestType: typeIdToNameMap.get(typeId) || 'Unknown',
         total,
       })
     );
 
-    console.log("Weekly Request Breakdown:", weeklyRequestBreakdown);
+    console.log('Weekly Request Breakdown:', weeklyRequestBreakdown);
 
     // --- GROUP REQUESTS BY DAY AND REQUEST TYPE ---
     const dayRequestMap = {};
@@ -384,9 +412,9 @@ export const getAnalyticsData = async (req, res) => {
     });
 
     allRequestOfTheWeek.forEach((req) => {
-      const day = getDayName(new Date(req.createdAt));
+      const day = getDayName(req.createdAt);
       const typeId = req.requestTypeId;
-      const typeName = typeIdToNameMap.get(typeId) || "Unknown";
+      const typeName = typeIdToNameMap.get(typeId) || 'Unknown';
 
       if (!dayRequestMap[day][typeName]) {
         dayRequestMap[day][typeName] = 0;
@@ -406,11 +434,11 @@ export const getAnalyticsData = async (req, res) => {
       });
     });
 
-    console.log("Everyday Request Breakdown:", everydayRequestBreakdown);
+    console.log('Everyday Request Breakdown:', everydayRequestBreakdown);
 
     return res.status(200).json({
       success: true,
-      message: "Successfully fetched analytics data",
+      message: 'Successfully fetched analytics data',
       weekRange: {
         from: monday,
         to: saturday,
@@ -422,10 +450,10 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching analytics data:", error);
+    console.error('Error fetching analytics data:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: 'Internal Server Error',
       error: error.message,
     });
   }
@@ -436,11 +464,11 @@ export const getTodayAnalytics = async (req, res) => {
     // 🕒 Date boundaries for today (Asia/Manila)
     const today = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
     const now = new Date();
 
-    console.log("📅 Fetching today analytics:", today, "to", now);
+    console.log('📅 Fetching today analytics:', today, 'to', now);
 
     // ⚡ Fetch queues + requests in parallel for better performance
     const [todayQueues, todayRequests, requestTypes] = await Promise.all([
@@ -477,21 +505,21 @@ export const getTodayAnalytics = async (req, res) => {
 
     // 🧮 Queue analytics
     const completed = todayQueues.filter(
-      (q) => q.queueStatus === "COMPLETED" || q.queueStatus === "CANCELLED"
+      (q) => q.queueStatus === 'COMPLETED' || q.queueStatus === 'CANCELLED'
     ).length;
 
     const inProgress = todayQueues.length - completed;
     const totalRegular = todayQueues.filter(
-      (q) => q.queueType === "REGULAR"
+      (q) => q.queueType === 'REGULAR'
     ).length;
     const totalPriority = todayQueues.filter(
-      (q) => q.queueType === "PRIORITY"
+      (q) => q.queueType === 'PRIORITY'
     ).length;
 
     // 🧩 Request breakdown by type
     const requestTypeMap = new Map();
     todayRequests
-      .filter((r) => r.requestStatus === "COMPLETED")
+      .filter((r) => r.requestStatus === 'COMPLETED')
       .forEach((r) => {
         requestTypeMap.set(
           r.requestTypeId,
@@ -505,7 +533,7 @@ export const getTodayAnalytics = async (req, res) => {
 
     const requestBreakdown = Array.from(requestTypeMap, ([typeId, total]) => ({
       requestTypeId: typeId,
-      requestType: typeIdToNameMap.get(typeId) || "Unknown",
+      requestType: typeIdToNameMap.get(typeId) || 'Unknown',
       total,
     }));
 
@@ -519,18 +547,18 @@ export const getTodayAnalytics = async (req, res) => {
       requestBreakdown,
     };
 
-    console.log("✅ Today analytics:", analytics);
+    console.log('✅ Today analytics:', analytics);
 
     return res.status(200).json({
       success: true,
-      message: "Successfully fetched today analytics",
+      message: 'Successfully fetched today analytics',
       data: analytics,
     });
   } catch (error) {
-    console.error("❌ Error fetching today analytics:", error);
+    console.error('❌ Error fetching today analytics:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: 'Internal Server Error',
       error: error.message,
     });
   }
