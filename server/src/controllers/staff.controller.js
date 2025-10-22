@@ -1,14 +1,18 @@
-import { Status } from "@prisma/client";
+import { Role, Status } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { getShiftTag } from "../../utils/shiftTag.js";
-import bcrypt from 'bcryptjs';
-import { Role } from '@prisma/client';
 import {
   QueueActions,
   QueueEvents,
   WindowEvents,
 } from "../services/enums/SocketEvents.js";
+// import { sendDashboardUpdate } from "./sse.controllers.js";
+import {
+  sendDashboardUpdate,
+  sendLiveDisplayUpdate,
+} from "./statistics.controller.js";
 
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
@@ -223,6 +227,33 @@ export const releaseServiceWindow = async (req, res) => {
     });
 
     io.to(QueueEvents.REFETCH).emit(WindowEvents.RELEASE_WINDOW, {
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNo,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+    sendDashboardUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNo,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    sendLiveDisplayUpdate({
       windowId: result.windowId,
       previousWindowId: result.windowId,
       sasStaffId,
@@ -513,7 +544,6 @@ export const getServiceWindowDetails = async (req, res) => {
   } catch (error) {}
 };
 
-
 export const getWorkingScholars = async (req, res) => {
   try {
     const workingScholars = await prisma.sasStaff.findMany({
@@ -543,20 +573,20 @@ export const getWorkingScholars = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Working Scholar accounts retrieved successfully.',
+      message: "Working Scholar accounts retrieved successfully.",
       data: formattedScholars,
     });
   } catch (error) {
-    console.error('Error retrieving working scholars:', error);
+    console.error("Error retrieving working scholars:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve Working Scholar accounts.',
+      message: "Failed to retrieve Working Scholar accounts.",
     });
   }
 };
 
 export const createWorkingScholar = async (req, res) => {
-   try {
+  try {
     const creatorId = req.user?.sasStaffId;
 
     const {
@@ -578,13 +608,13 @@ export const createWorkingScholar = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ success: false, message: 'Missing required fields.' });
+        .json({ success: false, message: "Missing required fields." });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Password and confirmation do not match.',
+        message: "Password and confirmation do not match.",
       });
     }
 
@@ -600,11 +630,11 @@ export const createWorkingScholar = async (req, res) => {
       if (existing.username === username) {
         return res
           .status(409)
-          .json({ success: false, message: 'Username already exists.' });
+          .json({ success: false, message: "Username already exists." });
       }
       return res
         .status(409)
-        .json({ success: false, message: 'Email already exists.' });
+        .json({ success: false, message: "Email already exists." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -635,7 +665,7 @@ export const createWorkingScholar = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Working Scholar account created successfully.',
+      message: "Working Scholar account created successfully.",
       data: {
         sasStaffId: newAccount.sasStaffId,
         username: newAccount.username,
@@ -645,10 +675,10 @@ export const createWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error creating working scholar account:', error);
+    console.error("Error creating working scholar account:", error);
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -680,13 +710,13 @@ export const updateWorkingScholar = async (req, res) => {
     if (!account || !account.isActive) {
       return res
         .status(404)
-        .json({ success: false, message: 'Account not found or inactive.' });
+        .json({ success: false, message: "Account not found or inactive." });
     }
 
     if (account.role !== Role.WORKING_SCHOLAR) {
       return res.status(403).json({
         success: false,
-        message: 'Can only update Working Scholar accounts.',
+        message: "Can only update Working Scholar accounts.",
       });
     }
 
@@ -698,14 +728,14 @@ export const updateWorkingScholar = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          'Both newPassword and confirmPassword are required to change password.',
+          "Both newPassword and confirmPassword are required to change password.",
       });
     }
     if (newPassword && confirmPassword) {
       if (newPassword !== confirmPassword) {
         return res
           .status(400)
-          .json({ success: false, message: 'Password does not match.' });
+          .json({ success: false, message: "Password does not match." });
       }
       hashedPassword = await bcrypt.hash(newPassword, 10);
     }
@@ -718,7 +748,7 @@ export const updateWorkingScholar = async (req, res) => {
       if (existingUsername) {
         return res
           .status(409)
-          .json({ success: false, message: 'Username already in use.' });
+          .json({ success: false, message: "Username already in use." });
       }
     }
     if (email && email !== account.email) {
@@ -729,7 +759,7 @@ export const updateWorkingScholar = async (req, res) => {
       if (existingEmail) {
         return res
           .status(409)
-          .json({ success: false, message: 'Email already in use.' });
+          .json({ success: false, message: "Email already in use." });
       }
     }
 
@@ -738,11 +768,11 @@ export const updateWorkingScholar = async (req, res) => {
       ...(username ? { username } : {}),
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
-      ...(typeof middleName !== 'undefined'
+      ...(typeof middleName !== "undefined"
         ? { middleName: middleName ?? null }
         : {}),
       ...(email ? { email } : {}),
-      ...(typeof hashedPassword !== 'undefined' ? { hashedPassword } : {}),
+      ...(typeof hashedPassword !== "undefined" ? { hashedPassword } : {}),
       updatedAt: new Date(),
       createdBy: account.createdBy ?? updaterId ?? null, // keep createdBy if any; optional
     };
@@ -764,7 +794,7 @@ export const updateWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Account updated successfully.',
+      message: "Account updated successfully.",
       data: {
         sasStaffId: updated.sasStaffId,
         username: updated.username,
@@ -774,15 +804,15 @@ export const updateWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error updating working scholar account:', error);
+    console.error("Error updating working scholar account:", error);
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
 export const softDeleteWorkingScholar = async (req, res) => {
-   try {
+  try {
     const { sasStaffId } = req.params;
 
     const account = await prisma.sasStaff.findUnique({
@@ -793,20 +823,20 @@ export const softDeleteWorkingScholar = async (req, res) => {
     if (!account) {
       return res
         .status(404)
-        .json({ success: false, message: 'Account not found.' });
+        .json({ success: false, message: "Account not found." });
     }
 
     if (account.role !== Role.WORKING_SCHOLAR) {
       return res.status(403).json({
         success: false,
-        message: 'Can only delete Working Scholar accounts.',
+        message: "Can only delete Working Scholar accounts.",
       });
     }
 
     if (!account.isActive) {
       return res
         .status(400)
-        .json({ success: false, message: 'Account already deleted.' });
+        .json({ success: false, message: "Account already deleted." });
     }
 
     const deleted = await prisma.sasStaff.update({
@@ -828,7 +858,7 @@ export const softDeleteWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Account deleted successfully.',
+      message: "Account deleted successfully.",
       data: {
         sasStaffId: deleted.sasStaffId,
         username: deleted.username,
@@ -839,9 +869,9 @@ export const softDeleteWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error soft-deleting account:', error);
+    console.error("Error soft-deleting account:", error);
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };

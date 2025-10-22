@@ -1,6 +1,8 @@
 import { Queue_Type, Status } from "@prisma/client";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { sortByPriorityPattern } from "../../utils/SortByPriorityPattern.js";
+import { addClient, broadcast } from "../../utils/SseManager.js";
 import { formatQueueNumber } from "../services/queue/QueueNumber.js";
 
 export const getDashboardStatistics = async (req, res) => {
@@ -114,7 +116,7 @@ export const getDashboardStatistics = async (req, res) => {
           select: {
             queueId: true,
             queueNumber: true,
-            // queueType: true,
+            queueType: true,
             // studentFullName: true,
             // studentId: true,
             // calledAt: true,
@@ -243,6 +245,246 @@ export const getDashboardStatistics = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+export const streamDashboardUpdates = async (req, res) => {
+  addClient("dashboard", req, res);
+};
+export const sendDashboardUpdate = async (data = {}) => {
+  broadcast("dashboard", "dashboard-update", data);
+};
+
+export const getLiveDisplayData = async (req, res) => {
+  try {
+    // ✅ Get current date in Asia/Manila timezone
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    // ✅ 1) Find the active session (for dashboard view)
+    const activeSession = await prisma.queueSession.findFirst({
+      where: { sessionDate: todayUTC, isServing: true, isActive: true },
+      select: { sessionId: true, sessionNumber: true },
+      orderBy: { sessionNumber: "asc" },
+    });
+
+    // ✅ 2) Get ALL today's sessions (for totals)
+    const allSessionsToday = await prisma.queueSession.findMany({
+      where: { sessionDate: todayUTC, isServing: true, isActive: true },
+      select: { sessionId: true },
+    });
+
+    const sessionIds = allSessionsToday.map((s) => s.sessionId);
+
+    if (!activeSession || sessionIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No active session found. Live Data empty.",
+        data: {
+          session: null,
+          windows: [
+            {
+              windowNo: 1,
+              // displayName: "Window 1",
+              currentServing: null,
+              // nextInLine: [],
+            },
+            {
+              windowNo: 2,
+              // displayName: "Window 2",
+              currentServing: null,
+              // nextInLine: [],
+            },
+          ],
+          totals: {
+            totalRegularWaiting: 0,
+            totalPriorityWaiting: 0,
+          },
+        },
+      });
+    }
+
+    const sessionId = activeSession.sessionId;
+
+    // ✅ 3) Get window info for windows 1 & 2
+    const windows = await prisma.serviceWindow.findMany({
+      where: { windowNo: { in: [1, 2] }, isActive: true },
+      select: {
+        windowId: true,
+        windowNo: true,
+        windowName: true,
+      },
+      orderBy: { windowNo: "asc" },
+    });
+
+    // Map windows by number for clean access
+    const windowsByNo = { 1: null, 2: null };
+    for (const w of windows) windowsByNo[w.windowNo] = w;
+
+    // 🔹 Fetch per-window current serving
+    const windowResults = await Promise.all(
+      [1, 2].map(async (winNo) => {
+        const win = windowsByNo[winNo];
+        if (!win) {
+          return { windowNo: winNo, currentServing: null };
+        }
+
+        const currentServing = await prisma.queue.findFirst({
+          where: {
+            windowId: win.windowId,
+            queueStatus: Status.IN_SERVICE,
+            isActive: true,
+          },
+          select: {
+            queueId: true,
+            queueNumber: true,
+            queueType: true,
+          },
+          orderBy: { calledAt: "desc" },
+        });
+
+        const formattedCurrent = currentServing
+          ? {
+              queueId: currentServing.queueId,
+              queueNumber: currentServing.queueNumber,
+              formattedQueueNumber: formatQueueNumber(
+                currentServing.queueType === "PRIORITY" ? "P" : "R",
+                currentServing.queueNumber
+              ),
+              queueType: currentServing.queueType,
+            }
+          : null;
+
+        return {
+          windowNo: winNo,
+          windowId: win.windowId,
+          currentServing: formattedCurrent,
+        };
+      })
+    );
+
+    const lastServedTypeToAllWindows = windowResults.map(
+      (w) => w.currentServing?.queueType
+    );
+    // Filter to only valid queue types
+    const validTypes = lastServedTypeToAllWindows.filter(
+      (type) => type === "PRIORITY" || type === "REGULAR"
+    );
+
+    let allPriority = false;
+    let allRegular = false;
+
+    if (validTypes.length > 0) {
+      allPriority = validTypes.every((t) => t === "PRIORITY");
+      allRegular = validTypes.every((t) => t === "REGULAR");
+    }
+
+    // console.log("All Priority:", allPriority);
+    // console.log("All Regular:", allRegular);
+    // console.log("Raw Types:", lastServedTypeToAllWindows);
+    const lastServedType = allPriority
+      ? Queue_Type.PRIORITY
+      : allRegular
+      ? Queue_Type.REGULAR
+      : Queue_Type.PRIORITY;
+
+    console.log("Determined last served type for alternation:", lastServedType);
+    const nextInLineRaw = await prisma.queue.findMany({
+      where: {
+        session: {
+          sessionDate: todayUTC,
+          isServing: true,
+          isActive: true,
+        },
+        queueStatus: Status.WAITING,
+        isActive: true,
+      },
+      orderBy: [
+        {
+          session: {
+            sessionNumber: "asc",
+          },
+        },
+        { sequenceNumber: "asc" },
+      ],
+      // take: 10,
+      // orderBy: [{ queueNumber: "asc" }], // keep raw order simple
+      select: {
+        queueId: true,
+        queueNumber: true,
+        queueType: true,
+      },
+    });
+    console.log("Next in line (raw):", nextInLineRaw);
+
+    // 🧠 Then apply your custom alternation logic
+    const sortedNextInLine = sortByPriorityPattern(
+      nextInLineRaw,
+      lastServedType
+    );
+
+    // ✅ Format for frontend display
+    const nextInLine = sortedNextInLine.slice(0, 4).map((q) => ({
+      queueId: q.queueId,
+      queueNumber: q.queueNumber,
+      formattedQueueNumber: formatQueueNumber(
+        q.queueType === "PRIORITY" ? "P" : "R",
+        q.queueNumber
+      ),
+      queueType: q.queueType,
+    }));
+
+    // ✅ 5) Compute totals for *all* sessions today
+    const [totalRegularWaiting, totalPriorityWaiting] = await Promise.all([
+      prisma.queue.count({
+        where: {
+          sessionId: { in: sessionIds },
+          queueType: Queue_Type.REGULAR,
+          queueStatus: Status.WAITING,
+          isActive: true,
+        },
+      }),
+      prisma.queue.count({
+        where: {
+          sessionId: { in: sessionIds },
+          queueType: Queue_Type.PRIORITY,
+          queueStatus: Status.WAITING,
+          isActive: true,
+        },
+      }),
+    ]);
+
+    // ✅ 6) Combine all data
+    const liveDataOverview = {
+      windows: windowResults,
+      totals: {
+        totalRegularWaiting,
+        totalPriorityWaiting,
+        nextInLine,
+      },
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "Live Data statistics fetched successfully",
+      data: liveDataOverview,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching live data stats:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+export const streamLiveDisplayUpdates = async (req, res) => {
+  addClient("live-display", req, res);
+};
+export const sendLiveDisplayUpdate = async (data = {}) => {
+  broadcast("live-display", "live-display-update", data);
 };
 
 //weekly charts
