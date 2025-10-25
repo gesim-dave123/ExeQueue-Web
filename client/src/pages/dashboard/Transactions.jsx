@@ -2,191 +2,32 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function Transactions() {
-  const allTransactions = [
-    {
-      id: 1,
-      studentId: "23123457",
-      name: "Jan Lorenz Laroco",
-      course: "BSIT",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 2,
-      studentId: "23123457",
-      name: "Jan Lorenz Laroco",
-      course: "BSIT",
-      request: "Insurance Payment",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 3,
-      studentId: "23123457",
-      name: "Jan Lorenz Laroco",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 4,
-      studentId: "23651094",
-      name: "Lewis Hamilton",
-      course: "BSME",
-      request: "Transmittal Letter",
-      status: "Cancelled",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 5,
-      studentId: "23984217",
-      name: "Alex Albon",
-      course: "BEED",
-      request: "Uniform Exemption",
-      status: "Stalled",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 6,
-      studentId: "23746350",
-      name: "Carlos Sainz",
-      course: "BSA",
-      request: "Transmittal Letter",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 7,
-      studentId: "23479182",
-      name: "Charles Leclerc",
-      course: "BSCS",
-      request: "Transmittal Letter",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 8,
-      studentId: "23043761",
-      name: "Pierre Gaisly",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 9,
-      studentId: "23124567",
-      name: "Lando Norris",
-      course: "BSME",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 26, 2025",
-    },
-    {
-      id: 11,
-      studentId: "23987654",
-      name: "George Russell",
-      course: "BSCS",
-      request: "Transmittal Letter",
-      status: "Completed",
-      date: "Sept. 26, 2025",
-    },
-    {
-      id: 12,
-      studentId: "23876543",
-      name: "Max Verstappen",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Cancelled",
-      date: "Sept. 26, 2025",
-    },
-    {
-      id: 13,
-      studentId: "23765432",
-      name: "Sergio Perez",
-      course: "BEED",
-      request: "Uniform Exemption",
-      status: "Stalled",
-      date: "Sept. 27, 2025",
-    },
-    {
-      id: 14,
-      studentId: "23654321",
-      name: "Fernando Alonso",
-      course: "BSA",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 27, 2025",
-    },
-    {
-      id: 15,
-      studentId: "23543210",
-      name: "Esteban Ocon",
-      course: "BSME",
-      request: "Insurance Payment",
-      status: "Completed",
-      date: "Sept. 27, 2025",
-    },
-    {
-      id: 17,
-      studentId: "23321098",
-      name: "Nico Hulkenberg",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Completed",
-      date: "Sept. 28, 2025",
-    },
-    {
-      id: 18,
-      studentId: "23210987",
-      name: "Yuki Tsunoda",
-      course: "BEED",
-      request: "Uniform Exemption",
-      status: "Cancelled",
-      date: "Sept. 28, 2025",
-    },
-    {
-      id: 19,
-      studentId: "23109876",
-      name: "Daniel Ricciardo",
-      course: "BSA",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 29, 2025",
-    },
-    {
-      id: 20,
-      studentId: "23098765",
-      name: "Valtteri Bottas",
-      course: "BSME",
-      request: "Insurance Payment",
-      status: "Stalled",
-      date: "Sept. 29, 2025",
-    },
-  ];
-
-  const courseFull = {
-    BSIT: "Bachelor of Science in Information Technology",
-    BSCS: "Bachelor of Science in Computer Science",
-    BSME: "Bachelor of Science in Mechanical Engineering",
-    BSA: "Bachelor of Science in Accountancy",
-    BEED: "Bachelor of Elementary Education",
-  };
-
+  const [transactions, setTransactions] = useState([]);
   const [filters, setFilters] = useState({
     course: "",
     request: "",
     status: "",
     date: "",
   });
-
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 8
+  });
+  
+  const [filterOptions, setFilterOptions] = useState({
+    courses: [],
+    requests: [],
+    statuses: []
+  });
+
   const itemsPerPage = 8;
 
   const dropdownRefs = {
@@ -196,9 +37,124 @@ export default function Transactions() {
     date: useRef(null),
   };
 
-  const courses = [...new Set(allTransactions.map((item) => item.course))];
-  const requests = [...new Set(allTransactions.map((item) => item.request))];
-  const statuses = [...new Set(allTransactions.map((item) => item.status))];
+  const courseFull = {
+    BSIT: "Bachelor of Science in Information Technology",
+    BSCS: "Bachelor of Science in Computer Science",
+    BSME: "Bachelor of Science in Mechanical Engineering",
+    BSA: "Bachelor of Science in Accountancy",
+    BEED: "Bachelor of Elementary Education",
+  };
+
+  const fetchAPI = async (url, options = {}) => {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        credentials: 'include', // Important: sends cookies
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ Response is not JSON:', await response.text());
+        throw new Error('Server returned non-JSON response. Check if API endpoint exists.');
+      }
+
+      const data = await response.json();
+
+      // Check for HTTP errors
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  };
+
+  // Fetch filter options
+  const fetchFilterOptions = async () => {
+    try {
+      console.log('🔄 Fetching filter options...');
+      const result = await fetchAPI('/api/transactions/stats');
+      
+      console.log('✅ Filter options received:', result);
+      
+      if (result.success) {
+        setFilterOptions(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      // Set empty arrays as fallback
+      setFilterOptions({
+        courses: [],
+        requests: [],
+        statuses: []
+      });
+    }
+  };
+
+  // Fetch transactions
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      console.log('🔄 Fetching transactions...');
+      
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: itemsPerPage,
+        ...filters,
+        search: searchQuery
+      });
+
+      // Remove empty filters
+      Object.keys(filters).forEach(key => {
+        if (!filters[key]) {
+          params.delete(key);
+        }
+      });
+
+      if (!searchQuery) {
+        params.delete('search');
+      }
+
+      console.log('📤 Request params:', params.toString());
+
+      const result = await fetchAPI(`/api/transactions?${params}`);
+
+      console.log('✅ Transactions received:', result);
+
+      if (result.success) {
+        setTransactions(result.data.transactions);
+        setPagination(result.data.pagination);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      // Set empty state on error
+      setTransactions([]);
+      setPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        itemsPerPage: 8
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [currentPage, filters, searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -214,33 +170,6 @@ export default function Transactions() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
-
-  const filteredTransactions = allTransactions.filter((transaction) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      transaction.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.course.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.request.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.status.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return (
-      matchesSearch &&
-      (filters.course === "" || transaction.course === filters.course) &&
-      (filters.request === "" || transaction.request === filters.request) &&
-      (filters.status === "" || transaction.status === filters.status) &&
-      (filters.date === "" || transaction.date.includes(filters.date))
-    );
-  });
-
-  const totalItems = filteredTransactions.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentTransactions = filteredTransactions.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
 
   const handleFilterChange = (filterType, value) => {
     setFilters((prev) => ({ ...prev, [filterType]: value }));
@@ -261,13 +190,22 @@ export default function Transactions() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Completed":
+      case "COMPLETED":
         return "text-[#26BA33]";
-
-      case "Stalled":
-        return " text-[#686969]";
-      case "Cancelled":
+      case "STALLED":
+        return "text-[#686969]";
+      case "CANCELLED":
         return "text-[#EA4335]";
+      case "DEFERRED":
+        return "text-[#FFA500]";
+      case "IN_SERVICE":
+        return "text-[#1A73E8]";
+      case "WAITING":
+        return "text-[#686969]";
+      case "SKIPPED":
+        return "text-[#FFA500]";
+      case "PARTIALLY_COMPLETE":
+        return "text-[#FFA500]";
       default:
         return "text-blue-800";
     }
@@ -277,26 +215,26 @@ export default function Transactions() {
     const pageNumbers = [];
     const maxPagesToShow = 5;
 
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+    if (pagination.totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= pagination.totalPages; i++) pageNumbers.push(i);
     } else {
       pageNumbers.push(1);
       let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      let endPage = Math.min(pagination.totalPages - 1, currentPage + 1);
 
       if (currentPage <= 3) {
         startPage = 2;
         endPage = 4;
       }
-      if (currentPage >= totalPages - 2) {
-        startPage = totalPages - 3;
-        endPage = totalPages - 1;
+      if (currentPage >= pagination.totalPages - 2) {
+        startPage = pagination.totalPages - 3;
+        endPage = pagination.totalPages - 1;
       }
 
       if (startPage > 2) pageNumbers.push("...");
       for (let i = startPage; i <= endPage; i++) pageNumbers.push(i);
-      if (endPage < totalPages - 1) pageNumbers.push("...");
-      pageNumbers.push(totalPages);
+      if (endPage < pagination.totalPages - 1) pageNumbers.push("...");
+      pageNumbers.push(pagination.totalPages);
     }
     return pageNumbers;
   };
@@ -315,33 +253,29 @@ export default function Transactions() {
   const formatDateDisplay = (date) => {
     if (!date) return "Date";
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sept",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sept", "Oct", "Nov", "Dec",
     ];
-    return `${
-      months[date.getMonth()]
-    }. ${date.getDate()}, ${date.getFullYear()}`;
+    return `${months[date.getMonth()]}. ${date.getDate()}, ${date.getFullYear()}`;
   };
 
-  const handleDateSelect = (day) => {
-    const selected = new Date(
-      calendarDate.getFullYear(),
-      calendarDate.getMonth(),
-      day
-    );
-    setSelectedDate(selected);
-    handleFilterChange("date", formatDateDisplay(selected));
-  };
+const handleDateSelect = (day) => {
+  const selected = new Date(
+    calendarDate.getFullYear(),
+    calendarDate.getMonth(),
+    day
+  );
+  setSelectedDate(selected);
+  
+  //Format date correctly without timezone conversion
+  const year = selected.getFullYear();
+  const month = String(selected.getMonth() + 1).padStart(2, '0');
+  const dayStr = String(selected.getDate()).padStart(2, '0');
+  const formattedDate = `${year}-${month}-${dayStr}`;
+  
+  console.log('📅 Date selected:', { day, selected, formattedDate });
+  handleFilterChange("date", formattedDate);
+};
 
   const changeMonth = (offset) => {
     setCalendarDate(
@@ -451,18 +385,8 @@ export default function Transactions() {
     const { daysInMonth, startingDayOfWeek, year, month } =
       getDaysInMonth(calendarDate);
     const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
     ];
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -642,7 +566,7 @@ export default function Transactions() {
                 <CustomDropdown
                   label="Course"
                   filterType="course"
-                  options={courses}
+                  options={filterOptions.courses}
                   displayFn={(course) => courseFull[course] || course}
                 />
               </div>
@@ -651,7 +575,7 @@ export default function Transactions() {
                 <CustomDropdown
                   label="Request"
                   filterType="request"
-                  options={requests}
+                  options={filterOptions.requests}
                 />
               </div>
 
@@ -659,7 +583,7 @@ export default function Transactions() {
                 <CustomDropdown
                   label="Status"
                   filterType="status"
-                  options={statuses}
+                  options={filterOptions.statuses}
                 />
               </div>
 
@@ -703,8 +627,14 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentTransactions.length > 0 ? (
-                  currentTransactions.map((transaction) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="px-4 sm:px-6 py-8 text-center text-sm text-gray-500">
+                      Loading transactions...
+                    </td>
+                  </tr>
+                ) : transactions.length > 0 ? (
+                  transactions.map((transaction) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-32">
                         {transaction.studentId}
@@ -752,18 +682,21 @@ export default function Transactions() {
             <div className="text-center sm:text-left">
               <p className="text-sm text-gray-700">
                 Showing{" "}
-                <span className="font-medium">{indexOfFirstItem + 1}</span> to{" "}
                 <span className="font-medium">
-                  {Math.min(indexOfLastItem, totalItems)}
+                  {transactions.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0}
                 </span>{" "}
-                of <span className="font-medium">{totalItems}</span> results
+                to{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * itemsPerPage, pagination.totalItems)}
+                </span>{" "}
+                of <span className="font-medium">{pagination.totalItems}</span> results
               </p>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`relative inline-flex items-center px-2 sm:px-3 py-2  text-xs sm:text-sm font-medium rounded-md cursor-pointer${
+                className={`relative inline-flex items-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
                   currentPage === 1
                     ? " text-gray-400 cursor-not-allowed"
                     : " text-gray-700 "
@@ -802,9 +735,9 @@ export default function Transactions() {
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`relative inline-flex items-center px-2 sm:px-3 py-2  text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
-                  currentPage === totalPages
+                disabled={currentPage === pagination.totalPages}
+                className={`relative inline-flex items-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
+                  currentPage === pagination.totalPages
                     ? " text-[#88898A] cursor-not-allowed"
                     : " text-gray-700 "
                 }`}
@@ -813,10 +746,10 @@ export default function Transactions() {
               </button>
 
               <button
-                onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
-                className={`relative inline-flex items-center px-2 sm:px-3 py-2 -300 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
-                  currentPage === totalPages
+                onClick={() => handlePageChange(pagination.totalPages)}
+                disabled={currentPage === pagination.totalPages}
+                className={`relative inline-flex items-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
+                  currentPage === pagination.totalPages
                     ? " text-[#88898A] cursor-not-allowed"
                     : " text-gray-700 "
                 }`}
