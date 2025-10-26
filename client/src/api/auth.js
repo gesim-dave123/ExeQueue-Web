@@ -75,7 +75,11 @@ export const verifyOTP = async (otp,email) => {
 
     if(response.status === 200){
       showToast(response.data.message, "success");
-      return true;
+      return { 
+        success: true, 
+        message: response.data.message,
+        resetToken: response.data.resetToken  // Get token from response
+      };
     };
 
   }catch(error){
@@ -90,36 +94,39 @@ export const verifyOTP = async (otp,email) => {
   }
 };
 
-export const resetPassword = async (newPass, confirmPass, email) => {
-  try{
-    const response = await axios.post(
+export const resetPassword = async (resetToken, newPassword) => {
+  try {
+    const response = await axios.patch(  
       `${backendConnection()}/api/auth/reset-password`,
-      {     
-        newPassword: newPass,
-        confirmPassword: confirmPass,
-        email: email,          
-      },
-      { 
-        headers: {"Content-Type" : "application/json"},
-        withCredentials: true 
+      { newPassword },
+      {
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${resetToken}`
+        },
+        withCredentials: true,
       }
     );
 
-    if(response.status === 200){
+    if (response.status === 200) {
       showToast(response.data.message, "success");
-      return true;
+      return { success: true, message: response.data.message };
     }
-  }catch (error){
+
+  } catch (error) {
     if (error.response) {
-      showToast(error.response.data.message || "Passwords doesn't match", "error");
+      showToast(error.response.data.message || "Failed to reset password", "error");
+      return { success: false, message: error.response.data.message };
     } else if (error.request) {
       showToast("No response from server", "error");
+      return { success: false, message: "No response from server" };
     } else {
       showToast("An unexpected error occurred", "error");
+      return { success: false, message: "An unexpected error occurred" };
     }
-    return false;
   }
 };
+
 export const logout = async () => {
   try {
     const response = await axios.post(

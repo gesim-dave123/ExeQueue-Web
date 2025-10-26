@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-// import { sendResetCode } from "../../api/auth";
+import { sendOTPtoEmail } from "../../../api/auth";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -9,27 +9,25 @@ export default function ForgotPassword() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // ICHANGE LANG NYA BAI ANG MGA FUCNTIONS, HINATAG RANING CLAUDE :>
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const res = await sendResetCode({ email });
+    const res = await sendOTPtoEmail( email );
     
-    if (!res?.success) {
-      setError(res?.message || "Failed to send code");
+    if (!res) {
+      console.log("Email not found");
       setLoading(false);
       return;
     }
 
-    // Navigate to OTP verification
-    navigate("/verify-otp", { state: { email } });
+    navigate("/staff/verify-otp", { state: { email } });
     setLoading(false);
   };
 
   const handleResend = () => {
-    // Trigger resend logic
     handleSubmit(new Event('submit'));
   };
 
@@ -79,8 +77,7 @@ export default function ForgotPassword() {
 
           {/* Send Code Button */}
           <button
-            type="submit"
-            onClick={() => navigate("/staff/reset-password")} //kani line i remove, for render rani sya
+            type="submit" //kani line i remove, for render rani sya
             disabled={loading || !email}
             className={`w-full font-semibold py-3 mb-5 rounded-2xl transition-all  ${
               loading || !email

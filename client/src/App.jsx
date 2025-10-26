@@ -55,7 +55,6 @@ function App() {
           <Route path="/staff/forgot-password" element={<ForgotPassword />} />
           <Route path="/staff/verify-otp" element={<VerifyOTP />} />
           <Route path="/staff/reset-password" element={<ResetPassword />} />
-          {/* //for render(testing) raning nas ubos, si successreset */}
           <Route path= "/staff/success-reset" element = {<SuccessReset/>}></Route> 
         </Route>
         <Route element={<Layout />}>
