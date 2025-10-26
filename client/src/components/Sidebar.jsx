@@ -47,12 +47,14 @@ export default function Sidebar() {
       key: "dashboard",
       label: "Dashboard",
       icon: "/assets/dashboard/dashboard bnw.png",
+      iconActive: "/assets/dashboard/dashboard colored.png",
       link: "/staff/dashboard",
     },
     {
       key: "queue",
       label: "Queue",
       icon: "/assets/dashboard/queue.png",
+      iconActive: "/assets/dashboard/queue colored.png",
       subItems: [
         {
           key: "manage-queue",
@@ -75,18 +77,22 @@ export default function Sidebar() {
         key: "accounts",
         label: "Manage Accounts",
         icon: "/assets/dashboard/manage.png",
+        iconActive: "/assets/dashboard/manage colored.png",
         link: "/staff/manage/account",
       },
+      
       {
         key: "transactions",
         label: "Transactions",
         icon: "/assets/dashboard/transactions.png",
+        iconActive: "/assets/dashboard/transactions colored.png",
         link: "/staff/transaction/history",
       },
       {
         key: "analytics",
         label: "Analytics",
         icon: "/assets/dashboard/analytics.png",
+        iconActive: "/assets/dashboard/analytics colored.png",
         link: "/staff/analytics",
       },
     ],
@@ -324,7 +330,7 @@ export default function Sidebar() {
                       className={`flex items-center ${isOpen ? "gap-4" : ""}`}
                     >
                       <img
-                        src={item.icon}
+                        src={activeItem === item.key ? item.iconActive : item.icon} 
                         alt={item.label}
                         className="w-6 h-6 transform translate-x-[35%]"
                       />
@@ -395,7 +401,11 @@ export default function Sidebar() {
                       : "text-black hover:bg-blue-50"
                   }`}
                 >
-                  <img src={item.icon} alt={item.label} className="w-6 h-6" />
+                  <img 
+                    src={activeItem === item.key ? item.iconActive : item.icon} 
+                    alt={item.label}     
+                    className="w-6 h-6 transition-opacity duration-300" 
+                  />
                   <motion.span
                     className="whitespace-nowrap overflow-hidden"
                     initial={false}
@@ -471,7 +481,9 @@ export default function Sidebar() {
                   onMouseLeave={() => {setHover(""), setIsSystemSettingsOpen(false)}}
                     className="relative">
                     <div
-                      onClick={() => setActiveItem("system-settings")}
+                      onClick={() => {setActiveItem("system-settings")
+                        setIsSystemSettingsOpen(true)
+                      }}
                       className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
                         ${
                           activeItem === "system-settings"
@@ -504,7 +516,9 @@ export default function Sidebar() {
                         >
                           {/* Add your system settings options here */}
                           <div
-                            onClick={() => handleItemClick("queue-reset")}
+                            onClick={() => {handleItemClick("queue-reset")
+                              navigate("/staff/profile/reset-queue");
+                            }}
                             className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
                               ${
                                 activeDropdownItem === "queue-reset"
@@ -522,7 +536,18 @@ export default function Sidebar() {
                               Queue Reset Settings
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl mb-1.5">
+                          <div 
+                              onClick={() => {handleItemClick("release-window")
+                              navigate("/staff/profile/release-window");
+                            }}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
+                              ${
+                                activeDropdownItem === "release-window"
+                                  ? "bg-white text-gray-700 font-medium"
+                                  : "text-gray-700"
+                              }`}
+                          >
+                            {" "}
                             <img
                               src="/assets/dashboard/system_settings_dropdown/window.png"
                               alt="window"
@@ -532,7 +557,18 @@ export default function Sidebar() {
                               Release Window
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 w-full px-3 py-2.5 text-gray-700 cursor-pointer transition-colors duration-200 rounded-xl">
+                          <div 
+                            onClick={() => {handleItemClick("profile-settings")
+                              navigate("/staff/profile/profile-settings");
+                            }}
+                            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors duration-300 cursor-pointer mb-1.5
+                              ${
+                                activeDropdownItem === "profile-settings"
+                                  ? "bg-white text-gray-700 font-medium"
+                                  : "text-gray-700"
+                              }`}
+                          >
+                            {" "}
                             <img
                               src="/assets/dashboard/system_settings_dropdown/profilee.png"
                               alt="profile"

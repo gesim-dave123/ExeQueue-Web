@@ -13,13 +13,13 @@ export default function ProfileSidebar() {
       key: "reset",
       label: "Reset Queue",
       icon: <RefreshCw size={20} />,
-      path: "/dashboard/manage-account",
+      path: "/staff/profile/reset-queue",
     },
     {
       key: "release",
       label: "Release Window",
       icon: <Monitor size={20} />,
-      path: "/profile/release-window",
+      path: "/staff/profile/release-window",
     },
     {
       key: "profile",
@@ -31,7 +31,7 @@ export default function ProfileSidebar() {
           className="w-6 h-6"
         />
       ),
-      path: "/profile/profile-settings",
+      path: "/staff/profile/profile-settings",
     },
   ];
 
@@ -79,7 +79,7 @@ export default function ProfileSidebar() {
           )}
 
           <ArrowLeftCircle
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/staff/dashboard")}
             size={40}
             className="mb-10 text-[#88898A] cursor-pointer"
           />
@@ -128,8 +128,8 @@ export default function ProfileSidebar() {
       </div>
 
       {/* ===== Desktop Sidebar (always open, fixed width) ===== */}
-      <div className="hidden min-h-screen w-[43vh] xl:flex bg-[#F5F5F5]">
-        <div className="min-w-[35vh] ml-20 flex flex-col py-10 px-6">
+      <div className="hidden xl:flex fixed top-0 left-0 h-screen bg-[#F5F5F5] w-90 z-40 lg:pl-15">
+        <div className="flex flex-col py-10 px-3 w-full overflow-y-auto">
           <ArrowLeftCircle
             onClick={() => navigate("/")}
             size={55}
@@ -144,7 +144,7 @@ export default function ProfileSidebar() {
             <button
               key={item.key}
               onClick={() => handleNavigate(item)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 cursor-pointer ${
                 activeItem === item.key
                   ? "bg-blue-100 text-blue-600"
                   : "hover:bg-gray-200 text-gray-800"
@@ -166,7 +166,7 @@ export default function ProfileSidebar() {
             <button
               key={item.key}
               onClick={() => handleNavigate(item)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 cursor-pointer ${
                 activeItem === item.key
                   ? "bg-blue-100 text-blue-600"
                   : "hover:bg-gray-200 text-gray-800"
