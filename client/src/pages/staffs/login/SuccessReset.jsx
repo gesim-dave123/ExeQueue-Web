@@ -3,6 +3,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 
 export default function SuccessReset({ imageSrc, onLogin }) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const message = location.state?.message;
+
+
+    useEffect(() => {
+        inputRefs[0].current?.focus();
+      }, [message]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-transparent p-4">
