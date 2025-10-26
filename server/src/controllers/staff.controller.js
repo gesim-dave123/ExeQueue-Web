@@ -225,8 +225,8 @@ export const releaseServiceWindow = async (req, res) => {
         resetQueue: currentQueue,
       };
     });
-
-    io.to(QueueEvents.REFETCH).emit(WindowEvents.RELEASE_WINDOW, {
+    // io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, data);
+    io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, {
       windowId: result.windowId,
       previousWindowId: result.windowId,
       sasStaffId,
