@@ -1,41 +1,40 @@
-import { useState } from "react";
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
 import Layout from "./components/Layout";
 import LayoutDashboard from "./components/LayoutDashboard";
+import LayoutLogin from "./components/LayoutLogin";
+import LayoutProfile from "./components/LayoutProfile";
 import Loading from "./components/Loading";
 import { useLoading } from "./context/LoadingProvider";
 import { ProtectedRoute } from "./context/ProtectedRoute";
 import AboutUs from "./pages/AboutUs";
 import Contact from "./pages/Contact";
+import Analytics from "./pages/dashboard/Analytics";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Display_Queue from "./pages/dashboard/Display_Queue";
 import ManageAccount from "./pages/dashboard/ManageAccount";
+import Profile from "./pages/dashboard/Profile";
+import Manage_Queue from "./pages/dashboard/RefactoredManageQueue";
+import ReleaseWindow from "./pages/dashboard/ReleaseWindow";
+import Reset_Queue from "./pages/dashboard/Reset_Queue";
 import Transactions from "./pages/dashboard/Transactions";
 import FAQs from "./pages/FAQs";
 import Help from "./pages/Help";
 import Landing from "./pages/Landing";
 import LiveQueue from "./pages/LiveQueue";
 import NotFound from "./pages/NotFound";
+import ForgotPassword from "./pages/staffs/login/ForgotPassword";
+import ResetPassword from "./pages/staffs/login/ResetPassword";
+import StaffLogin from "./pages/staffs/login/StaffLogin";
+import SuccessReset from "./pages/staffs/login/SuccessReset";
+import VerifyOTP from "./pages/staffs/login/VerifyOTP";
 import LoginStaff from "./pages/staffs/LoginStaff";
 import DisplayQueue from "./pages/students/DisplayQueue";
 import GenerateQueue from "./pages/students/GenerateQueue";
 import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
-import Manage_Queue from "./pages/dashboard/Manage_Queue";
-import Analytics from "./pages/dashboard/Analytics";
-import LayoutProfile from "./components/LayoutProfile";
-import Profile from "./pages/dashboard/Profile";
-import ReleaseWindow from "./pages/dashboard/ReleaseWindow";
-import Reset_Queue from "./pages/dashboard/Reset_Queue";
-import StaffLogin from "./pages/staffs/login/StaffLogin";
-import ForgotPassword from "./pages/staffs/login/ForgotPassword";
-import VerifyOTP from "./pages/staffs/login/VerifyOTP";
-import ResetPassword from "./pages/staffs/login/ResetPassword";
-import SuccessReset from "./pages/staffs/login/SuccessReset";
-import LayoutLogin from "./components/LayoutLogin";
 function App() {
   const { isLoading, progress, loadingText } = useLoading();
 
@@ -50,13 +49,13 @@ function App() {
 
       <Routes>
         {/* Public Routes */}
-        <Route element = {<LayoutLogin/>}>
-          <Route path="/staff/login" element={<StaffLogin/>} />
+        <Route element={<LayoutLogin />}>
+          <Route path="/staff/login" element={<StaffLogin />} />
           <Route path="/staff/forgot-password" element={<ForgotPassword />} />
           <Route path="/staff/verify-otp" element={<VerifyOTP />} />
           <Route path="/staff/reset-password" element={<ResetPassword />} />
           {/* //for render(testing) raning nas ubos, si successreset */}
-          <Route path= "/staff/success-reset" element = {<SuccessReset/>}></Route> 
+          <Route path="/staff/success-reset" element={<SuccessReset />}></Route>
         </Route>
         <Route element={<Layout />}>
           <Route path="/" element={<Landing />} />
