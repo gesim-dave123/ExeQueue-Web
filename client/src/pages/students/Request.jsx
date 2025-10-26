@@ -223,7 +223,8 @@ export default function Request() {
 
   const validateStep2 = () => {
     const newErrors = {};
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.lastName.trim()) 
+      newErrors.lastName = 'Last name is required';
     if (!formData.firstName.trim())
       newErrors.firstName = 'First name is required';
     if (!formData.studentId.trim()) {
@@ -326,7 +327,7 @@ export default function Request() {
   }, []);
 
   const handleSelect = (courseId, courseName, courseCode) => {
-    setFormData({ courseId });
+    setFormData(prev => ({ ...prev, courseId }));
     setSearchTerm(`${courseName} - ${courseCode}`);
     setIsOpen(false);
   };
@@ -335,7 +336,7 @@ export default function Request() {
     setSearchTerm(e.target.value);
     setIsOpen(true);
     if (!e.target.value) {
-      setFormData({ courseId: '' });
+      setFormData(prev => ({ ...prev, courseId: '' }));
     }
   };
 
