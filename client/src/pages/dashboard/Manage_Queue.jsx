@@ -104,10 +104,6 @@ export default function Manage_Queue() {
       return type === Queue_Type.REGULAR.toString().toUpperCase();
     });
     // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
-
-    // console.log("📊 Priority count:", priority.length);
-    // console.log("📊 Regular count:", regular.length);
-
     const sorted = [];
     let pIndex = 0;
     let rIndex = 0;
@@ -124,7 +120,6 @@ export default function Manage_Queue() {
       }
     }
 
-    // console.log("✅ Final sorted count:", sorted.length);
     return sorted;
   }, []);
   const handleAddNewQueue = useCallback(
@@ -228,30 +223,26 @@ export default function Manage_Queue() {
     // refreshWindowStatus();
   }, []);
 
-  // Handle when this window is released
   const handleWindowRelease = useCallback(
     async (data) => {
-      // 🚨 CASE 1: The client who owns the released window
-      if (data.previousWindowId === selectedWindow?.id) {
-        // Clear local state
-        setSelectedWindow(null);
-        setCurrentQueue(null);
+      try {
         setIsLoading(true);
-        localStorage.removeItem("selectedWindow");
+        if (data.previousWindowId === selectedWindow?.id) {
+          setSelectedWindow(null);
+          setCurrentQueue(null);
+          setIsLoading(true);
+          localStorage.removeItem("selectedWindow");
 
-        showToast("Your window has been released", "info");
-
-        // 🌀 Force refresh window list — same behavior as when first loading the page
-        await loadWindows(); // reuse your existing window loader
-        setShowWindowModal(true); // show the window selection modal again
-        return;
+          showToast("Your window has been released", "info");
+          await loadWindows();
+          setShowWindowModal(true);
+          return;
+        }
+        showToast(`${data.message}`, "info");
+        await loadWindows();
+      } catch (error) {
+        console.error("Error handling window release:", error);
       }
-
-      // 🚨 CASE 2: Other clients — just info toast + soft refresh
-      showToast(`${data.message}`, "info");
-
-      // Optional: also refresh window list in background for accuracy
-      await loadWindows();
     },
     [selectedWindow?.id]
   );
@@ -262,8 +253,7 @@ export default function Manage_Queue() {
     setIsLoading(false);
   }, []);
   useEffect(() => {
-    // ✅ Only fetch queues AFTER window is assigned
-    if (selectedWindow?.id && !showWindowModal) {
+    if (selectedWindow?.id && !showWindowModal) { //Only fetch queues AFTER window is assigned
       fetchQueueList();
     }
   }, [selectedWindow?.id, showWindowModal, fetchQueueList]);
@@ -271,9 +261,7 @@ export default function Manage_Queue() {
   useEffect(() => {
     if (!socket || !isConnected || !selectedWindow?.id) return;
 
-    // When new queue is created globally
     const handleQueueCreated = (newQueueData) => {
-      // Just add to global list, no auto-call logic here
       const formattedNewQueue = formatQueueData(newQueueData);
       setGlobalQueueList((prev) => {
         const exists = prev.some(
@@ -284,24 +272,22 @@ export default function Manage_Queue() {
         return sortByPriorityPattern(merged);
       });
     };
-    // 🟡 When another window removes someone from the global queue
+
     const handleQueueRemoved = (data) => {
       setGlobalQueueList((prev) =>
         prev.filter((q) => q.queueId !== data.queueId)
       );
     };
 
-    // 🟢 When a queue is deferred
+    
     const handleDeferredQueue = (queue) => {
-      // console.log("🟡 Queue deferred:", queue);
       const formattedDeferredQueue = formatQueueData(queue);
       showToast(
         `Queue (${formattedDeferredQueue.queueNo}) deferred`,
         "warning"
       );
 
-      // Add to deferred list if not already there
-      setDeferredQueue((prev) => {
+      setDeferredQueue((prev) => { // Add to deferred list if not exists
         const exists = prev.some(
           (q) => q.queueId === formattedDeferredQueue.queueId
         );
@@ -314,13 +300,13 @@ export default function Manage_Queue() {
       console.log("✅ Queue Completed:", queue);
       const formattedCompletedQueue = formatQueueData(queue);
 
-      // Remove from deferred list if it exists there
-      setDeferredQueue((prev) =>
+
+      setDeferredQueue((prev) =>      // Remove from deferred list if it exists there
         prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
       );
 
-      // Also remove from global queue list if needed
-      setGlobalQueueList((prev) =>
+      
+      setGlobalQueueList((prev) => // Also remove from global queue list if needed
         prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
       );
     };
@@ -395,11 +381,6 @@ export default function Manage_Queue() {
             }
           : prev
       );
-
-      // Optional: Show notification for remote updates only
-      // if (data.updatedBy !== currentStaffId) {
-      //   showToast(`Request in queue updated by another window`, "info");
-      // }
     };
 
     const handleQueueReset = (data) => {

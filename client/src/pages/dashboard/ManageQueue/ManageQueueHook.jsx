@@ -1,0 +1,753 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  getQueueByIdAndReference,
+  getQueueListByStatus,
+} from "../../../api/staff.queue.api";
+import { Queue_Type } from "../../../constants/queueEnums";
+import { normalizeStatusForDisplay } from "../../../utils/NormalizeStatus";
+import { formatQueueData } from "../../../utils/QueueDetailsFormatter";
+
+const ManageQueueHook = ({
+  socket,
+  isConnected,
+  showWindowModal,
+  setShowWindowModal,
+  // sortByPriorityPattern,
+  loadWindows,
+  showToast,
+  // formatTime,
+  setSelectedWindow,
+  selectedWindow,
+  Status,
+  QueueActions,
+  SocketEvents,
+  WindowEvents,
+}) => {
+  // ==================== STATE MANAGEMENT ====================
+
+  // Using Map for O(1) lookups instead of array operations
+  const [globalQueueMap, setGlobalQueueMap] = useState(new Map());
+  const [globalQueueIds, setGlobalQueueIds] = useState([]); // Ordered IDs
+  const [totalWaitingCount, setTotalWaitingCount] = useState(0);
+
+  const [deferredQueueMap, setDeferredQueueMap] = useState(new Map());
+  const [deferredQueueIds, setDeferredQueueIds] = useState([]);
+  const [totalDeferredCount, setTotalDeferredCount] = useState(0);
+
+  const [currentQueue, setCurrentQueue] = useState(null);
+  const [selectedQueue, setSelectedQueue] = useState(null);
+  const [nextInLineLoading, setNextInlineLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination state
+  const INITIAL_LOAD = 100;
+  const LOAD_MORE_SIZE = 50;
+  const [hasMoreWaiting, setHasMoreWaiting] = useState(true);
+  const [hasMoreDeferred, setHasMoreDeferred] = useState(true);
+
+  // ==================== HELPER FUNCTIONS ====================
+  const sortByPriorityPattern = useCallback((queues) => {
+    console.log("🔢 Starting sort with queues:", queues?.length);
+
+    if (!queues || queues.length === 0) {
+      console.log("⚠️ No queues to sort");
+      return [];
+    }
+    // More flexible filtering with fallbacks
+    const priority = queues.filter((q) => {
+      const type = q.type?.toUpperCase();
+      return type === "PRIORITY";
+    });
+    // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
+
+    const regular = queues.filter((q) => {
+      const type = q.type?.toUpperCase();
+      return type === Queue_Type.REGULAR.toString().toUpperCase();
+    });
+    // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
+    const sorted = [];
+    let pIndex = 0;
+    let rIndex = 0;
+
+    while (pIndex < priority.length || rIndex < regular.length) {
+      if (pIndex < priority.length) {
+        sorted.push(priority[pIndex]);
+        pIndex++;
+      }
+
+      if (rIndex < regular.length) {
+        sorted.push(regular[rIndex]);
+        rIndex++;
+      }
+    }
+
+    return sorted;
+  }, []);
+  // Add queue to waiting list with sorting
+  const addToWaitingQueue = useCallback(
+    (formattedQueue) => {
+      setGlobalQueueMap((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(formattedQueue.queueId, formattedQueue);
+        return newMap;
+      });
+
+      setGlobalQueueIds((prev) => {
+        // Check if already exists
+        if (prev.includes(formattedQueue.queueId)) return prev;
+
+        // Create temp array with queue objects for sorting
+        const queueObjects = prev
+          .map((id) => globalQueueMap.get(id))
+          .filter(Boolean);
+        queueObjects.push(formattedQueue);
+
+        // Sort using your existing function
+        const sorted = sortByPriorityPattern(queueObjects);
+
+        // Return just the IDs in sorted order
+        return sorted.map((q) => q.queueId);
+      });
+
+      setTotalWaitingCount((prev) => prev + 1);
+    },
+    [sortByPriorityPattern, globalQueueMap]
+  );
+
+  const removeFromWaitingQueue = useCallback((queueId) => {
+    setGlobalQueueMap((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(queueId);
+      return newMap;
+    });
+
+    setGlobalQueueIds((prev) => prev.filter((id) => id !== queueId));
+    setTotalWaitingCount((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const addToDeferredQueue = useCallback((formattedQueue) => {
+    setDeferredQueueMap((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(formattedQueue.queueId, formattedQueue);
+      return newMap;
+    });
+
+    setDeferredQueueIds((prev) => {
+      if (prev.includes(formattedQueue.queueId)) return prev;
+      return [...prev, formattedQueue.queueId];
+    });
+
+    setTotalDeferredCount((prev) => prev + 1);
+  }, []);
+
+  const removeFromDeferredQueue = useCallback((queueId) => {
+    setDeferredQueueMap((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(queueId);
+      return newMap;
+    });
+
+    setDeferredQueueIds((prev) => prev.filter((id) => id !== queueId));
+    setTotalDeferredCount((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  // ==================== OPTIMIZED FETCH WITH PAGINATION ====================
+
+  const fetchQueueList = useCallback(async () => {
+    if (!selectedWindow?.id) {
+      console.log("⚠️ No window assigned yet, skipping queue fetch");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // ✅ Fetch WAITING queues with pagination
+      const waitingQueues = await getQueueListByStatus(Status.WAITING, {
+        limit: INITIAL_LOAD,
+        offset: 0,
+        include_total: true,
+      });
+      console.log("Fetched waiting queues:", waitingQueues);
+      // const waitingQueues = await getQueueListByStatus(Status.WAITING);
+
+      if (waitingQueues?.queues && Array.isArray(waitingQueues.queues)) {
+        const formattedQueue = waitingQueues.queues.map(formatQueueData);
+        const sortedQueue = sortByPriorityPattern(formattedQueue);
+
+        // Populate Map and IDs
+        const newMap = new Map();
+        const newIds = [];
+        sortedQueue.forEach((queue) => {
+          newMap.set(queue.queueId, queue);
+          newIds.push(queue.queueId);
+        });
+
+        setGlobalQueueMap(newMap);
+        setGlobalQueueIds(newIds);
+        setTotalWaitingCount(
+          waitingQueues?.pagination?.total || sortedQueue.length
+        );
+        console.log(sortedQueue.length, "waiting queues loaded.");
+        setHasMoreWaiting(
+          newIds.length < (waitingQueues?.pagination?.total || 0)
+        );
+      } else if (Array.isArray(waitingQueues)) {
+        // Fallback for old API format (no pagination)
+        const formattedQueue = waitingQueues.map(formatQueueData);
+        const sortedQueue = sortByPriorityPattern(formattedQueue);
+
+        const newMap = new Map();
+        const newIds = [];
+        sortedQueue.forEach((queue) => {
+          newMap.set(queue.queueId, queue);
+          newIds.push(queue.queueId);
+        });
+
+        setGlobalQueueMap(newMap);
+        setGlobalQueueIds(newIds);
+        setTotalWaitingCount(sortedQueue.length);
+        setHasMoreWaiting(false);
+      }
+
+      // ✅ Fetch DEFERRED queues with pagination
+      // const deferredQueues = await getDeferredQueue(Status.DEFERRED, {
+      //   limit: INITIAL_LOAD,
+      //   offset: 0,
+      //   include_total: true,
+      // });
+      const deferredQueues = await getQueueListByStatus(Status.DEFERRED, {
+        requestStatus: [Status.STALLED, Status.SKIPPED],
+        limit: INITIAL_LOAD,
+        offset: 0,
+        include_total: true,
+      });
+
+      if (deferredQueues?.queues && Array.isArray(deferredQueues.queues)) {
+        const formattedDeferred = deferredQueues.queues.map(formatQueueData);
+
+        const deferredMap = new Map();
+        const deferredIds = [];
+        formattedDeferred.forEach((queue) => {
+          deferredMap.set(queue.queueId, queue);
+          deferredIds.push(queue.queueId);
+        });
+
+        setDeferredQueueMap(deferredMap);
+        setDeferredQueueIds(deferredIds);
+        setTotalDeferredCount(deferredQueues.total || formattedDeferred.length);
+        setHasMoreDeferred(deferredIds.length < (deferredQueues.total || 0));
+      } else if (Array.isArray(deferredQueues)) {
+        // Fallback for old API format
+        const formattedDeferred = deferredQueues.map(formatQueueData);
+
+        const deferredMap = new Map();
+        const deferredIds = [];
+        formattedDeferred.forEach((queue) => {
+          deferredMap.set(queue.queueId, queue);
+          deferredIds.push(queue.queueId);
+        });
+
+        setDeferredQueueMap(deferredMap);
+        setDeferredQueueIds(deferredIds);
+        setTotalDeferredCount(formattedDeferred.length);
+        setHasMoreDeferred(false);
+      }
+    } catch (error) {
+      console.error("Error in fetching queue data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedWindow?.id, sortByPriorityPattern, formatQueueData, Status]);
+
+  // ==================== LOAD MORE FUNCTIONS ====================
+
+  const loadMoreWaitingQueues = useCallback(async () => {
+    if (!hasMoreWaiting || isLoading) return;
+    console.log("Helloo");
+    setNextInlineLoading(true);
+    try {
+      console.log("Loading more waiting queues...");
+      const response = await getQueueListByStatus(Status.WAITING, {
+        limit: LOAD_MORE_SIZE,
+        offset: globalQueueIds.length,
+      });
+      await new Promise((res) => setTimeout(res, 1000));
+      const queues = response?.queues || response;
+      if (Array.isArray(queues) && queues.length > 0) {
+        const formattedQueue = queues.map(formatQueueData);
+
+        setGlobalQueueMap((prev) => {
+          const newMap = new Map(prev);
+          formattedQueue.forEach((queue) => newMap.set(queue.queueId, queue));
+          return newMap;
+        });
+
+        setGlobalQueueIds((prev) => {
+          // Merge previous and new queues, ensuring uniqueness
+          const mergedIds = [
+            ...new Set([...prev, ...formattedQueue.map((q) => q.queueId)]),
+          ];
+
+          // Use the same merged data for sorting
+          const mergedQueues = mergedIds
+            .map(
+              (id) =>
+                formattedQueue.find((q) => q.queueId === id) ||
+                globalQueueMap.get(id)
+            )
+            .filter(Boolean);
+
+          const sortedQueues = sortByPriorityPattern(mergedQueues);
+
+          const sortedIds = sortedQueues.map((q) => q.queueId);
+
+          setHasMoreWaiting(sortedIds.length < totalWaitingCount);
+
+          console.log("Before merge:", globalQueueIds.length);
+          console.log("Fetched new:", formattedQueue.length);
+          console.log("After merge (expected):", mergedIds.length);
+          return sortedIds;
+        });
+      } else {
+        setNextInlineLoading(false);
+      }
+    } catch (error) {
+      console.error("Error loading more waiting queues:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    hasMoreWaiting,
+    isLoading,
+    totalWaitingCount,
+    formatQueueData,
+    sortByPriorityPattern,
+    Status,
+    globalQueueIds.length,
+  ]);
+
+  const loadMoreDeferredQueues = useCallback(async () => {
+    if (!hasMoreDeferred || isLoading) return;
+
+    try {
+      const response = await getQueueListByStatus(Status.DEFERRED, {
+        requestStatus: [Status.STALLED, Status.SKIPPED],
+        limit: LOAD_MORE_SIZE,
+        offset: deferredQueueIds.length,
+      });
+
+      const queues = response?.queues || response;
+      if (Array.isArray(queues) && queues.length > 0) {
+        const formattedDeferred = queues.map(formatQueueData);
+
+        setDeferredQueueMap((prev) => {
+          const newMap = new Map(prev);
+          formattedDeferred.forEach((queue) =>
+            newMap.set(queue.queueId, queue)
+          );
+          return newMap;
+        });
+
+        setDeferredQueueIds((prev) => [
+          ...prev,
+          ...formattedDeferred.map((q) => q.queueId),
+        ]);
+        setHasMoreDeferred(
+          deferredQueueIds.length + formattedDeferred.length <
+            totalDeferredCount
+        );
+      }
+    } catch (error) {
+      console.error("Error loading more deferred queues:", error);
+    }
+  }, [
+    hasMoreDeferred,
+    isLoading,
+    deferredQueueIds.length,
+    totalDeferredCount,
+    formatQueueData,
+    Status,
+  ]);
+
+  // ==================== SOCKET EVENT HANDLERS (OPTIMIZED) ====================
+
+  // ✅ Define all handlers with useCallback at the top level
+  const addSingleQueue = useCallback(
+    async (notification) => {
+      try {
+        const queueData = await getQueueByIdAndReference(
+          notification.queueId,
+          notification.referenceNumber
+        );
+
+        console.log("Fetched single queue data:", queueData);
+        if (!queueData) return;
+
+        const formattedQueue = formatQueueData(queueData);
+
+        // Update both states in sequence
+        setGlobalQueueMap((prevMap) => {
+          const newMap = new Map(prevMap);
+          newMap.set(formattedQueue.queueId, formattedQueue);
+
+          // Also update the IDs list with the new sorted order
+          const allQueues = Array.from(newMap.values());
+          const sortedQueues = sortByPriorityPattern(allQueues);
+          const sortedIds = sortedQueues.map((q) => q.queueId);
+
+          // Set the IDs synchronously
+          setGlobalQueueIds(sortedIds);
+
+          return newMap;
+        });
+
+        setTotalWaitingCount((prev) => prev + 1);
+      } catch (error) {
+        console.error("Error adding single queue:", error);
+      }
+    },
+    [formatQueueData, sortByPriorityPattern]
+  );
+  const handleQueueCreated = useCallback(
+    async (notification) => {
+      if (!socket || !isConnected || !selectedWindow?.id) return;
+
+      // showToast(`New queue ${notification.queueId} created`, "info");
+
+      if (globalQueueIds.length < INITIAL_LOAD) {
+        console.log("Helloo");
+        await addSingleQueue(notification);
+      } else {
+        // Just update count, don't add to list
+        setTotalWaitingCount((prev) => prev + 1);
+        console.log("Total Waiting Count incremented.", totalWaitingCount);
+        console.log(
+          "Queue created but not added to list due to pagination limits."
+        );
+      }
+    },
+    [
+      socket,
+      isConnected,
+      selectedWindow?.id,
+      globalQueueIds.length,
+      showToast,
+      addSingleQueue,
+    ]
+  );
+  const handleQueueRemoved = useCallback(
+    (data) => {
+      removeFromWaitingQueue(data.queueId);
+    },
+    [removeFromWaitingQueue]
+  );
+
+  const handleDeferredQueue = useCallback(
+    (queue) => {
+      const formattedDeferredQueue = formatQueueData(queue);
+      showToast(
+        `Queue (${formattedDeferredQueue.queueNo}) deferred`,
+        "warning"
+      );
+
+      removeFromWaitingQueue(formattedDeferredQueue.queueId);
+
+      if (!deferredQueueMap.has(formattedDeferredQueue.queueId)) {
+        addToDeferredQueue(formattedDeferredQueue);
+      }
+    },
+    [
+      formatQueueData,
+      showToast,
+      removeFromWaitingQueue,
+      deferredQueueMap,
+      addToDeferredQueue,
+    ]
+  );
+
+  const handleCompleted = useCallback(
+    (queue) => {
+      console.log("✅ Queue Completed:", queue);
+      const formattedCompletedQueue = formatQueueData(queue);
+
+      removeFromDeferredQueue(formattedCompletedQueue.queueId);
+      removeFromWaitingQueue(formattedCompletedQueue.queueId);
+    },
+    [formatQueueData, removeFromDeferredQueue, removeFromWaitingQueue]
+  );
+
+  const handleCancelled = useCallback(
+    (queue) => {
+      console.log("✅ Queue Cancelled:", queue);
+      const formattedCancelledQueue = formatQueueData(queue);
+
+      removeFromDeferredQueue(formattedCancelledQueue.queueId);
+      removeFromWaitingQueue(formattedCancelledQueue.queueId);
+    },
+    [formatQueueData, removeFromDeferredQueue, removeFromWaitingQueue]
+  );
+
+  const handlePartiallyCompleted = useCallback(
+    (queue) => {
+      console.log("✅ Queue Partially Completed:", queue);
+      const formattedPartialCompletedQueue = formatQueueData(queue);
+
+      removeFromDeferredQueue(formattedPartialCompletedQueue.queueId);
+      removeFromWaitingQueue(formattedPartialCompletedQueue.queueId);
+    },
+    [formatQueueData, removeFromDeferredQueue, removeFromWaitingQueue]
+  );
+
+  const handleDeferredRequestUpdated = useCallback(
+    (data) => {
+      console.log("🔄 Deferred request updated:", data);
+
+      setDeferredQueueMap((prev) => {
+        const queue = prev.get(data.queueId);
+        if (!queue) return prev;
+
+        const newMap = new Map(prev);
+        const updatedQueue = {
+          ...queue,
+          requests: queue.requests.map((req) =>
+            req.id === data.requestId
+              ? {
+                  ...req,
+                  status: normalizeStatusForDisplay(data.requestStatus),
+                  processedBy: data.updatedRequest?.processedBy,
+                  processedAt: data.updatedRequest?.processedAt,
+                }
+              : req
+          ),
+        };
+
+        newMap.set(data.queueId, updatedQueue);
+        return newMap;
+      });
+
+      setSelectedQueue((prev) =>
+        prev && prev.queueId === data.queueId
+          ? {
+              ...prev,
+              requests: prev.requests.map((req) =>
+                req.id === data.requestId
+                  ? {
+                      ...req,
+                      status: normalizeStatusForDisplay(data.requestStatus),
+                      processedBy: data.updatedRequest?.processedBy,
+                      processedAt: data.updatedRequest?.processedAt,
+                    }
+                  : req
+              ),
+            }
+          : prev
+      );
+    },
+    [normalizeStatusForDisplay]
+  );
+
+  const handleQueueReset = useCallback(
+    (data) => {
+      if (data.previousWindowId === selectedWindow?.id) {
+        console.log("⏭️ Skipping reset event for own window");
+        return;
+      }
+
+      const formattedResetQueue = formatQueueData(data);
+
+      if (!globalQueueMap.has(data.queueId)) {
+        addToWaitingQueue(formattedResetQueue);
+      } else {
+        setGlobalQueueMap((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(data.queueId, formattedResetQueue);
+          return newMap;
+        });
+
+        setGlobalQueueIds((prev) => {
+          const queueObjects = prev
+            .map((id) => globalQueueMap.get(id))
+            .filter(Boolean);
+          const updated = queueObjects.map((q) =>
+            q.queueId === data.queueId ? formattedResetQueue : q
+          );
+          const sorted = sortByPriorityPattern(updated);
+          return sorted.map((q) => q.queueId);
+        });
+      }
+
+      if (currentQueue?.queueId === data.queueId) {
+        showToast("Duplicated", "warning");
+        setCurrentQueue(null);
+      }
+
+      removeFromDeferredQueue(data.queueId);
+
+      showToast(
+        `Queue ${formattedResetQueue.queueNo} was set to WAITING.`,
+        "warning"
+      );
+    },
+    [
+      selectedWindow?.id,
+      globalQueueMap,
+      currentQueue,
+      formatQueueData,
+      addToWaitingQueue,
+      sortByPriorityPattern,
+      removeFromDeferredQueue,
+      showToast,
+    ]
+  );
+
+  const handleWindowAssigned = useCallback(
+    (data) => {
+      console.log("🟢 Window Assigned:", data);
+      showToast(data.message || "Window assigned successfully", "info");
+    },
+    [showToast]
+  );
+
+  const handleWindowRelease = useCallback(
+    async (data) => {
+      try {
+        setIsLoading(true);
+        if (data.previousWindowId === selectedWindow?.id) {
+          setSelectedWindow(null);
+          setCurrentQueue(null);
+          setIsLoading(true);
+          localStorage.removeItem("selectedWindow");
+
+          showToast("Your window has been released", "info");
+          await loadWindows();
+          setShowWindowModal(true);
+          return;
+        }
+        showToast(`${data.message}`, "info");
+        await loadWindows();
+      } catch (error) {
+        console.error("Error handling window release:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [selectedWindow?.id, loadWindows, showToast]
+  );
+
+  const handleError = useCallback(
+    (error) => {
+      console.error("❌ Socket Error:", error);
+      showToast("Connection error occurred", "error");
+      setIsLoading(false);
+    },
+    [showToast]
+  );
+
+  // ✅ Simplified useEffect
+  useEffect(() => {
+    if (!socket || !isConnected || !selectedWindow?.id) return;
+
+    // Subscribe to events
+    socket.on(QueueActions.QUEUE_RESET, handleQueueReset);
+    socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
+    socket.on(
+      QueueActions.REQUEST_DEFERRED_UPDATED,
+      handleDeferredRequestUpdated
+    );
+    socket.on(QueueActions.QUEUE_CANCELLED, handleCancelled);
+    socket.on(QueueActions.QUEUE_COMPLETED, handleCompleted);
+    socket.on(QueueActions.QUEUE_PARTIALLY_COMPLETE, handlePartiallyCompleted);
+    socket.on(SocketEvents.QUEUE_CREATED, handleQueueCreated);
+    socket.on(QueueActions.QUEUE_TAKEN, handleQueueRemoved);
+    socket.on(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
+    socket.on(WindowEvents.RELEASE_WINDOW, handleWindowRelease);
+    socket.on("error", handleError);
+
+    return () => {
+      socket.off(QueueActions.QUEUE_RESET, handleQueueReset);
+      socket.off(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
+      socket.off(QueueActions.QUEUE_CANCELLED, handleCancelled);
+      socket.off(QueueActions.QUEUE_COMPLETED, handleCompleted);
+      socket.off(
+        QueueActions.REQUEST_DEFERRED_UPDATED,
+        handleDeferredRequestUpdated
+      );
+      socket.off(
+        QueueActions.QUEUE_PARTIALLY_COMPLETE,
+        handlePartiallyCompleted
+      );
+      socket.off(SocketEvents.QUEUE_CREATED, handleQueueCreated);
+      socket.off(QueueActions.QUEUE_TAKEN, handleQueueRemoved);
+      socket.off(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
+      socket.off(WindowEvents.RELEASE_WINDOW, handleWindowRelease);
+      socket.off("error", handleError);
+    };
+  }, [
+    socket,
+    isConnected,
+    selectedWindow?.id,
+    handleQueueCreated,
+    handleQueueRemoved,
+    handleDeferredQueue,
+    handleCompleted,
+    handleCancelled,
+    handlePartiallyCompleted,
+    handleDeferredRequestUpdated,
+    handleQueueReset,
+    handleWindowAssigned,
+    handleWindowRelease,
+    handleError,
+  ]);
+  // Initial fetch
+  useEffect(() => {
+    if (selectedWindow?.id && !showWindowModal) {
+      fetchQueueList();
+    }
+  }, [selectedWindow?.id, showWindowModal, fetchQueueList]);
+  useEffect(() => {
+    console.log({
+      totalWaitingCount,
+      hasMoreWaiting,
+      loaded: globalQueueIds.length,
+    });
+  }, [totalWaitingCount, hasMoreWaiting, globalQueueIds]);
+  // ==================== RETURN VALUES ====================
+
+  // Convert Map to Array for rendering (only when needed)
+  const globalQueueList = globalQueueIds
+    .map((id) => globalQueueMap.get(id))
+    .filter(Boolean);
+  const deferredQueue = deferredQueueIds
+    .map((id) => deferredQueueMap.get(id))
+    .filter(Boolean);
+
+  return {
+    // State
+    globalQueueList,
+    globalQueueMap,
+    globalQueueIds,
+    totalWaitingCount,
+    deferredQueue,
+    deferredQueueMap,
+    deferredQueueIds,
+    totalDeferredCount,
+    currentQueue,
+    selectedQueue,
+    isLoading,
+    setIsLoading,
+    nextInLineLoading,
+    setNextInlineLoading,
+    hasMoreWaiting,
+    hasMoreDeferred,
+
+    // Actions
+    setCurrentQueue,
+    setSelectedQueue,
+    loadMoreWaitingQueues,
+    loadMoreDeferredQueues,
+    fetchQueueList,
+  };
+};
+
+export default ManageQueueHook;
