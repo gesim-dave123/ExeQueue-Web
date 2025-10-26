@@ -5,6 +5,7 @@ import {
   createQueueSession,
   currentServedQueue,
   determineNextQueue,
+  getQueue,
   getQueueList,
   getQueueListByStatus, // Add this import
   markQueueStatus,
@@ -19,6 +20,13 @@ import {
 } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
+
+router.get(
+  "/:queueId/:referenceNumber",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getQueue
+);
 
 router.get(
   "/view",
@@ -86,7 +94,7 @@ router.put(
 );
 
 router.get(
-  "/current/:windowId",
+  "/current/window/:windowId",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   currentServedQueue
