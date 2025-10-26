@@ -32,32 +32,64 @@ export const studentsQueueDetails = async (queueDetails) => {
     };
   }
 };
-export const getQueueListByStatus = async (status) => {
+export const getQueueListByStatus = async (status, options = {}) => {
   try {
+    const {
+      limit = 100,
+      offset = 0,
+      include_total = false,
+      windowId,
+      requestStatus,
+    } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      status,
+      limit: limit.toString(),
+      offset: offset.toString(),
+      include_total: include_total.toString(),
+      ...(windowId && { windowId: windowId.toString() }),
+      ...(requestStatus && { requestStatus }),
+    });
+
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}`,
-      {},
+      `${backendConnection()}/api/staff/queue/list?${params.toString()}`,
       {
         headers: {
-          "Content-Type": "application/type",
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
     );
-    // Correct condition - check if status is 200 AND success is true
+
+    // Check if response is successful AND has success: true
     if (response.status === 200 && response.data.success) {
-      console.log("Queue List:", response.data.queueList);
-      return response.data.queueList;
+      console.log(
+        "Queues retrieved successfully:",
+        response.data.queues?.length || 0,
+        "items"
+      );
+      return response.data; // Return full response to access queues, pagination, etc.
     } else {
       console.warn("Unexpected response format:", response.data);
-      return [];
+      return {
+        success: false,
+        queues: [],
+        message: response.data?.message || "Unexpected response format",
+      };
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
-    return [];
+    console.error("Error in getQueuesByStatus:", error);
+
+    // Return structured error response
+    return {
+      success: false,
+      queues: [],
+      message: error.response?.data?.message || "Failed to fetch queues",
+      error: error.message,
+    };
   }
 };
-
 export const getCallNextQueue = async (windowId) => {
   try {
     const response = await axios.put(
@@ -168,7 +200,7 @@ export const markQueueStatus = async (queueId, windowId) => {
 export const currentServedQueue = async (windowId) => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/current/${windowId}`,
+      `${backendConnection()}/api/staff/queue/current/window/${windowId}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -236,5 +268,28 @@ export const getDeferredQueue = async (status) => {
   } catch (error) {
     console.error("Error in getQueueListByStatus:", error);
     return [];
+  }
+};
+
+export const getQueueByIdAndReference = async (queueId, referenceNumber) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/queue/${queueId}/${referenceNumber}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (response.status === 200 && response.data.success) {
+      return response.data.queue;
+    } else {
+      console.warn("Unexpected response format:", response.data);
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in getQueueListByStatus:", error);
+    return null;
   }
 };
