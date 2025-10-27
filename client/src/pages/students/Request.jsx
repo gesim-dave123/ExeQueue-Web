@@ -1,17 +1,16 @@
-import { motion } from 'framer-motion';
-import { ArrowLeft, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 // import { getCourseData } from "../../api/course.js";
 // import { getRequestType } from "../../api/request.js";
 import {
+  generateQueue,
   getCourseData,
   getRequestType,
-  submitQueueDetail,
-} from '../../api/student.js';
-import { showToast } from '../../components/toast/ShowToast';
-import Loading from '../../components/Loading';
-import ConfirmModal from '../../components/modal/ConfirmModal.jsx';
+} from "../../api/student.js";
+import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
+import { showToast } from "../../components/toast/ShowToast";
 
 export default function Request() {
   const navigate = useNavigate();
@@ -24,12 +23,12 @@ export default function Request() {
   const [showModal, setShowModal] = useState(false);
   const [courseData, setCourseData] = useState([]);
   const [formData, setFormData] = useState({
-    lastName: '',
-    middleName: '',
-    firstName: '',
-    studentId: '',
-    courseId: '',
-    yearLevel: '',
+    lastName: "",
+    middleName: "",
+    firstName: "",
+    studentId: "",
+    courseId: "",
+    yearLevel: "",
   });
 
   const fullName = `${formData.lastName}, ${formData.firstName} ${formData.middleName}`;
@@ -38,141 +37,141 @@ export default function Request() {
   const [showBackConfirmModal, setShowBackConfirmModal] = useState(false);
 
   const iconRules = [
-    { keywords: ['certificate'], icon: 'fa-solid fa-file' },
-    { keywords: ['insurance', 'payment'], icon: 'fa-solid fa-shield-halved' },
-    { keywords: ['letter'], icon: 'fa-solid fa-pen-to-square' },
-    { keywords: ['gate', 'id', 'pass'], icon: 'fa-solid fa-id-badge' },
-    { keywords: ['uniform', 'exemption'], icon: 'fa-solid fa-shirt' },
-    { keywords: ['enrollment', 'transfer'], icon: 'fa-solid fa-right-left' },
+    { keywords: ["certificate"], icon: "fa-solid fa-file" },
+    { keywords: ["insurance", "payment"], icon: "fa-solid fa-shield-halved" },
+    { keywords: ["letter"], icon: "fa-solid fa-pen-to-square" },
+    { keywords: ["gate", "id", "pass"], icon: "fa-solid fa-id-badge" },
+    { keywords: ["uniform", "exemption"], icon: "fa-solid fa-shirt" },
+    { keywords: ["enrollment", "transfer"], icon: "fa-solid fa-right-left" },
   ];
 
   const staticCourseData = [
     {
       courseId: 1,
-      courseCode: 'BSCE',
-      courseName: 'Bachelor of Science in Civil Engineering',
+      courseCode: "BSCE",
+      courseName: "Bachelor of Science in Civil Engineering",
     },
     {
       courseId: 2,
-      courseCode: 'BSCpE',
-      courseName: 'Bachelor of Science in Computer Engineering',
+      courseCode: "BSCpE",
+      courseName: "Bachelor of Science in Computer Engineering",
     },
     {
       courseId: 3,
-      courseCode: 'BSEE',
-      courseName: 'Bachelor of Science in Electrical Engineering',
+      courseCode: "BSEE",
+      courseName: "Bachelor of Science in Electrical Engineering",
     },
     {
       courseId: 4,
-      courseCode: 'BSECE',
-      courseName: 'Bachelor of Science in Electronics Engineering',
+      courseCode: "BSECE",
+      courseName: "Bachelor of Science in Electronics Engineering",
     },
     {
       courseId: 5,
-      courseCode: 'BSME',
-      courseName: 'Bachelor of Science in Mechanical Engineering',
+      courseCode: "BSME",
+      courseName: "Bachelor of Science in Mechanical Engineering",
     },
     {
       courseId: 6,
-      courseCode: 'BSCS',
-      courseName: 'Bachelor of Science in Computer Science',
+      courseCode: "BSCS",
+      courseName: "Bachelor of Science in Computer Science",
     },
     {
       courseId: 7,
-      courseCode: 'BSIT',
-      courseName: 'Bachelor of Science in Information Technology',
+      courseCode: "BSIT",
+      courseName: "Bachelor of Science in Information Technology",
     },
     {
       courseId: 8,
-      courseCode: 'BSIS',
-      courseName: 'Bachelor of Science in Information Systems',
+      courseCode: "BSIS",
+      courseName: "Bachelor of Science in Information Systems",
     },
     {
       courseId: 9,
-      courseCode: 'BSA',
-      courseName: 'Bachelor of Science in Accountancy',
+      courseCode: "BSA",
+      courseName: "Bachelor of Science in Accountancy",
     },
     {
       courseId: 10,
-      courseCode: 'BSMA',
-      courseName: 'Bachelor of Science in Management Accounting',
+      courseCode: "BSMA",
+      courseName: "Bachelor of Science in Management Accounting",
     },
     {
       courseId: 11,
-      courseCode: 'BSBA-MM',
-      courseName: 'BSBA Major in Marketing Management',
+      courseCode: "BSBA-MM",
+      courseName: "BSBA Major in Marketing Management",
     },
     {
       courseId: 12,
-      courseCode: 'BSBA-HRM',
-      courseName: 'BSBA Major in Human Resource Management',
+      courseCode: "BSBA-HRM",
+      courseName: "BSBA Major in Human Resource Management",
     },
     {
       courseId: 13,
-      courseCode: 'BSEd',
-      courseName: 'Bachelor of Secondary Education',
+      courseCode: "BSEd",
+      courseName: "Bachelor of Secondary Education",
     },
     {
       courseId: 14,
-      courseCode: 'BSN',
-      courseName: 'Bachelor of Science in Nursing',
+      courseCode: "BSN",
+      courseName: "Bachelor of Science in Nursing",
     },
     {
       courseId: 15,
-      courseCode: 'BSCrim',
-      courseName: 'Bachelor of Science in Criminology',
+      courseCode: "BSCrim",
+      courseName: "Bachelor of Science in Criminology",
     },
     {
       courseId: 16,
-      courseCode: 'BSMT',
-      courseName: 'Bachelor of Science in Marine Transportation',
+      courseCode: "BSMT",
+      courseName: "Bachelor of Science in Marine Transportation",
     },
     {
       courseId: 17,
-      courseCode: 'BSMarE',
-      courseName: 'Bachelor of Science in Marine Engineering',
+      courseCode: "BSMarE",
+      courseName: "Bachelor of Science in Marine Engineering",
     },
     {
       courseId: 18,
-      courseCode: 'BS-Psych',
-      courseName: 'Bachelor of Science in Psychology',
+      courseCode: "BS-Psych",
+      courseName: "Bachelor of Science in Psychology",
     },
     {
       courseId: 19,
-      courseCode: 'BSPharm',
-      courseName: 'Bachelor of Science in Pharmacy',
+      courseCode: "BSPharm",
+      courseName: "Bachelor of Science in Pharmacy",
     },
   ];
   const staticRequestTypes = [
     {
       requestTypeId: 1,
-      requestName: 'Good Moral Certificate',
-      icon: 'fa-solid fa-file',
+      requestName: "Good Moral Certificate",
+      icon: "fa-solid fa-file",
     },
     {
       requestTypeId: 2,
-      requestName: 'Insurance Payment',
-      icon: 'fa-solid fa-shield-halved',
+      requestName: "Insurance Payment",
+      icon: "fa-solid fa-shield-halved",
     },
     {
       requestTypeId: 3,
-      requestName: 'Approval/Transmittal Letter',
-      icon: 'fa-solid fa-pen-to-square',
+      requestName: "Approval/Transmittal Letter",
+      icon: "fa-solid fa-pen-to-square",
     },
     {
       requestTypeId: 4,
-      requestName: 'Temporary Gate Pass',
-      icon: 'fa-solid fa-id-badge',
+      requestName: "Temporary Gate Pass",
+      icon: "fa-solid fa-id-badge",
     },
     {
       requestTypeId: 5,
-      requestName: 'Uniform Exemption',
-      icon: 'fa-solid fa-shirt',
+      requestName: "Uniform Exemption",
+      icon: "fa-solid fa-shirt",
     },
     {
       requestTypeId: 6,
-      requestName: 'Enrollment / Transfer',
-      icon: 'fa-solid fa-right-left',
+      requestName: "Enrollment / Transfer",
+      icon: "fa-solid fa-right-left",
     },
   ];
 
@@ -201,15 +200,15 @@ export default function Request() {
 
   useEffect(() => {
     if (selectedQueue) {
-      sessionStorage.setItem('hasRequestInProgress', 'true');
+      sessionStorage.setItem("hasRequestInProgress", "true");
     } else {
-      sessionStorage.removeItem('hasRequestInProgress');
+      sessionStorage.removeItem("hasRequestInProgress");
     }
   }, [selectedQueue]);
 
   const validateStep1 = () => {
     if (!selectedQueue) {
-      setErrors({ step1: 'Please select a queue type' });
+      setErrors({ step1: "Please select a queue type" });
       return false;
     }
     setErrors({});
@@ -218,17 +217,17 @@ export default function Request() {
 
   const validateStep2 = () => {
     const newErrors = {};
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
     if (!formData.firstName.trim())
-      newErrors.firstName = 'First name is required';
+      newErrors.firstName = "First name is required";
     if (!formData.studentId.trim()) {
-      newErrors.studentId = 'Student ID is required';
+      newErrors.studentId = "Student ID is required";
     } else if (!/^\d{8}$/.test(formData.studentId)) {
-      newErrors.studentId = 'Student ID must be exactly 8 digits';
+      newErrors.studentId = "Student ID must be exactly 8 digits";
     }
-    if (!formData.courseId.trim()) newErrors.course = 'Course is required';
+    if (!formData.courseId.trim()) newErrors.course = "Course is required";
     if (!formData.yearLevel.trim())
-      newErrors.yearLevel = 'Year level is required';
+      newErrors.yearLevel = "Year level is required";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -241,7 +240,7 @@ export default function Request() {
 
   const validateStep3 = () => {
     if (selectedServices.length === 0) {
-      setErrors({ step3: 'Please select at least one service' });
+      setErrors({ step3: "Please select at least one service" });
       return false;
     }
     setErrors({});
@@ -282,7 +281,7 @@ export default function Request() {
     } else {
       // Check if user has selected a queue
       const hasQueueSelected =
-        sessionStorage.getItem('hasRequestInProgress') === 'true';
+        sessionStorage.getItem("hasRequestInProgress") === "true";
 
       if (hasQueueSelected) {
         // Show confirmation modal for back navigation
@@ -296,7 +295,7 @@ export default function Request() {
 
   const handleBackConfirm = () => {
     // Clear the session storage
-    sessionStorage.removeItem('hasRequestInProgress');
+    sessionStorage.removeItem("hasRequestInProgress");
     setShowBackConfirmModal(false);
     navigate(-1);
   };
@@ -316,8 +315,8 @@ export default function Request() {
     let value = e.target.value;
 
     // Apply special formatting for student ID - only allow numbers and limit to 8 digits
-    if (e.target.name === 'studentId') {
-      value = value.replace(/\D/g, ''); // Remove non-digit characters
+    if (e.target.name === "studentId") {
+      value = value.replace(/\D/g, ""); // Remove non-digit characters
       value = value.slice(0, 8); // Limit to 8 characters
     }
 
@@ -325,7 +324,7 @@ export default function Request() {
 
     // Clear error when user starts typing
     if (errors[e.target.name]) {
-      setErrors((prev) => ({ ...prev, [e.target.name]: '' }));
+      setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
     }
   };
 
@@ -352,7 +351,7 @@ export default function Request() {
     });
     // Clear error when user selects a service
     if (errors.step3) {
-      setErrors((prev) => ({ ...prev, step3: '' }));
+      setErrors((prev) => ({ ...prev, step3: "" }));
     }
   };
 
@@ -360,7 +359,7 @@ export default function Request() {
     setSelectedQueue(queueType);
     // Clear error when user selects a queue
     if (errors.step1) {
-      setErrors((prev) => ({ ...prev, step1: '' }));
+      setErrors((prev) => ({ ...prev, step1: "" }));
     }
   };
 
@@ -374,17 +373,17 @@ export default function Request() {
       );
 
       if (!selectedCourse) {
-        throw new Error('Course not found in staticCourseData');
+        throw new Error("Course not found in staticCourseData");
       }
 
       const formattedFormData = {
-        fullName: `${formData.firstName} ${formData.middleName || ''} ${
+        fullName: `${formData.firstName} ${formData.middleName || ""} ${
           formData.lastName
         }`.trim(),
         studentId: formData.studentId,
         courseId: formData.courseId,
-        courseCode: selectedCourse.courseCode, 
-        yearLevel: formData.yearLevel.replace(' Year', ''),
+        courseCode: selectedCourse.courseCode,
+        yearLevel: formData.yearLevel.replace(" Year", ""),
         queueType: selectedQueue,
         serviceRequests: selectedServices.map((service) => ({
           requestTypeId: service.requestTypeId,
@@ -392,38 +391,40 @@ export default function Request() {
         })),
       };
 
-      console.log('🟢 Formatted Data being sent:', formattedFormData);
+      console.log("🟢 Formatted Data being sent:", formattedFormData);
 
       for (let i = 1; i <= 10; i++) {
         await new Promise((resolve) => setTimeout(resolve, 200));
         setProgress(i * 11);
       }
 
-      console.log('📤 Sending queue details to backend:', formattedFormData);
-      const response = await submitQueueDetail(formattedFormData);
+      console.log("📤 Sending queue details to backend:", formattedFormData);
+      const response = await generateQueue(formattedFormData);
 
       if (response?.success) {
-        console.log('✅ Queue created successfully:', response);
-        sessionStorage.removeItem('hasRequestInProgress');
+        console.log("✅ Queue created successfully:", response);
+        sessionStorage.removeItem("hasRequestInProgress");
         setShowModal(false);
         setShowConfirmModal(false);
-
-        const referenceNumber = response?.data?.queueDetails?.referenceNumber;
+        console.log("Response", response);
+        const referenceNumber = response?.queueData?.referenceNumber;
+        const queueId = response?.queueData?.queueId;
 
         if (referenceNumber) {
-          navigate(`/student/queue/display?ref=${referenceNumber}`);
+          navigate(`/student/queue/display/${queueId}/${referenceNumber}`);
         } else {
-          console.warn('⚠️ No reference number found in response:', response);
-          navigate('/student/queue/display');
+          console.warn("⚠️ No reference number found in response:", response);
+          // navigate("/student/queue/display");
+          navigate("/")
         }
       } else {
         console.error(
-          '❌ Backend error:',
-          response?.message || 'Unknown error'
+          "❌ Backend error:",
+          response?.message || "Unknown error"
         );
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error("Error submitting form:", error);
     } finally {
       setLoading(false);
     }
@@ -483,7 +484,7 @@ export default function Request() {
 
   const fetchData = async () => {
     try {
-      console.log('Starting data fetch...');
+      console.log("Starting data fetch...");
 
       // Declare variables first
       let requestTypesToSet;
@@ -497,10 +498,10 @@ export default function Request() {
         } else if (Array.isArray(courses)) {
           coursesToSet = courses;
         } else {
-          throw new Error('Invalid course data format');
+          throw new Error("Invalid course data format");
         }
       } catch (courseError) {
-        console.warn('Using static course data:', courseError);
+        console.warn("Using static course data:", courseError);
         coursesToSet = staticCourseData;
       }
 
@@ -515,15 +516,15 @@ export default function Request() {
             );
             return {
               ...req,
-              icon: rule ? rule.icon : 'fa-solid fa-question-circle',
+              icon: rule ? rule.icon : "fa-solid fa-question-circle",
             };
           });
           requestTypesToSet = reqWithIcons;
         } else {
-          throw new Error('Invalid request types format');
+          throw new Error("Invalid request types format");
         }
       } catch (requestError) {
-        console.warn('Using static request types:', requestError);
+        console.warn("Using static request types:", requestError);
         requestTypesToSet = staticRequestTypes; // Make sure this variable is defined
       }
 
@@ -531,8 +532,8 @@ export default function Request() {
       setRequestType(requestTypesToSet);
       setCourseData(coursesToSet);
     } catch (error) {
-      console.error('Error:', error);
-      showToast(error.message, 'error');
+      console.error("Error:", error);
+      showToast(error.message, "error");
       // Final fallback - set both to static data
       setCourseData(staticCourseData);
       setRequestType(staticRequestTypes); // Make sure this variable is defined
@@ -540,7 +541,7 @@ export default function Request() {
   };
 
   useEffect(() => {
-    console.log('Remount successfull!');
+    console.log("Remount successfull!");
     fetchData();
   }, []);
   // console.log("Course Data: ", courseData)
@@ -552,13 +553,13 @@ export default function Request() {
         ? `${formdata.lastName}, ${formdata.firstName} ${formdata.middleName}`
         : `${formdata.lastName}, ${formdata.firstName}`;
 
-      const formattedYear = formdata.yearLevel.split(' ')[0];
+      const formattedYear = formdata.yearLevel.split(" ")[0];
       const selectedCourse = courseData.find(
         (c) => c.courseId === Number(formdata.courseId)
       );
 
       if (!selectedCourse) {
-        throw new Error('Selected course not found');
+        throw new Error("Selected course not found");
       }
 
       return {
@@ -573,7 +574,7 @@ export default function Request() {
         })),
       };
     } catch (error) {
-      console.error('Error formatting form data:', error);
+      console.error("Error formatting form data:", error);
       throw error;
     }
   };
@@ -647,7 +648,7 @@ export default function Request() {
                 <motion.div
                   className="h-1.5 rounded-full bg-blue-500"
                   initial={{ width: 0 }}
-                  animate={{ width: step <= currentStep ? '100%' : '0%' }}
+                  animate={{ width: step <= currentStep ? "100%" : "0%" }}
                   transition={{ duration: 0.5, delay: 0.2 }}
                 />
               </div>
@@ -670,11 +671,11 @@ export default function Request() {
             {/* Standard Queue */}
             <motion.div
               className={`border rounded-xl p-4 md:p-5  cursor-pointer transition-all duration-200 ${
-                selectedQueue === 'Standard'
-                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                  : 'border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50'
-              } ${errors.step1 ? 'border-red-300' : ''}`}
-              onClick={() => handleQueueSelect('Regular')}
+                selectedQueue === "Standard"
+                  ? "border-blue-500 bg-blue-50 shadow-sm"
+                  : "border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50"
+              } ${errors.step1 ? "border-red-300" : ""}`}
+              onClick={() => handleQueueSelect("Regular")}
               variants={itemVariants}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
@@ -682,12 +683,12 @@ export default function Request() {
               <div className="flex items-start">
                 <div
                   className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center  mr-3 md:mr-4 ${
-                    selectedQueue === 'Regular'
-                      ? 'border-blue-500 bg-blue-500 text-white'
-                      : 'border-gray-400'
+                    selectedQueue === "Regular"
+                      ? "border-blue-500 bg-blue-500 text-white"
+                      : "border-gray-400"
                   }`}
                 >
-                  {selectedQueue === 'Regular' && (
+                  {selectedQueue === "Regular" && (
                     <svg
                       className="w-3 h-3"
                       fill="none"
@@ -717,11 +718,11 @@ export default function Request() {
             {/* Priority Queue */}
             <motion.div
               className={`border rounded-xl p-4 md:p-5 cursor-pointer transition-all duration-200 ${
-                selectedQueue === 'Priority'
-                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-              } ${errors.step1 ? 'border-red-300' : ''}`}
-              onClick={() => handleQueueSelect('Priority')}
+                selectedQueue === "Priority"
+                  ? "border-blue-500 bg-blue-50 shadow-sm"
+                  : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+              } ${errors.step1 ? "border-red-300" : ""}`}
+              onClick={() => handleQueueSelect("Priority")}
               variants={itemVariants}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
@@ -729,12 +730,12 @@ export default function Request() {
               <div className="flex items-start">
                 <div
                   className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center mr-3 md:mr-4 ${
-                    selectedQueue === 'Priority'
-                      ? 'border-blue-500 bg-blue-500 text-white'
-                      : 'border-gray-400'
+                    selectedQueue === "Priority"
+                      ? "border-blue-500 bg-blue-500 text-white"
+                      : "border-gray-400"
                   }`}
                 >
-                  {selectedQueue === 'Priority' && (
+                  {selectedQueue === "Priority" && (
                     <svg
                       className="w-3 h-3"
                       fill="none"
@@ -793,7 +794,7 @@ export default function Request() {
                   onChange={handleChange}
                   placeholder="Last name"
                   className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-300'
+                    errors.lastName ? "border-red-500" : "border-gray-300"
                   }`}
                 />
                 {errors.lastName && (
@@ -834,7 +835,7 @@ export default function Request() {
                 onChange={handleChange}
                 placeholder="First name"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.firstName ? 'border-red-500' : 'border-gray-300'
+                  errors.firstName ? "border-red-500" : "border-gray-300"
                 }`}
               />
               {errors.firstName && (
@@ -873,7 +874,7 @@ export default function Request() {
                 inputMode="numeric"
                 maxLength="8"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.studentId ? 'border-red-500' : 'border-gray-300'
+                  errors.studentId ? "border-red-500" : "border-gray-300"
                 }`}
               />
             </motion.div>
@@ -891,7 +892,7 @@ export default function Request() {
                 value={formData.courseId}
                 onChange={handleChange}
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.course ? 'border-red-500' : 'border-gray-300'
+                  errors.course ? "border-red-500" : "border-gray-300"
                 }`}
               >
                 <option value="" disabled>
@@ -927,7 +928,7 @@ export default function Request() {
                 value={formData.yearLevel}
                 onChange={handleChange}
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.yearLevel ? 'border-red-500' : 'border-gray-300'
+                  errors.yearLevel ? "border-red-500" : "border-gray-300"
                 }`}
               >
                 <option value="" disabled>
@@ -975,15 +976,15 @@ export default function Request() {
                   transition={{
                     duration: 0.4,
                     delay: idx * 0.1, // Stagger delay based on index
-                    ease: 'easeInOut',
+                    ease: "easeInOut",
                   }}
                   className={`flex flex-col   items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
                     selectedServices.some(
                       (s) => s.requestTypeId === service.requestTypeId
                     )
-                      ? 'border-[#1456AE] bg-[#DDEAFC] shadow-sm'
-                      : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-                  } ${errors.step3 ? 'border-red-300' : ''}`}
+                      ? "border-[#1456AE] bg-[#DDEAFC] shadow-sm"
+                      : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+                  } ${errors.step3 ? "border-red-300" : ""}`}
                   onClick={() => toggleService(service)}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -1027,7 +1028,7 @@ export default function Request() {
               </div>
               <p className="mt-2 pl-5">
                 <span className="text-gray-500 text-sm font-medium">
-                  Type:{' '}
+                  Type:{" "}
                 </span>
                 <span className="font-semibold text-gray-800">
                   {selectedQueue} Queue
@@ -1062,7 +1063,7 @@ export default function Request() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-4 mt-3 pl-5  justify-center space-x-5">
                 <div>
                   <p className="text-gray-500 text-xs md:text-sm font-medium">
-                    Name:{' '}
+                    Name:{" "}
                     <span className="font-semibold text-gray-800 text-sm md:text-base">
                       {fullName}
                     </span>
@@ -1071,7 +1072,7 @@ export default function Request() {
 
                 <div>
                   <p className="text-gray-500 text-xs md:text-sm font-medium">
-                    Student ID:{' '}
+                    Student ID:{" "}
                     <span className="font-semibold text-gray-800 text-sm md:text-base">
                       {formData.studentId}
                     </span>
@@ -1088,7 +1089,7 @@ export default function Request() {
                         );
                         return selectedCourse
                           ? `${selectedCourse.courseCode}`
-                          : 'N/A';
+                          : "N/A";
                       })()}
                     </span>
                   </p>
@@ -1096,10 +1097,10 @@ export default function Request() {
 
                 <div>
                   <p className="text-gray-500 text-xs md:text-sm font-medium">
-                    Year Level:{' '}
+                    Year Level:{" "}
                     <span className="font-semibold text-gray-800 text-sm md:text-base">
                       {formData.yearLevel}
-                    </span>{' '}
+                    </span>{" "}
                   </p>
                 </div>
               </div>
@@ -1175,11 +1176,11 @@ export default function Request() {
             className={`px-6 md:px-7 py-3 md:py-3.5 rounded-xl font-medium transition-colors duration-200 text-sm md:text-base ${
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer transition-colors'
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer transition-colors"
             }`}
           >
-            {currentStep === 4 ? 'Confirm' : 'Continue'}
+            {currentStep === 4 ? "Confirm" : "Continue"}
           </button>
         </div>
 

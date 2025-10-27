@@ -22,16 +22,13 @@ import Transactions from "./pages/dashboard/Transactions";
 import FAQs from "./pages/FAQs";
 import Help from "./pages/Help";
 import Landing from "./pages/Landing";
-import LiveQueue from "./pages/LiveQueue";
 import NotFound from "./pages/NotFound";
 import ForgotPassword from "./pages/staffs/login/ForgotPassword";
 import ResetPassword from "./pages/staffs/login/ResetPassword";
 import StaffLogin from "./pages/staffs/login/StaffLogin";
 import SuccessReset from "./pages/staffs/login/SuccessReset";
 import VerifyOTP from "./pages/staffs/login/VerifyOTP";
-import LoginStaff from "./pages/staffs/LoginStaff";
 import DisplayQueue from "./pages/students/DisplayQueue";
-import GenerateQueue from "./pages/students/GenerateQueue";
 import Request from "./pages/students/Request";
 import SearchQueue from "./pages/students/SearchQueue";
 import SearchQueueResult from "./pages/students/SearchQueueResult";
@@ -63,16 +60,19 @@ function App() {
           <Route path="/help" element={<Help />} />
           <Route path="/faq" element={<FAQs />} />
           <Route path="/footer" element={<Contact />} />
-          <Route path="/staff/login" element={<LoginStaff />} />
-          <Route path="/student/request" element={<Request />} />
-          <Route path="/student/queue/generate" element={<GenerateQueue />} />
-          <Route path="/student/queue/live" element={<LiveQueue />} />
-          <Route path="/student/queue/display" element={<DisplayQueue />} />
-          <Route path="/student/queue/search" element={<SearchQueue />} />
-          <Route
-            path="/student/queue/search/result"
-            element={<SearchQueueResult />}
-          />
+          {/* <Route path="/staff/login" element={<LoginStaff />} /> */}
+          <Route path="/student">
+            <Route path="queue/">
+              <Route path="request" element={<Request />} />
+              {/* <Route path="generate" element={<GenerateQueue />} /> */}
+              <Route
+                path="display/:queueId/:referenceNumber"
+                element={<DisplayQueue />}
+              />
+              <Route path="search" element={<SearchQueue />} />
+              <Route path="search/result" element={<SearchQueueResult />} />
+            </Route>
+          </Route>
         </Route>
 
         {/* Staff Protected Routes */}

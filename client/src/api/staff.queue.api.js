@@ -15,12 +15,11 @@ export const studentsQueueDetails = async (queueDetails) => {
         withCredentials: true,
       }
     );
-
     if (response.data.success && response.status === 201) {
       return {
         success: true,
         message: "Queue Generated",
-        queueDetails: response.data.queueDetails,
+        queueDetails: response.data.queueData,
       };
     }
   } catch (error) {

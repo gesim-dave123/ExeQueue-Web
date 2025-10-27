@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function Home() {
           <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-extrabold text-gray-900 leading-tight">
             <span className="bg-gradient-to-r from-[#1A73E8] via-[#F9AB00] to-[#1A73E8] bg-clip-text text-transparent bg-size-200 animate-gradient">
               Student
-            </span>{' '}
+            </span>{" "}
             Services, Simplified
           </h1>
         </div>
@@ -52,7 +52,7 @@ export default function Home() {
           </Link>
 
           {/* Request Service */}
-          <Link to="/student/request">
+          <Link to="/student/queue/request">
             <button className="bg-[#1A73E8] hover:bg-[#1557B0] w-full text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-md hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md">
               <img
                 src="/assets/dashboard icons.png"
@@ -66,12 +66,12 @@ export default function Home() {
 
         <div className="items-center mb-8 text-center text-gray-500 text-sm sm:text-base">
           <p>
-            Already have a queue number?{' '}
+            Already have a queue number?{" "}
             <Link to="/student/queue/search">
               <span>
                 <button
                   className="cursor-pointer underline text-[#1A73E8] hover:text-blue-700 transition-colors"
-                  onClick={() => handleRedirect('/student/queue/search')} // change later to url destination for view queue
+                  onClick={() => handleRedirect("/student/queue/search")} // change later to url destination for view queue
                 >
                   Search Queue
                 </button>
