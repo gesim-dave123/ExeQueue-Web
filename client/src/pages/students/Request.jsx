@@ -180,7 +180,18 @@ export default function Request() {
       icon: 'fa-solid fa-right-left',
     },
   ];
-
+  const [yearSearchTerm, setYearSearchTerm] = useState('');
+  const [isYearOpen, setIsYearOpen] = useState(false);
+  const yearDropdownRef = useRef(null);
+  const yearOptions = [
+    '1st Year',
+    '2nd Year',
+    '3rd Year',
+    '4th Year',
+    '5th Year',
+    '6th Year',
+    'Irregular',
+  ];
   // useEffect(() => {
   //   const fetchCourseData = async () => {
   //     try {
@@ -325,7 +336,18 @@ export default function Request() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
+  useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setIsOpen(false);
+        }
+        if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
+          setIsYearOpen(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
   const handleSelect = (courseId, courseName, courseCode) => {
     setFormData(prev => ({ ...prev, courseId }));
     setSearchTerm(`${courseName} - ${courseCode}`);
@@ -749,7 +771,7 @@ export default function Request() {
                     Regular Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For general inquiries and regular services.
+                    For general inquiries and regular services. Most visitors should select this option
                   </p>
                 </div>
               </div>
@@ -796,7 +818,7 @@ export default function Request() {
                     Priority Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For seniors, pregnant individuals, PWD, or urgent needs.
+                    For seniors, pregnant individuals, people with disabilities, or those with urgent needs.
                   </p>
                 </div>
               </div>
@@ -834,7 +856,7 @@ export default function Request() {
                   onChange={handleChange}
                   placeholder="Last name"
                   className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-300'
+                    errors.lastName ? 'border-red-500' : 'border-[#DDEAFC]'
                   }`}
                 />
                 {errors.lastName && (
@@ -855,7 +877,7 @@ export default function Request() {
                   value={formData.middleName}
                   onChange={handleChange}
                   placeholder="Middle name"
-                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="mt-1 w-full border border-[#DDEAFC] rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </motion.div>
             </div>
@@ -875,7 +897,7 @@ export default function Request() {
                 onChange={handleChange}
                 placeholder="First name"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.firstName ? 'border-red-500' : 'border-gray-300'
+                  errors.firstName ? 'border-red-500' : 'border-[#DDEAFC]'
                 }`}
               />
               {errors.firstName && (
@@ -914,7 +936,7 @@ export default function Request() {
                 inputMode="numeric"
                 maxLength="8"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.studentId ? 'border-red-500' : 'border-gray-300'
+                  errors.studentId ? 'border-red-500' : 'border-[#DDEAFC]'
                 }`}
               />
             </motion.div>
@@ -937,7 +959,7 @@ export default function Request() {
                     onFocus={() => setIsOpen(true)}
                     placeholder="Select your course"
                     className={`w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
-                      isOpen ? 'border-blue-500' : errors.course ? 'border-red-500' : 'border-gray-300'
+                      isOpen ? 'border-blue-500' : errors.course ? 'border-red-500' : 'border-[#DDEAFC]'
                     }`}
                   />
                   <button
@@ -989,7 +1011,7 @@ export default function Request() {
               )}
             </motion.div>
 
-            <motion.div
+              <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
@@ -997,25 +1019,58 @@ export default function Request() {
               <label className="block text-sm font-medium text-gray-700">
                 Year Level <span className="text-red-500">*</span>
               </label>
-              <select
-                name="yearLevel"
-                value={formData.yearLevel}
-                onChange={handleChange}
-                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.yearLevel ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="" disabled>
-                  Select your year level
-                </option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-                <option value="5th Year">5th Year</option>
-                <option value="6th Year">6th Year</option>
-                <option value="Irregular">Irregular</option>
-              </select>
+
+              <div className="relative" ref={yearDropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    value={formData.yearLevel || ''}
+                    onFocus={() => setIsYearOpen(true)}
+                    placeholder="Select your year level"
+                    className={`mt-1 w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
+                      isYearOpen ? 'border-blue-500' : errors.yearLevel ? 'border-red-500' : 'border-[#DDEAFC]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsYearOpen((s) => !s)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  >
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform ${isYearOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </div>
+
+                {isYearOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-44 overflow-y-auto custom-scrollbar">
+                    {yearOptions.map((y, idx, arr) => (
+                      <div
+                        key={y}
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, yearLevel: y }));
+                          setIsYearOpen(false);
+                          if (errors.yearLevel) {
+                            setErrors((prev) => ({ ...prev, yearLevel: '' }));
+                          }
+                        }}
+                        className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
+                          formData.yearLevel === y ? 'bg-blue-50' : ''
+                        } ${idx === 0 ? 'rounded-t-2xl' : ''} ${
+                          idx === arr.length - 1 ? 'rounded-b-2xl' : ''
+                        }`}
+                      >
+                        <div className="text-sm text-gray-900">{y}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* keep hidden input for form semantics */}
+              <input type="hidden" name="yearLevel" value={formData.yearLevel} />
 
               {errors.yearLevel && (
                 <p className="mt-1 text-sm text-red-600">{errors.yearLevel}</p>
@@ -1278,7 +1333,7 @@ export default function Request() {
           showLoading={true}
           showCloseButton={false}
           hideActions={false}
-          loadingText="Submitting your request..."
+          loadingText="Submitting..."
         />
         {/* {showConfirmModal && (
           <motion.div
