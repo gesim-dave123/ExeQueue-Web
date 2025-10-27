@@ -1145,14 +1145,14 @@ export default function Manage_Queue() {
 
   // Loading Skeleton Component
   const LoadingSkeleton = () => (
-    <div className="min-h-screen bg-transparent w-full p-4 md:p-10">
-      <div className="max-w-full mx-auto">
+    <div className="min-h-screen bg-transparent w-full p-4 md:p-10 ">
+      <div className="max-w-full mx-auto ">
         {/* Header Skeleton */}
         <div className="h-8 bg-gray-200 rounded w-64 mb-9 mt-6 animate-pulse"></div>
 
         {/* Main Card Skeleton */}
         <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
-          <div className="p-4 md:p-6">
+          <div className="p-4 md:p-6 z-0">
             {/* Window Header Skeleton */}
             <div className="flex items-center gap-2 mb-4">
               <div className="bg-gray-200 p-2 rounded-xl w-10 h-10 animate-pulse"></div>
@@ -1244,7 +1244,7 @@ export default function Manage_Queue() {
     </div>
   );
   return (
-    <div className="relative min-h-screen w-full">
+    <div className=" min-h-screen w-full">
       {/* Loading skeleton overlay */}
       {isLoading && <LoadingSkeleton />}
 
@@ -1264,14 +1264,14 @@ export default function Manage_Queue() {
         />
       )}
       {!isLoading && currentQueue && (
-        <div className="min-h-screen bg-transparent w-full p-4 md:p-10">
+        <div className="min-h-screen bg-transparent w-full pr-7 py-17 sm:pl-17 xl:pl-9">
           <div className="max-w-full mx-auto">
-            <h1 className="text-2xl md:text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
+            <h1 className="text-2xl md:text-3xl font-semibold text-left text-gray-900 mb-9">
               Manage Queue
             </h1>
             {/* Current Queue Display - Updated */}
             <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
-              <div className="p-4 bg- md:p-6">
+              <div className="p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="bg-[#F5F5F5] p-2 rounded-xl">
                     <img src="/assets/Monitor.png" alt="" />
@@ -1282,12 +1282,12 @@ export default function Manage_Queue() {
                 </div>
 
                 {/* container */}
-                <div className="flex  items-center justify-between gap-6 h-full">
+                <div className="flex lg:flex-row flex-col  items-center justify-between gap-6 h-full">
                   {/* left side */}
-                  <div className="border-2 flex-1  border-[#E2E3E4] rounded-lg p-6 h-full">
-                    <div className=" text-left mb-4 ">
+                  <div className="border-2 flex flex-col  border-[#E2E3E4] rounded-lg p-6 px-15 md:p-6 h-full">
+                    <div className=" text-left mb-4">
                       <div
-                        className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
+                        className={`text-7xl text-center ring-1 rounded-xl p-4 font-bold mb-2 text-[#1A73E8] ${
                           currentQueue.type === "Priority"
                             ? "text-[#F9AB00] border-[#F9AB00]"
                             : "text-[#1A73E8] border-[#1A73E8]"
@@ -1475,7 +1475,7 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3 mt-15 justify-end">
+                    <div className="flex gap-3 mt-5 lg:mt-15 items-center justify-center lg:justify-end ">
                       <button
                         onClick={() =>
                           handleButtonClick(
@@ -1525,7 +1525,7 @@ export default function Manage_Queue() {
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                           shouldDisableAnnounce()
                             ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
-                            : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
+                            : "bg-[#F9AB00] hover:bg-yellow-600 text-white cursor-pointer"
                         }`}
                       >
                         <img
