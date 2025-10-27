@@ -6,6 +6,8 @@ import {
   sendDashboardUpdate,
   sendLiveDisplayUpdate,
 } from "./statistics.controller.js";
+
+import { decryptQueueId } from "../../utils/encryptId.js";
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
@@ -288,13 +290,22 @@ export const getQueue = async (req, res) => {
         message: "Missing required params. (queueId, referenceNumber)",
       });
     }
-    if (!isIntegerParam(queueIdStr)) {
+
+    const decryptedQueueId = decryptQueueId(queueIdStr);
+    if (!decryptQueueId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request, queueId was not decrypted properly",
+      });
+    }
+
+    if (!isIntegerParam(decryptedQueueId)) {
       return res.status(400).json({
         success: false,
         message: "Invalid param. 'queueId' must be an integer.",
       });
     }
-    const queueId = Number(queueIdStr);
+    const queueId = Number(decryptedQueueId);
 
     if (isNaN(queueId)) {
       return res.sttaus(400).json({

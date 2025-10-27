@@ -9,6 +9,8 @@ import {
   sendLiveDisplayUpdate,
 } from "./statistics.controller.js";
 
+import { encryptQueueId } from "../../utils/encryptId.js";
+
 export const generateQueue = async (req, res) => {
   try {
     const io = req.app.get("io");
@@ -266,7 +268,7 @@ export const generateQueue = async (req, res) => {
         );
         // io.emit(SocketEvents.QUEUE_CREATED, newQueueData);
         io.emit(SocketEvents.QUEUE_CREATED, {
-          queueId: newQueue.queueId,
+          queueId: encryptQueueId(newQueue.queueId),
           referenceNumber: newQueue.referenceNumber,
           // timestamp: new Date(),
         });
@@ -283,7 +285,7 @@ export const generateQueue = async (req, res) => {
           success: true,
           message: "Queue Generated Successfully!",
           queueData: {
-            queueId: newQueue.queueId,
+            queueId: encryptQueueId(newQueue.queueId),
             queueNumber: newQueue.queueNumber,
             formattedQueueNumber,
             queueType: newQueue.queueType,
