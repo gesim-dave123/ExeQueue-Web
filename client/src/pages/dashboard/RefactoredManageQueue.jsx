@@ -724,6 +724,19 @@ export default function Manage_Queue() {
     estimateSize: () => 60, // adjust if your rows are taller or shorter
     overscan: 5,
   });
+
+  let scrollTimeout;
+  const handleScroll = (e) => {
+    if (scrollTimeout) return;
+    scrollTimeout = setTimeout(() => (scrollTimeout = null), 300);
+
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    if (nearBottom && hasMoreWaiting && !isLoading) {
+      loadMoreWaitingQueues();
+    }
+  };
+
   return (
     <div className="relative min-h-screen w-full">
       {/* Loading skeleton overlay */}
@@ -1258,16 +1271,8 @@ export default function Manage_Queue() {
                       {/* Scrollable Container - Now wraps both header and body */}
                       <div
                         ref={parentRef}
+                        onScroll={handleScroll}
                         className="overflow-y-auto custom-scrollbar max-h-96 relative"
-                        onScroll={(e) => {
-                          const { scrollTop, scrollHeight, clientHeight } =
-                            e.target;
-                          const nearBottom =
-                            scrollHeight - scrollTop - clientHeight < 100;
-                          if (nearBottom && hasMoreWaiting && !isLoading) {
-                            loadMoreWaitingQueues();
-                          }
-                        }}
                       >
                         {/* Single table for both header and body */}
                         <table className="w-full min-w-[700px]">

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getQueueByIdAndReference,
   getQueueListByStatus,
 } from "../../../api/staff.queue.api";
-import { Queue_Type } from "../../../constants/queueEnums";
 import { normalizeStatusForDisplay } from "../../../utils/NormalizeStatus";
 import { formatQueueData } from "../../../utils/QueueDetailsFormatter";
 
@@ -40,6 +39,7 @@ const ManageQueueHook = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Pagination state
+  const isFetchingRef = useRef(false);
   const INITIAL_LOAD = 100;
   const LOAD_MORE_SIZE = 50;
   const [hasMoreWaiting, setHasMoreWaiting] = useState(true);
@@ -48,21 +48,21 @@ const ManageQueueHook = ({
   // ==================== HELPER FUNCTIONS ====================
   const sortByPriorityPattern = useCallback((queues) => {
     console.log("🔢 Starting sort with queues:", queues?.length);
-
+    // console.log("Queue", queues);
     if (!queues || queues.length === 0) {
       console.log("⚠️ No queues to sort");
       return [];
     }
     // More flexible filtering with fallbacks
     const priority = queues.filter((q) => {
-      const type = q.type?.toUpperCase();
-      return type === "PRIORITY";
+      const type = q.type;
+      return type === "Priority";
     });
     // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
 
     const regular = queues.filter((q) => {
-      const type = q.type?.toUpperCase();
-      return type === Queue_Type.REGULAR.toString().toUpperCase();
+      const type = q.type;
+      return type === "Regular";
     });
     // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
     const sorted = [];
@@ -261,61 +261,75 @@ const ManageQueueHook = ({
   }, [selectedWindow?.id, sortByPriorityPattern, formatQueueData, Status]);
 
   // ==================== LOAD MORE FUNCTIONS ====================
-
   const loadMoreWaitingQueues = useCallback(async () => {
-    if (!hasMoreWaiting || isLoading) return;
-    console.log("Helloo");
+    if (isFetchingRef.current || !hasMoreWaiting || isLoading) return;
+
+    isFetchingRef.current = true; // 🔒 Lock fetch
     setNextInlineLoading(true);
+
     try {
       console.log("Loading more waiting queues...");
       const response = await getQueueListByStatus(Status.WAITING, {
         limit: LOAD_MORE_SIZE,
         offset: globalQueueIds.length,
       });
+
       await new Promise((res) => setTimeout(res, 1000));
       const queues = response?.queues || response;
-      if (Array.isArray(queues) && queues.length > 0) {
-        const formattedQueue = queues.map(formatQueueData);
 
-        setGlobalQueueMap((prev) => {
-          const newMap = new Map(prev);
-          formattedQueue.forEach((queue) => newMap.set(queue.queueId, queue));
-          return newMap;
-        });
-
-        setGlobalQueueIds((prev) => {
-          // Merge previous and new queues, ensuring uniqueness
-          const mergedIds = [
-            ...new Set([...prev, ...formattedQueue.map((q) => q.queueId)]),
-          ];
-
-          // Use the same merged data for sorting
-          const mergedQueues = mergedIds
-            .map(
-              (id) =>
-                formattedQueue.find((q) => q.queueId === id) ||
-                globalQueueMap.get(id)
-            )
-            .filter(Boolean);
-
-          const sortedQueues = sortByPriorityPattern(mergedQueues);
-
-          const sortedIds = sortedQueues.map((q) => q.queueId);
-
-          setHasMoreWaiting(sortedIds.length < totalWaitingCount);
-
-          console.log("Before merge:", globalQueueIds.length);
-          console.log("Fetched new:", formattedQueue.length);
-          console.log("After merge (expected):", mergedIds.length);
-          return sortedIds;
-        });
-      } else {
-        setNextInlineLoading(false);
+      if (!Array.isArray(queues) || queues.length === 0) {
+        console.log("No queues returned from API. Disabling further loads.");
+        setHasMoreWaiting(false);
+        return;
       }
+
+      const formattedQueue = queues.map(formatQueueData);
+
+      setGlobalQueueMap((prevMap) => {
+        const newMap = new Map(prevMap);
+        formattedQueue.forEach((q) => newMap.set(String(q.queueId), q));
+
+        const mergedQueues = Array.from(newMap.values());
+        const sortedQueues = sortByPriorityPattern(mergedQueues);
+        const sortedIds = sortedQueues.map((q) => String(q.queueId));
+
+        const receivedAll = queues.length < LOAD_MORE_SIZE;
+        const reachedTotal = sortedIds.length >= totalWaitingCount;
+
+        const prevSize = prevMap.size;
+        const newSize = newMap.size;
+        const addedCount = newSize - prevSize;
+
+        // 🧩 new hard guard here:
+        if (addedCount <= 0) {
+          console.log("⚠️ No new queues added — stopping further loads.");
+          setHasMoreWaiting(false);
+          return prevMap; // prevent redundant updates
+        }
+
+        const shouldHaveMore = !(receivedAll || reachedTotal);
+        setGlobalQueueIds(sortedIds);
+        setHasMoreWaiting(shouldHaveMore);
+
+        console.log({
+          received: queues.length,
+          requested: LOAD_MORE_SIZE,
+          prevSize,
+          newSize,
+          addedCount,
+          currentTotal: sortedIds.length,
+          serverTotal: totalWaitingCount,
+          hasMore: shouldHaveMore,
+        });
+
+        return newMap;
+      });
     } catch (error) {
       console.error("Error loading more waiting queues:", error);
+      setHasMoreWaiting(false);
     } finally {
-      setIsLoading(false);
+      setNextInlineLoading(false);
+      isFetchingRef.current = false; // 🔓 Unlock fetch
     }
   }, [
     hasMoreWaiting,
@@ -327,6 +341,7 @@ const ManageQueueHook = ({
     globalQueueIds.length,
   ]);
 
+  // console.log("Global Queue Map: ", globalQueueMap);
   const loadMoreDeferredQueues = useCallback(async () => {
     if (!hasMoreDeferred || isLoading) return;
 
@@ -397,7 +412,8 @@ const ManageQueueHook = ({
           const sortedIds = sortedQueues.map((q) => q.queueId);
 
           // Set the IDs synchronously
-          setGlobalQueueIds(sortedIds);
+          // setGlobalQueueIds(sortedIds);
+          setGlobalQueueIds(sortedIds.map(String));
 
           return newMap;
         });
@@ -705,6 +721,35 @@ const ManageQueueHook = ({
       fetchQueueList();
     }
   }, [selectedWindow?.id, showWindowModal, fetchQueueList]);
+  useEffect(() => {
+    // Don't override API-based hasMoreWaiting if we recently loaded
+    if (nextInLineLoading) return;
+
+    const shouldHaveMore = globalQueueIds.length < totalWaitingCount;
+
+    // Only update if there's a meaningful difference
+    if (hasMoreWaiting !== shouldHaveMore) {
+      // If API said no more, but we have new queues, enable loading
+      if (!hasMoreWaiting && shouldHaveMore) {
+        setHasMoreWaiting(true);
+      }
+      // If we've loaded everything, disable loading
+      else if (hasMoreWaiting && !shouldHaveMore) {
+        setHasMoreWaiting(false);
+      }
+    }
+  }, [
+    globalQueueIds.length,
+    totalWaitingCount,
+    hasMoreWaiting,
+    nextInLineLoading,
+  ]);
+
+  useEffect(() => {
+    const lastId = globalQueueIds[globalQueueIds.length - 1];
+    console.log("🔍 Last queue in list:", lastId);
+    console.log("🧩 In map:", globalQueueMap.has(lastId));
+  }, [globalQueueIds, globalQueueMap]);
   useEffect(() => {
     console.log({
       totalWaitingCount,
