@@ -228,10 +228,22 @@ export default function Sidebar() {
 
     // Handle profile and system settings dropdown toggles
     if (item === "profile") {
-      setIsProfileOpen((prev) => !prev);
-      setIsSystemSettingsOpen(false);
-      setActiveItem("profile");
-      return; // ⛔ Stop here — don’t close the sidebar
+      // 🧠 If sidebar is closed, open it first
+      if (!isOpen) {
+        setIsSidebarOpen(true);
+        setIsMobileOpen(true);
+        setTimeout(() => {
+          setIsProfileOpen(true);
+          setIsSystemSettingsOpen(false);
+          setActiveItem("profile");
+        }, 300); // Wait for sidebar animation
+      } else {
+        // If sidebar is already open, just toggle dropdown
+        setIsProfileOpen((prev) => !prev);
+        setIsSystemSettingsOpen(false);
+        setActiveItem("profile");
+      }
+      return;
     }
 
     if (item === "system-settings") {
@@ -490,14 +502,14 @@ export default function Sidebar() {
           <div
             onClick={() => handleItemClick("profile")}
             className={`flex items-center justify-start gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
-              isOpen ? "" : "justify-center ml-3 mr-3"
+              isOpen ? "" : "ml-3 mr-3"
             } ${
               activeItem === "profile"
                 ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
                 : "text-black hover:bg-blue-50"
             }`}
           >
-            <div className="w-10 h-14 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-14 rounded-full flex items-center justify-center  flex-shrink-0">
               <img src="/assets/dashboard/personnel.png" alt="User" />
             </div>
             <motion.div
@@ -507,13 +519,13 @@ export default function Sidebar() {
                 width: isOpen ? "auto" : 0,
               }}
               exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
+              transition={{ duration: 0.2 }}
+              className="whitespace-nowrap overflow-hidden"
             >
               <div
-                className={`text-sm font-medium ${
-                  activeItem === "profile" ? "text-[#1A73E8]" : "text-gray-900"
-                }`}
+                className={`text-sm font-medium
+                  ${isOpen ? "flex" : "hidden"}
+              ${activeItem === "profile" ? "text-[#1A73E8]" : "text-gray-900"}`}
               >
                 {userFullName}
               </div>
@@ -572,7 +584,7 @@ export default function Sidebar() {
                         <img
                           src="/assets/dashboard/system_settings_dropdown/profilee.png"
                           alt="profile"
-                          className="w-5 h-5"
+                          className="w-6 h-6"
                         />
                         <span className="text-sm font-medium">Profile</span>
                       </div>
