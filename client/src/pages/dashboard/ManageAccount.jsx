@@ -234,9 +234,9 @@ export default function ManageAccount() {
             </h2>
 
             {/* Search Bar */}
-            <div className="relative w-80 mt-5">
+            <div className="relative w-full max-w-80 mt-5 px-4 sm:px-0">
               <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-7 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={20}
               />
               <input
@@ -289,15 +289,16 @@ export default function ManageAccount() {
                     <td className="py-4 px-4 text-[#202124] text-left">
                       {account.email}
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-start gap-2">
+                    <td className="py-4 pr-4">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleEdit(account)}
                           disabled={loading}
-                          className="p-2 bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition cursor-pointer disabled:opacity-50"
+                          className="p-2 bg-[#1A73E8]/23 text-[#1A73E8] rounded-lg hover:bg-[#1A73E8]/30 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
                         >
-                          <div className="">
-                            <img src="/assets/manage_acc/update.png" alt="" />
+                          <div className="flex items-center">
+                            <img src="/assets/manage_acc/pen-blue.png" alt="" className="w-5 h-5" />
+                            <span className="ml-2 font-medium hidden sm:inline">Edit</span>
                           </div>
                         </button>
 
@@ -307,11 +308,9 @@ export default function ManageAccount() {
                             setShowBackConfirmModal(true);
                           }}
                           disabled={loading}
-                          className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer disabled:opacity-50"
+                          className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
                         >
-                          <div className="">
-                            <img src="/assets/manage_acc/trashcan.png" alt="" />
-                          </div>
+                          <img src="/assets/manage_acc/trashcan.png" alt="" className="w-5 h-5" />
                         </button>
                       </div>
                     </td>
