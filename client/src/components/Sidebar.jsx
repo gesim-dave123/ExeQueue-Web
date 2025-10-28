@@ -103,6 +103,7 @@ export default function Sidebar() {
         key: "transactions",
         label: "Transactions",
         icon: "/assets/dashboard/transactions.png",
+        iconActive: "/assets/dashboard/transactions colored.png",
         link: "/staff/transaction/history",
       },
     ],
