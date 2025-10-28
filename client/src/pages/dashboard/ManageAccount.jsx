@@ -196,9 +196,9 @@ export default function ManageAccount() {
 
   return (
     <div className="min-h-screen py-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full justify-evenly px-9">
+      <div className="flex flex-col min-h-[90vh] w-full justify-evenly sm:pl-1 sm:pr-9 md:pl-14 lg:pl-10 xl:pl-5 md:pr-9  pr-8">
         {/* Header */}
-        <div className="flex flex-1 pt-6 items-center justify-between mb-6">
+        <div className="sm:flex flex-1 pt-6 items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-semibold text-left text-[#202124]">
               Manage Accounts
@@ -207,28 +207,31 @@ export default function ManageAccount() {
               Personnel account management
             </p>
           </div>
+          <div className="mt-4 sm:mt-0 flex items-center justify-end">
           <button
-            onClick={handleAddAccount}
-            disabled={loading}
-            className="flex items-center gap-2 px-5 py-3.5 bg-[#1A73E8] text-white rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="inline-block">
-              <img src="/assets/manage_acc/add.png" alt="" />
-            </div>
-            Add Account
-          </button>
+              onClick={handleAddAccount}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
+            >
+              <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
+                <img src="/assets/manage_acc/add.png" alt="" className="w-full h-full object-contain" />
+              </div>
+              <span className="whitespace-nowrap">Add Account</span>
+            </button>
+          </div>
+         
         </div>
 
         {/* Personnel Accounts Card */}
-        <div className="bg-white rounded-2xl shadow-xs p-6 flex-6 overflow-y-scroll scrollbar-thumb-blue-500 scrollbar-track-gray-200 max-h-[80vh]">
+        <div className="bg-white rounded-2xl shadow-xs p-6 flex-6 overflow-y-scroll scrollbar-thumb-blue-500 scrollbar-custom max-h-[80vh]">
           {/* Card Header */}
-          <div className="flex items-center justify-between mb-6 sticky">
-            <h2 className="text-xl font-medium text-[#202124]">
+          <div className="sm:flex items-center justify-between mb-6 sticky">
+            <h2 className="text-xl text-left font-medium text-[#202124]">
               Personnel Accounts
             </h2>
 
             {/* Search Bar */}
-            <div className="relative w-80">
+            <div className="relative w-80 mt-5">
               <Search
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={20}
