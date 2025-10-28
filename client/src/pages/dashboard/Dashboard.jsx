@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import DoughnutChart from '../../components/graphs/DoughnutChart';
-import { fetchDashboardStatistics } from '../../api/statistics';
+import React, { useState, useEffect } from "react";
+import DoughnutChart from "../../components/graphs/DoughnutChart";
+import { fetchDashboardStatistics } from "../../api/statistics";
 
 // export default function Dashboard() {
 //   const [activeTab, setActiveTab] = useState('Today');
@@ -177,7 +177,7 @@ import { fetchDashboardStatistics } from '../../api/statistics';
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const getStats = async () => {
@@ -187,7 +187,7 @@ export default function Dashboard() {
       if (response.success) {
         setStats(response.data);
       } else {
-        setErrorMsg(response.message || 'Failed to load dashboard data');
+        setErrorMsg(response.message || "Failed to load dashboard data");
       }
 
       setLoading(false);
@@ -216,13 +216,13 @@ export default function Dashboard() {
   const defaultWindows = [
     {
       windowNo: 1,
-      displayName: 'Window 1',
-      currentServing: { formattedQueueNumber: 'R000' },
+      displayName: "Window 1",
+      currentServing: { formattedQueueNumber: "R000" },
     },
     {
       windowNo: 2,
-      displayName: 'Window 2',
-      currentServing: { formattedQueueNumber: 'P000' },
+      displayName: "Window 2",
+      currentServing: { formattedQueueNumber: "P000" },
     },
   ];
 
@@ -248,7 +248,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full ">
       {/* Main Content */}
-      <div className="flex-1 pr-8 xl:pt-17 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
+      <div className="flex-1 pb-5 pr-8 xl:pt-18 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
         {/* Header */}
         <div className="mb-6 text-left">
           <h2 className="text-3xl font-semibold text-[#202124]">Dashboard</h2>
@@ -275,20 +275,20 @@ export default function Dashboard() {
               </div>
               <p
                 className={`text-3xl md:text-5xl font-bold mt-7 xl:text-start ${
-                  win.currentServing?.formattedQueueNumber?.startsWith('P')
-                    ? 'text-[#F9AB00]'
-                    : 'text-[#1A73E8]'
+                  win.currentServing?.formattedQueueNumber?.startsWith("P")
+                    ? "text-[#F9AB00]"
+                    : "text-[#1A73E8]"
                 }`}
               >
                 {win.currentServing
                   ? win.currentServing.formattedQueueNumber
-                  : '—'}
+                  : "—"}
               </p>
-            <div className="flex justify-start">
-              <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
-                Currently Serving
-              </button>
-            </div>
+              <div className="flex justify-start">
+                <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
+                  Currently Serving
+                </button>
+              </div>
             </div>
           ))}
 
@@ -355,7 +355,7 @@ export default function Dashboard() {
                   }}
                   centerText={{
                     total: totalQueueToday.toString(),
-                    label: 'Total Queue',
+                    label: "Total Queue",
                   }}
                 />
               </div>
@@ -364,18 +364,18 @@ export default function Dashboard() {
               <div className="mt-6 flex flex-col sm:flex-row sm:justify-center gap-4">
                 {[
                   {
-                    name: 'Regular',
-                    color: 'bg-[#1A73E8]',
+                    name: "Regular",
+                    color: "bg-[#1A73E8]",
                     value: totalRegularWaiting,
                   },
                   {
-                    name: 'Priority',
-                    color: 'bg-[#FDE5B0]',
+                    name: "Priority",
+                    color: "bg-[#FDE5B0]",
                     value: totalPriorityWaiting,
                   },
                   {
-                    name: 'In Progress',
-                    color: 'bg-[#E2E3E4]',
+                    name: "In Progress",
+                    color: "bg-[#E2E3E4]",
                     value: inProgress,
                   },
                 ].map((item) => (
