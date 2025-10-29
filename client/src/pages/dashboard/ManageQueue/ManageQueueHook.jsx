@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getQueueByIdAndReference,
   getQueueListByStatus,
+  getSingleQueue,
 } from "../../../api/staff.queue.api";
 import { normalizeStatusForDisplay } from "../../../utils/NormalizeStatus";
 import { formatQueueData } from "../../../utils/QueueDetailsFormatter";
@@ -115,6 +115,7 @@ const ManageQueueHook = ({
   );
 
   const removeFromWaitingQueue = useCallback((queueId) => {
+    console.log("Global Queue Map", globalQueueMap);
     setGlobalQueueMap((prev) => {
       const newMap = new Map(prev);
       newMap.delete(queueId);
@@ -217,7 +218,7 @@ const ManageQueueHook = ({
       //   include_total: true,
       // });
       const deferredQueues = await getQueueListByStatus(Status.DEFERRED, {
-        requestStatus: [Status.STALLED, Status.SKIPPED],
+        // requestStatus: [Status.STALLED, Status.SKIPPED],
         limit: INITIAL_LOAD,
         offset: 0,
         include_total: true,
@@ -386,31 +387,37 @@ const ManageQueueHook = ({
   ]);
 
   // ==================== SOCKET EVENT HANDLERS (OPTIMIZED) ====================
+  const handleFetchQueue = useCallback(async (data, options = {}) => {
+    try {
+      const fetchedQueue = await getSingleQueue(data.queueId, options);
+      console.log("Fetched Queue Response:", fetchedQueue);
+      if (!fetchedQueue) throw new Error("There was a problem fetching queue!");
+      const formattedQueue = formatQueueData(fetchedQueue);
+      if (!formattedQueue)
+        throw new Error("There was a problem formmatting queue!");
+      return formattedQueue;
+    } catch (error) {
+      console.log("Error: ", error);
+    }
+  });
 
   // ✅ Define all handlers with useCallback at the top level
   const addSingleQueue = useCallback(
-    async (notification) => {
+    async (data) => {
       try {
-        const queueData = await getQueueByIdAndReference(
-          notification.queueId,
-          notification.referenceNumber
-        );
-
-        console.log("Fetched single queue data:", queueData);
+        const queueData = await handleFetchQueue(data, {
+          status: Status.WAITING,
+        });
         if (!queueData) return;
-
-        const formattedQueue = formatQueueData(queueData);
-
         // Update both states in sequence
         setGlobalQueueMap((prevMap) => {
           const newMap = new Map(prevMap);
-          newMap.set(formattedQueue.queueId, formattedQueue);
+          newMap.set(queueData.queueId, queueData);
 
           // Also update the IDs list with the new sorted order
           const allQueues = Array.from(newMap.values());
           const sortedQueues = sortByPriorityPattern(allQueues);
           const sortedIds = sortedQueues.map((q) => q.queueId);
-
           // Set the IDs synchronously
           // setGlobalQueueIds(sortedIds);
           setGlobalQueueIds(sortedIds.map(String));
@@ -428,12 +435,9 @@ const ManageQueueHook = ({
   const handleQueueCreated = useCallback(
     async (notification) => {
       if (!socket || !isConnected || !selectedWindow?.id) return;
-
-      // showToast(`New queue ${notification.queueId} created`, "info");
-
       if (globalQueueIds.length < INITIAL_LOAD) {
-        console.log("Helloo");
-        await addSingleQueue(notification);
+        const newAdd = await addSingleQueue(notification);
+        // console.log("New Added", newAdd);
       } else {
         // Just update count, don't add to list
         setTotalWaitingCount((prev) => prev + 1);
@@ -452,158 +456,187 @@ const ManageQueueHook = ({
       addSingleQueue,
     ]
   );
+
+  const removeFromList = useCallback((queueData) => {
+    try {
+      const queueId = String(queueData.queueId);
+      removeFromWaitingQueue(queueId);
+      removeFromDeferredQueue(queueId);
+    } catch (error) {
+      console.log("An error occurred.", error);
+    }
+  });
   const handleQueueRemoved = useCallback(
     (data) => {
-      removeFromWaitingQueue(data.queueId);
+      removeFromList(data);
     },
-    [removeFromWaitingQueue]
+    [removeFromList]
   );
 
   const handleDeferredQueue = useCallback(
-    (queue) => {
-      const formattedDeferredQueue = formatQueueData(queue);
-      showToast(
-        `Queue (${formattedDeferredQueue.queueNo}) deferred`,
-        "warning"
-      );
-
-      removeFromWaitingQueue(formattedDeferredQueue.queueId);
-
-      if (!deferredQueueMap.has(formattedDeferredQueue.queueId)) {
-        addToDeferredQueue(formattedDeferredQueue);
+    async (data) => {
+      const queueData = await handleFetchQueue(data, {
+        status: Status.DEFERRED,
+        // requestStatus: [Status.STALLED, Status.SKIPPED],
+      });
+      console.log("QueueData", queueData);
+      showToast(`Queue (${queueData.queueNo}) deferred`, "warning");
+      removeFromList(data.queueId);
+      if (!deferredQueueMap.has(queueData.queueId)) {
+        addToDeferredQueue(queueData);
       }
     },
     [
-      formatQueueData,
+      handleFetchQueue,
       showToast,
-      removeFromWaitingQueue,
+      removeFromList,
       deferredQueueMap,
       addToDeferredQueue,
     ]
   );
 
   const handleCompleted = useCallback(
-    (queue) => {
-      console.log("✅ Queue Completed:", queue);
-      const formattedCompletedQueue = formatQueueData(queue);
-
-      removeFromDeferredQueue(formattedCompletedQueue.queueId);
-      removeFromWaitingQueue(formattedCompletedQueue.queueId);
+    (data) => {
+      removeFromList(data);
     },
-    [formatQueueData, removeFromDeferredQueue, removeFromWaitingQueue]
+    [removeFromList]
   );
 
   const handleCancelled = useCallback(
-    (queue) => {
-      console.log("✅ Queue Cancelled:", queue);
-      const formattedCancelledQueue = formatQueueData(queue);
-
-      removeFromDeferredQueue(formattedCancelledQueue.queueId);
-      removeFromWaitingQueue(formattedCancelledQueue.queueId);
+    (data) => {
+      removeFromList(data);
     },
-    [formatQueueData, removeFromDeferredQueue, removeFromWaitingQueue]
+    [removeFromList]
   );
 
   const handlePartiallyCompleted = useCallback(
-    (queue) => {
-      console.log("✅ Queue Partially Completed:", queue);
-      const formattedPartialCompletedQueue = formatQueueData(queue);
-
-      removeFromDeferredQueue(formattedPartialCompletedQueue.queueId);
-      removeFromWaitingQueue(formattedPartialCompletedQueue.queueId);
+    (data) => {
+      removeFromList(data);
     },
-    [formatQueueData, removeFromDeferredQueue, removeFromWaitingQueue]
+    [removeFromList]
   );
 
+  // console.log("SelectedQueue: ", selectedQueue);
   const handleDeferredRequestUpdated = useCallback(
     (data) => {
-      console.log("🔄 Deferred request updated:", data);
+      try {
+        console.log("Deferred request updated:", data);
 
-      setDeferredQueueMap((prev) => {
-        const queue = prev.get(data.queueId);
-        if (!queue) return prev;
+        setDeferredQueueMap((prev) => {
+          const queueIdKey = String(data.queueId);
+          const queue = prev.get(queueIdKey);
+          if (!queue) {
+            console.warn(
+              `Queue ${queueIdKey} not found in deferredQueueMap`
+            );
+            return new Map(prev);
+          }
 
-        const newMap = new Map(prev);
-        const updatedQueue = {
-          ...queue,
-          requests: queue.requests.map((req) =>
-            req.id === data.requestId
-              ? {
-                  ...req,
-                  status: normalizeStatusForDisplay(data.requestStatus),
-                  processedBy: data.updatedRequest?.processedBy,
-                  processedAt: data.updatedRequest?.processedAt,
-                }
-              : req
-          ),
-        };
+          const updatedQueue = {
+            ...queue,
+            requests: queue.requests.map((req) =>
+              req.id === data.requestId || req.requestId === data.requestId
+                ? {
+                    ...req,
+                    status: normalizeStatusForDisplay(data.requestStatus),
+                    processedBy: data.updatedRequest?.processedBy,
+                    processedAt: data.updatedRequest?.processedAt,
+                  }
+                : req
+            ),
+          };
+          const newMap = new Map(prev);
+          newMap.set(queueIdKey, updatedQueue);
+          return newMap;
+        });
+        // ✅ Update selected queue with better comparison
+        setSelectedQueue((prev) => {
+          console.log("Checking selectedQueue update:", {
+            prev,
+            dataQueueId: data.queueId,
+            prevQueueId: prev?.queueId,
+            prevId: prev?.id,
+            match:
+              prev?.queueId === data.queueId ||
+              prev?.id === data.queueId ||
+              String(prev?.queueId) === String(data.queueId) ||
+              String(prev?.id) === String(data.queueId),
+          });
 
-        newMap.set(data.queueId, updatedQueue);
-        return newMap;
-      });
+          if (!prev || prev?.queueId !== String(data.queueId)) return prev;
+          const updatedRequests = prev.requests.map((req) => {
+            const isTargetRequest =
+              req.id === data.requestId || req.requestId === data.requestId;
 
-      setSelectedQueue((prev) =>
-        prev && prev.queueId === data.queueId
-          ? {
-              ...prev,
-              requests: prev.requests.map((req) =>
-                req.id === data.requestId
-                  ? {
-                      ...req,
-                      status: normalizeStatusForDisplay(data.requestStatus),
-                      processedBy: data.updatedRequest?.processedBy,
-                      processedAt: data.updatedRequest?.processedAt,
-                    }
-                  : req
-              ),
+            if (isTargetRequest) {
+              return {
+                ...req,
+                status: normalizeStatusForDisplay(data.requestStatus),
+                processedBy: data.updatedRequest?.processedBy,
+                processedAt: data.updatedRequest?.processedAt,
+              };
             }
-          : prev
-      );
+            return req;
+          });
+
+          return { ...prev, requests: updatedRequests };
+        });
+      } catch (error) {
+        console.error("Error handling deferred request update:", error);
+      }
     },
     [normalizeStatusForDisplay]
   );
 
   const handleQueueReset = useCallback(
-    (data) => {
+    async (data) => {
       if (data.previousWindowId === selectedWindow?.id) {
         console.log("⏭️ Skipping reset event for own window");
         return;
       }
+      try {
+        const queueData = await getQueueByIdAndReference(
+          data.queueId,
+          data.referenceNumber
+        );
+        if (!queueData)
+          throw new Error("Error Occurred when fetching queue data");
 
-      const formattedResetQueue = formatQueueData(data);
+        const formattedResetQueue = formatQueueData(queueData);
+        if (!globalQueueMap.has(queueData.queueId)) {
+          addToWaitingQueue(formattedResetQueue);
+        } else {
+          setGlobalQueueMap((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(queueData.queueId, formattedResetQueue);
+            return newMap;
+          });
 
-      if (!globalQueueMap.has(data.queueId)) {
-        addToWaitingQueue(formattedResetQueue);
-      } else {
-        setGlobalQueueMap((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(data.queueId, formattedResetQueue);
-          return newMap;
-        });
+          setGlobalQueueIds((prev) => {
+            const queueObjects = prev
+              .map((id) => globalQueueMap.get(id))
+              .filter(Boolean);
+            const updated = queueObjects.map((q) =>
+              q.queueId === queueData.queueId ? formattedResetQueue : q
+            );
+            const sorted = sortByPriorityPattern(updated);
+            return sorted.map((q) => q.queueId);
+          });
+        }
 
-        setGlobalQueueIds((prev) => {
-          const queueObjects = prev
-            .map((id) => globalQueueMap.get(id))
-            .filter(Boolean);
-          const updated = queueObjects.map((q) =>
-            q.queueId === data.queueId ? formattedResetQueue : q
-          );
-          const sorted = sortByPriorityPattern(updated);
-          return sorted.map((q) => q.queueId);
-        });
+        if (currentQueue?.queueId === queueData.queueId) {
+          showToast("Duplicated", "warning");
+          setCurrentQueue(null);
+        }
+
+        removeFromDeferredQueue(queueData.queueId);
+        showToast(
+          `Queue ${formattedResetQueue.queueNo} was set to WAITING.`,
+          "warning"
+        );
+      } catch (error) {
+        console.error("Error Occurred", error);
       }
-
-      if (currentQueue?.queueId === data.queueId) {
-        showToast("Duplicated", "warning");
-        setCurrentQueue(null);
-      }
-
-      removeFromDeferredQueue(data.queueId);
-
-      showToast(
-        `Queue ${formattedResetQueue.queueNo} was set to WAITING.`,
-        "warning"
-      );
     },
     [
       selectedWindow?.id,
@@ -663,8 +696,6 @@ const ManageQueueHook = ({
   // ✅ Simplified useEffect
   useEffect(() => {
     if (!socket || !isConnected || !selectedWindow?.id) return;
-
-    // Subscribe to events
     socket.on(QueueActions.QUEUE_RESET, handleQueueReset);
     socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
     socket.on(

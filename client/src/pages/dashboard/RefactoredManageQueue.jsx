@@ -175,7 +175,7 @@ export default function Manage_Queue() {
     // selectedWindow,
     showWindowModal,
     setShowWindowModal,
-    sortByPriorityPattern,
+    // sortByPriorityPattern,
     loadWindows, // Your existing function
     showToast, // Your existing function
     // formatTime, // Your existing function
@@ -281,11 +281,11 @@ export default function Manage_Queue() {
       // But we can also do it locally for instant feedback
       // setGlobalQueueList is handled by the hook
 
-      socket.emit(QueueActions.QUEUE_TAKEN, {
-        queueId: assignedQueue.queueId,
-        queueNo: assignedQueue.queueNo,
-        windowId: activeWindow.id,
-      });
+      // socket.emit(QueueActions.QUEUE_TAKEN, {
+      //   queueId: assignedQueue.queueId,
+      //   queueNo: assignedQueue.queueNo,
+      //   windowId: activeWindow.id,
+      // });
 
       console.log("Formatted Queue:", formattedQueue.queueNo);
       AnnounceQueue(formattedQueue.queueNo, activeWindow.name);
