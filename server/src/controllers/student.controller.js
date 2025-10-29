@@ -1,6 +1,7 @@
 import { Queue_Type, Status } from "@prisma/client";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { decryptQueueId, encryptQueueId } from "../../utils/encryptId.js";
 import { SocketEvents } from "../services/enums/SocketEvents.js";
 import generateReferenceNumber from "../services/queue/generateReferenceNumber.js";
 import { formatQueueNumber } from "../services/queue/QueueNumber.js";
@@ -9,7 +10,7 @@ import {
   sendLiveDisplayUpdate,
 } from "./statistics.controller.js";
 
-import { encryptQueueId } from "../../utils/encryptId.js";
+const isIntegerParam = (val) => /^\d+$/.test(val);
 
 export const generateQueue = async (req, res) => {
   try {
@@ -268,9 +269,8 @@ export const generateQueue = async (req, res) => {
         );
         // io.emit(SocketEvents.QUEUE_CREATED, newQueueData);
         io.emit(SocketEvents.QUEUE_CREATED, {
-          queueId: encryptQueueId(newQueue.queueId),
+          queueId: newQueue.queueId,
           referenceNumber: newQueue.referenceNumber,
-          // timestamp: new Date(),
         });
         // ✅ Add this line for SSE updates
         sendDashboardUpdate({
@@ -699,83 +699,200 @@ export const getRequestTypes = async (req, res) => {
 };
 
 //for Display Queue Number(Prio and Reg) in Figma
+// export const getQueueDisplay = async (req, res) => {
+//   try {
+//     const { queueId: queueIdStr, referenceNumber } = req.params;
+
+//     if (!referenceNumber) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Reference number is required",
+//       });
+//     }
+
+//     // Find the queue
+//     const queue = await prisma.queue.findUnique({
+//       where: { referenceNumber },
+//       include: {
+//         requests: {
+//           where: { isActive: true },
+//           select: {
+//             requestId: true,
+//             requestStatus: true,
+//             requestType: {
+//               select: { requestName: true },
+//             },
+//           },
+//         },
+//         session: {
+//           select: {
+//             sessionId: true,
+//             sessionNumber: true,
+//             maxQueueNo: true,
+//           },
+//         },
+//       },
+//     });
+
+//     if (!queue) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Queue not found",
+//       });
+//     }
+
+//     // Build response like generateQueue
+//     return res.status(200).json({
+//       success: true,
+//       message: "Queue details fetched successfully!",
+//       data: {
+//         queueDetails: {
+//           queueId: queue.queueId,
+//           queueNumber: queue.queueNumber,
+//           formattedQueueNumber: queue.queueNumber
+//             ? queue.queueNumber.toString().padStart(3, "0")
+//             : null,
+//           queueType: queue.queueType,
+//           queueStatus: queue.queueStatus,
+//           referenceNumber: queue.referenceNumber,
+//           studentId: queue.studentId,
+//           studentFullName: queue.studentFullName,
+//           courseCode: queue.courseCode,
+//           courseName: queue.courseName,
+//           yearLevel: queue.yearLevel,
+//           createdAt: queue.createdAt,
+
+//           sessionInfo: queue.session,
+//           serviceRequests: queue.requests.map((r) => ({
+//             requestId: r.requestId,
+//             requestName: r.requestType.requestName,
+//             requestStatus: r.requestStatus,
+//           })),
+//         },
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching queue detail:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 export const getQueueDisplay = async (req, res) => {
   try {
-    const { referenceNumber } = req.params;
-
-    if (!referenceNumber) {
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    const { queueId: queueIdStr } = req.params;
+    const { referenceNumber } = req.query;
+    if (!queueIdStr) {
       return res.status(400).json({
         success: false,
-        message: "Reference number is required",
+        message: "Missing required param. (queueId,)",
       });
     }
 
-    // Find the queue
-    const queue = await prisma.queue.findUnique({
-      where: { referenceNumber },
-      include: {
+    const decryptedQueueId = decryptQueueId(queueIdStr);
+    if (!decryptQueueId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request, queueId was not decrypted properly",
+      });
+    }
+
+    if (!isIntegerParam(decryptedQueueId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid param. 'queueId' must be an integer.",
+      });
+    }
+    const queueId = Number(decryptedQueueId);
+
+    if (isNaN(queueId)) {
+      return res.sttaus(400).json({
+        success: false,
+        message:
+          "An error occurred. Expecting a number but recieved a string. (queueId)",
+      });
+    }
+
+    let whereClause = {
+      queueId: queueId,
+      session:{
+        sessionDate: todayUTC 
+      },
+      isActive: true,
+      queueStatus: Status.WAITING,
+    };
+
+    if(referenceNumber){
+      whereClause.referenceNumber= referenceNumber;
+    }
+
+    const newQueue = await prisma.queue.findFirst({
+      where: whereClause,
+      select: {
+        queueId: true,
+        studentId: true,
+        studentFullName: true,
+        courseCode: true,
+        yearLevel: true,
+        queueNumber: true,
+        queueType: true,
+        queueStatus: true,
+        referenceNumber: true,
+        isActive: true,
+        windowId: true,
+        createdAt: true,
         requests: {
-          where: { isActive: true },
           select: {
             requestId: true,
             requestStatus: true,
             requestType: {
-              select: { requestName: true },
+              select: {
+                requestName: true,
+              },
             },
-          },
-        },
-        session: {
-          select: {
-            sessionId: true,
-            sessionNumber: true,
-            maxQueueNo: true,
           },
         },
       },
     });
 
-    if (!queue) {
+    if (!newQueue) {
       return res.status(404).json({
         success: false,
-        message: "Queue not found",
+        message: "Error Occured. Queue Not Found",
       });
     }
 
-    // Build response like generateQueue
+    const queuePrefix =
+      newQueue.queueType === Queue_Type.REGULAR
+        ? "R"
+        : newQueue.queueType === Queue_Type.PRIORITY
+        ? "P"
+        : "U";
+    const formattedQueueNumber = formatQueueNumber(
+      queuePrefix,
+      newQueue.queueNumber
+    );
     return res.status(200).json({
       success: true,
-      message: "Queue details fetched successfully!",
-      data: {
+      message: "Queue fetched successfully!",
+      queue: {
         queueDetails: {
-          queueId: queue.queueId,
-          queueNumber: queue.queueNumber,
-          formattedQueueNumber: queue.queueNumber
-            ? queue.queueNumber.toString().padStart(3, "0")
-            : null,
-          queueType: queue.queueType,
-          queueStatus: queue.queueStatus,
-          referenceNumber: queue.referenceNumber,
-          studentId: queue.studentId,
-          studentFullName: queue.studentFullName,
-          courseCode: queue.courseCode,
-          courseName: queue.courseName,
-          yearLevel: queue.yearLevel,
-          createdAt: queue.createdAt,
-
-          sessionInfo: queue.session,
-          serviceRequests: queue.requests.map((r) => ({
-            requestId: r.requestId,
-            requestName: r.requestType.requestName,
-            requestStatus: r.requestStatus,
-          })),
+          ...newQueue,
+          formattedQueueNumber,
         },
       },
     });
   } catch (error) {
-    console.error("Error fetching queue detail:", error);
+    console.error("Error fetching queue:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: "Failed to fetch queue",
     });
   }
 };

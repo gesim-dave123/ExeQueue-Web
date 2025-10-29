@@ -81,10 +81,17 @@ export const getRequestType = async () => {
   }
 };
 
-export const getQueueDisplay = async (referenceNumber) => {
+export const getQueueDisplay = async (queueId, options = {}) => {
   try {
+    const { referenceNumber } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      ...(referenceNumber && { referenceNumber: referenceNumber }),
+    });
+
     const response = await axios.get(
-      `${backendConnection()}/api/student/queue/${referenceNumber}`,
+      `${backendConnection()}/api/student/queue/${queueId}/?${params.toString()}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -96,7 +103,7 @@ export const getQueueDisplay = async (referenceNumber) => {
     if (response.data.success && response.status === 200) {
       return {
         success: true,
-        data: response.data.data,
+        data: response.data.queue.queueDetails,
       };
     }
   } catch (error) {
