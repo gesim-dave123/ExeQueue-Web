@@ -213,16 +213,6 @@ export const determineNextQueue = async (req, res) => {
           },
         });
 
-        // Log the action
-        // await tx.transactionHistory.create({
-        //   data: {
-        //     queueId: nextQueue.queueId,
-        //     performedById: sasStaffId,
-        //     performedByRole: role,
-        //     transactionStatus: Status.IN_SERVICE
-        //   }
-        // });
-
         return finalQueue;
       },
       {
@@ -469,16 +459,17 @@ export const getRequest = async (req, res) => {
 
 export const setRequestStatus = async (req, res) => {
   try {
+    const io = req.app.get("io");
     const { sasStaffId, role } = req.user;
-
     const {
       queueId: queueIdStr,
       requestId: requestIdStr,
       windowId: windowIdStr,
       requestStatus,
     } = req.params;
-
+    
     console.log("Request Params:", req.params);
+    
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -491,36 +482,32 @@ export const setRequestStatus = async (req, res) => {
       });
     }
 
-    // Convert to numbers after validation
     const queueId = Number(queueIdStr);
     const requestId = Number(requestIdStr);
     const windowId = Number(windowIdStr);
 
-    // 🔒 Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access — invalid role.",
+        message: "Unauthorized access – invalid role.",
       });
     }
 
     if (!requestStatus) {
       return res.status(400).json({
         success: false,
-        message: "Missing required filed. (requestStatus)",
+        message: "Missing required field. (requestStatus)",
       });
     }
 
-    // 🧩 Validate request data
     if (isNaN(queueId) || isNaN(requestId) || isNaN(windowId)) {
       return res.status(400).json({
         success: false,
         message:
-          "Invalid Type, should receive a number but recieved a string (queueId, requestId, windowId).",
+          "Invalid Type, should receive a number but received a string (queueId, requestId, windowId).",
       });
     }
 
-    // ✅ Allow only supported statuses
     if (
       ![
         Status.STALLED,
@@ -535,7 +522,6 @@ export const setRequestStatus = async (req, res) => {
       });
     }
 
-    // ✅ Verify this window owns this queue
     const queueCheck = await prisma.queue.findUnique({
       where: { queueId },
       select: { windowId: true, queueStatus: true },
@@ -562,59 +548,55 @@ export const setRequestStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Queue not be WAITING to update request status.",
+        message: "Queue must not be WAITING to update request status.",
       });
     }
 
-    // 🧠 Transaction: update request + fetch queue for context
     const updated = await prisma.$transaction(async (tx) => {
       const newStatus = mapToStatus(requestStatus);
+
       const requestUpdate = await tx.request.update({
         where: { requestId },
         data: {
           requestStatus: newStatus,
           processedBy: sasStaffId,
           processedAt:
-            mapToStatus(requestStatus) === Status.COMPLETED
+            newStatus === Status.COMPLETED
               ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
-      });
-      const queueUpdate = await tx.queue.findUnique({
-        where: { queueId },
         include: {
-          requests: {
-            // where: {
-            //   requestStatus: {
-            //     in: [Status.STALLED, Status.SKIPPED],
-            //   },
-            // },
-            include: {
-              requestType: true,
-            },
-          },
+          requestType: true,
         },
       });
 
-      return { requestUpdate, queueUpdate };
+      // ✅ UPSERT transaction history (update if exists, create if doesn't)
+      await createTransactionHistorySafe(tx, {
+        queueId: queueId,
+        requestId: requestId,
+        performedById: sasStaffId,
+        performedByRole: role,
+        transactionStatus: newStatus,
+        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+      });
+
+      return { requestUpdate };
     });
 
-    // // ✅ Emit real-time event to all windows with action type
-    // io.emit("QUEUE_UPDATED", {
-    //   action: "REQUEST_STATUS_UPDATED",
-    //   queueId: updated.queueUpdate.queueId,
-    //   queueStatus: updated.queueUpdate.queueStatus,
-    //   updatedQueue: updated.queueUpdate,
-    //   updatedRequest: updated.requestUpdate,
-    //   windowId: windowId,
-    // });
+    io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+      queueId: queueId,
+      requestId: updated.requestUpdate.requestId,
+      requestStatus: updated.requestUpdate.requestStatus,
+      updatedRequest: updated.requestUpdate,
+      updatedBy: sasStaffId,
+    });
 
-    // ✅ Respond to the calling client
     return res.status(200).json({
       success: true,
-      message: `Request ${requestId} set to ${requestStatus}`,
-      data: updated,
+      status: updated.requestUpdate.requestStatus,
+      message: `Request ${requestId} updated successfully.`,
+      data: updated.requestUpdate,
     });
   } catch (error) {
     console.error("❌ Error setting request status:", error);
@@ -625,6 +607,66 @@ export const setRequestStatus = async (req, res) => {
     });
   }
 };
+/*
+await tx.transactionHistory.create({
+        data: {
+          queueId: queueId,
+          requestId: requestId,  // Link to the specific request
+          performedById: sasStaffId,
+          performedByRole: role,
+          transactionStatus: newStatus,  // STALLED, COMPLETED, etc.
+          createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+        }
+      });
+*/
+async function createTransactionHistorySafe(tx, data) {
+  // 🔍 Find existing transaction for this specific queueId + requestId combination
+  const existingTransaction = await tx.transactionHistory.findFirst({
+    where: {
+      queueId: data.queueId,
+      requestId: data.requestId || null,
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+
+  if (existingTransaction) {
+    // ✅ UPDATE existing transaction
+    console.log('🔄 Updating existing transaction:', {
+      id: existingTransaction.transactionHistoryId,
+      queueId: data.queueId,
+      requestId: data.requestId,
+      oldStatus: existingTransaction.transactionStatus,
+      newStatus: data.transactionStatus
+    });
+
+    const updated = await tx.transactionHistory.update({
+      where: { 
+        transactionHistoryId: existingTransaction.transactionHistoryId 
+      },
+      data: {
+        transactionStatus: data.transactionStatus,
+        performedById: data.performedById,
+        performedByRole: data.performedByRole,
+        createdAt: data.createdAt
+      }
+    });
+
+    return updated;
+  }
+
+  // ✅ CREATE new transaction
+  console.log('➕ Creating new transaction:', {
+    queueId: data.queueId,
+    requestId: data.requestId,
+    status: data.transactionStatus
+  });
+
+  const created = await tx.transactionHistory.create({ data });
+  
+  return created;
+}
 
 export const setDeferredRequestStatus = async (req, res) => {
   try {
@@ -638,7 +680,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       requestStatus,
     } = req.params;
 
-    // Validate integer params
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -655,11 +696,10 @@ export const setDeferredRequestStatus = async (req, res) => {
     const requestId = Number(requestIdStr);
     const windowId = Number(windowIdStr);
 
-    // Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access — invalid role.",
+        message: "Unauthorized access – invalid role.",
       });
     }
 
@@ -670,7 +710,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // Only allow supported statuses
     if (
       ![
         Status.STALLED,
@@ -685,7 +724,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // Verify window owns this queue
     const queueCheck = await prisma.queue.findUnique({
       where: { queueId },
       select: { windowId: true, queueStatus: true },
@@ -716,7 +754,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // ✅ Transaction: update request AND get updated queue data
     const updated = await prisma.$transaction(async (tx) => {
       const newStatus = mapToStatus(requestStatus);
 
@@ -732,28 +769,36 @@ export const setDeferredRequestStatus = async (req, res) => {
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
         include: {
-          requestType: true, // Include related data if needed
+          requestType: true,
         },
+      });
+
+      // ✅ UPSERT transaction history
+      await createTransactionHistorySafe(tx, {
+        queueId: queueId,
+        requestId: requestId,
+        performedById: sasStaffId,
+        performedByRole: role,
+        transactionStatus: newStatus,
+        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
       });
 
       return { requestUpdate };
     });
 
-    // ✅ Broadcast ONLY the specific request update to ALL windows
     io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
       queueId: queueId,
       requestId: updated.requestUpdate.requestId,
       requestStatus: updated.requestUpdate.requestStatus,
-      updatedRequest: updated.requestUpdate, // Only the updated request, not the whole queue
+      updatedRequest: updated.requestUpdate,
       updatedBy: sasStaffId,
     });
 
-    // ✅ Return success response
     return res.status(200).json({
       success: true,
       status: updated.requestUpdate.requestStatus,
       message: `Deferred request ${requestId} updated successfully.`,
-      data: updated.requestUpdate, // Return only the updated request
+      data: updated.requestUpdate,
     });
   } catch (error) {
     console.error("❌ Error setting deferred request status:", error);
@@ -826,7 +871,6 @@ export const markQueueStatus = async (req, res) => {
     const { sasStaffId, role } = req.user;
     const { queueId: queueIdStr, windowId: windowIdStr } = req.params;
 
-    // 🔍 Validate numeric params
     if (!isIntegerParam(queueIdStr) || !isIntegerParam(windowIdStr)) {
       return res.status(400).json({
         success: false,
@@ -838,14 +882,13 @@ export const markQueueStatus = async (req, res) => {
     const windowId = Number(windowIdStr);
 
     if (isNaN(windowId) || isNaN(queueId)) {
-      return res.sttaus(400).json({
+      return res.status(400).json({
         success: false,
         message:
-          "An error occurred. Expecting a number but recieved a string. (queueId, windowId)",
+          "An error occurred. Expecting a number but received a string. (queueId, windowId)",
       });
     }
 
-    // 🔒 Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
@@ -853,7 +896,6 @@ export const markQueueStatus = async (req, res) => {
       });
     }
 
-    // 🧩 Fetch queue with its requests
     const existingQueue = await prisma.queue.findUnique({
       where: { queueId },
       include: {
@@ -868,7 +910,6 @@ export const markQueueStatus = async (req, res) => {
       });
     }
 
-    // 🔒 Verify correct window
     if (existingQueue.windowId !== windowId) {
       return res.status(403).json({
         success: false,
@@ -876,7 +917,6 @@ export const markQueueStatus = async (req, res) => {
       });
     }
 
-    // 🧠 Determine queue status based on requests
     const requests = existingQueue.requests || [];
 
     if (requests.length === 0) {
@@ -900,25 +940,22 @@ export const markQueueStatus = async (req, res) => {
     const hasCancelled = requests.some(
       (r) => r.requestStatus === Status.CANCELLED
     );
+    
     let finalStatus = Status.IN_SERVICE;
 
-    // ✅ Fixed logic - check for stalled/skipped FIRST
     if (allCompleted) finalStatus = Status.COMPLETED;
     else if (allCancelled) finalStatus = Status.CANCELLED;
     else if (anyStalled || anySkipped) finalStatus = Status.DEFERRED;
     else if (hasCompleted && hasCancelled)
       finalStatus = Status.PARTIALLY_COMPLETE;
 
-    // ✅ Save updates in a transaction
     const updatedQueue = await prisma.$transaction(async (tx) => {
       const queueUpdate = await tx.queue.update({
         where: { queueId },
         data: {
           queueStatus: finalStatus,
           completedAt:
-            finalStatus === Status.COMPLETED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-              : Status.CANCELLED
+            finalStatus === Status.COMPLETED || finalStatus === Status.CANCELLED
               ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
@@ -932,19 +969,37 @@ export const markQueueStatus = async (req, res) => {
         },
       });
 
-      await tx.transactionHistory.create({
-        data: {
+      // ✅ CRITICAL FIX: Only create queue-level transaction for PARTIALLY_COMPLETE
+      // For COMPLETED/CANCELLED, the request-level transactions are sufficient!
+      const shouldCreateQueueTransaction = 
+        existingQueue.queueStatus !== finalStatus && // Status changed
+        finalStatus === Status.PARTIALLY_COMPLETE;   // Only for mixed outcomes
+
+      if (shouldCreateQueueTransaction) {
+        console.log('➕ Creating queue-level transaction for PARTIALLY_COMPLETE');
+        await createTransactionHistorySafe(tx, {
           queueId,
+          requestId: null, // Queue-level status
           performedById: sasStaffId,
           performedByRole: role,
           transactionStatus: finalStatus,
-        },
-      });
+          createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+        });
+      } else {
+        console.log('⏭️ Skipping queue-level transaction:', {
+          reason: finalStatus === Status.DEFERRED 
+            ? 'DEFERRED status' 
+            : finalStatus === Status.COMPLETED || finalStatus === Status.CANCELLED
+              ? 'Request-level transactions already exist'
+              : 'Status unchanged',
+          currentStatus: finalStatus,
+          previousStatus: existingQueue.queueStatus
+        });
+      }
 
       return queueUpdate;
     });
 
-    // 🎯 Emit socket signal only to the window room
     const actionMap = {
       [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
       [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
@@ -997,8 +1052,7 @@ export const markQueueStatus = async (req, res) => {
           },
         })),
     };
-    // io.emit(event, newQueueData);
-    // io.to(`window:${windowId}`).emit(event, newQueueData);
+    
     io.emit(event, newQueueData);
 
     console.log(
@@ -1018,6 +1072,8 @@ export const markQueueStatus = async (req, res) => {
     });
   }
 };
+
+
 
 //Check if a skipped queue returned within 1 hour.
 export const restoreSkippedQueue = async (req, res) => {
@@ -1318,14 +1374,13 @@ export const currentServedQueue = async (req, res) => {
   }
 };
 
+
 function mapToStatus(statusString) {
   const statusMap = {
     completed: Status.COMPLETED,
     stalled: Status.STALLED,
     skipped: Status.SKIPPED,
     cancelled: Status.CANCELLED,
-    // Add other status mappings as needed
   };
-
   return statusMap[statusString.toLowerCase()];
 }

@@ -1,4 +1,5 @@
-// This script is intended for generating test data for the transaction tab.
+// generate-test-data.js
+// Run this script to generate 30 test transactions
 // Usage: node generate-test-data.js
 
 import { PrismaClient, Status, Queue_Type } from '@prisma/client';
@@ -16,9 +17,15 @@ const courseNames = {
   'BS-Psych': 'Bachelor of Science in Psychology'
 };
 
-const firstNames = ['Black', 'Maria', 'Jose', 'Ana', 'Pedro', 'Carmen', 'Luis', 'Rosa', 'Miguel', 'Sofia'];
+const firstNames = ['John', 'Maria', 'Jose', 'Ana', 'Pedro', 'Carmen', 'Luis', 'Rosa', 'Miguel', 'Sofia'];
 const lastNames = ['Santos', 'Reyes', 'Cruz', 'Garcia', 'Ramos', 'Flores', 'Mendoza', 'Torres', 'Gonzales', 'Rivera'];
-const statuses = [Status.COMPLETED, Status.CANCELLED, Status.DEFERRED, Status.PARTIALLY_COMPLETE];
+const statuses = [
+  Status.COMPLETED, 
+  Status.CANCELLED, 
+  Status.DEFERRED, 
+  Status.PARTIALLY_COMPLETE,
+  Status.STALLED  // ✅ ADDED
+];
 
 // Generate random student ID
 function generateStudentId() {
@@ -39,7 +46,7 @@ function randomItem(array) {
 
 async function generateTestTransactions() {
   try {
-    console.log('50/50 it will work: Starting test data generation...\n');
+    console.log('🚀 Starting test data generation...\n');
 
     // 1. Get active session or create one
     let session = await prisma.queueSession.findFirst({
@@ -58,9 +65,9 @@ async function generateTestTransactions() {
           isActive: true
         }
       });
-      console.log('NAYSUU Created new session:', session.sessionId);
+      console.log('✅ Created new session:', session.sessionId);
     } else {
-      console.log('NAYSUUU Using existing session:', session.sessionId);
+      console.log('✅ Using existing session:', session.sessionId);
     }
 
     // 2. Get all request types
@@ -69,10 +76,10 @@ async function generateTestTransactions() {
     });
 
     if (requestTypes.length === 0) {
-      console.error('Aray Koh: No request types found! Please add request types first.');
+      console.error('❌ No request types found! Please add request types first.');
       return;
     }
-    console.log(`YESSIR! Found ${requestTypes.length} request types\n`);
+    console.log(`✅ Found ${requestTypes.length} request types\n`);
 
     // 3. Get a staff member to assign as performer
     const staff = await prisma.sasStaff.findFirst({
@@ -80,13 +87,39 @@ async function generateTestTransactions() {
     });
 
     if (!staff) {
-      console.error('Aray Koh:  No active staff found!');
+      console.error('❌ No active staff found!');
       return;
     }
-    console.log(`-_- Using staff: ${staff.firstName} ${staff.lastName}\n`);
+    console.log(`✅ Using staff: ${staff.firstName} ${staff.lastName}\n`);
 
-    // 4. Generate 30 transactions
-    console.log('Escaping the Matrix: Generating 30 test transactions...\n');
+    // 🆕 4. Find the highest existing sequence numbers for this session
+    const [highestRegular, highestPriority] = await Promise.all([
+      prisma.queue.findFirst({
+        where: {
+          sessionId: session.sessionId,
+          queueType: Queue_Type.REGULAR
+        },
+        orderBy: { sequenceNumber: 'desc' },
+        select: { sequenceNumber: true }
+      }),
+      prisma.queue.findFirst({
+        where: {
+          sessionId: session.sessionId,
+          queueType: Queue_Type.PRIORITY
+        },
+        orderBy: { sequenceNumber: 'desc' },
+        select: { sequenceNumber: true }
+      })
+    ]);
+
+    // Start from the next available sequence number
+    let regularSequence = (highestRegular?.sequenceNumber || 0) + 1;
+    let prioritySequence = (highestPriority?.sequenceNumber || 0) + 1;
+
+    console.log(`📊 Starting sequences - REGULAR: ${regularSequence}, PRIORITY: ${prioritySequence}\n`);
+
+    // 5. Generate 30 transactions
+    console.log('📝 Generating 30 test transactions...\n');
 
     for (let i = 0; i < 30; i++) {
       const course = randomItem(courses);
@@ -98,6 +131,10 @@ async function generateTestTransactions() {
       const status = randomItem(statuses);
       const createdDate = randomDate(30); // Random date in last 30 days
       
+      // Get the correct sequence number based on queue type
+      const sequenceNumber = queueType === Queue_Type.PRIORITY ? prioritySequence : regularSequence;
+      const queueNumber = sequenceNumber; // For display
+      
       // Create queue
       const queue = await prisma.queue.create({
         data: {
@@ -107,15 +144,22 @@ async function generateTestTransactions() {
           courseCode: course,
           courseName: courseNames[course],
           yearLevel: `${Math.floor(Math.random() * 4) + 1}st`,
-          queueNumber: i + 1,
-          sequenceNumber: i + 1,
+          queueNumber: queueNumber,
+          sequenceNumber: sequenceNumber,
           queueType: queueType,
           queueStatus: status,
-          referenceNumber: `${session.sessionNumber}-${queueType === Queue_Type.PRIORITY ? 'P' : 'R'}-${String(i + 1).padStart(3, '0')}`,
+          referenceNumber: `${session.sessionNumber}-${queueType === Queue_Type.PRIORITY ? 'P' : 'R'}-${String(queueNumber).padStart(3, '0')}`,
           createdAt: createdDate,
           isActive: true
         }
       });
+
+      // Increment the appropriate counter
+      if (queueType === Queue_Type.PRIORITY) {
+        prioritySequence++;
+      } else {
+        regularSequence++;
+      }
 
       // Create 1-3 requests for this queue
       const numRequests = Math.floor(Math.random() * 3) + 1;
@@ -150,17 +194,17 @@ async function generateTestTransactions() {
         }
       });
 
-      console.log(`You can rest easy now! [${i + 1}/30] Created: ${fullName} - ${course} - ${selectedRequestTypes.map(rt => rt.requestName).join(', ')} - ${status}`);
+      console.log(`✅ [${i + 1}/30] Created: ${fullName} - ${course} - ${selectedRequestTypes.map(rt => rt.requestName).join(', ')} - ${status} - ${queueType}`);
     }
 
-    console.log('\n /-UwU-/ Successfully generated 30 test transactions!');
+    console.log('\n🎉 Successfully generated 30 test transactions!');
     
     // Show summary
     const totalTransactions = await prisma.transactionHistory.count();
-    console.log(`\n0w0 Total transactions in database: ${totalTransactions}`);
+    console.log(`\n📊 Total transactions in database: ${totalTransactions}`);
 
   } catch (error) {
-    console.error('-W- Error generating test data:', error);
+    console.error('❌ Error generating test data:', error);
   } finally {
     await prisma.$disconnect();
   }

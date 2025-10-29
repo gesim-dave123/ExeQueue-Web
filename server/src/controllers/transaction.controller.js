@@ -15,6 +15,51 @@ import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
  * - date: Filter by date (ISO format)
  * - search: Search by student ID, name, or reference number
  */
+
+export const updateTransactionStatus = async (req, res) => { //237
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Ensure valid status
+    const validStatuses = [
+      "WAITING",
+      "IN_SERVICE",
+      "DEFERRED",
+      "STALLED",
+      "CANCELLED",
+      "COMPLETED",
+      "SKIPPED",
+      "PARTIALLY_COMPLETE",
+    ];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status value.",
+      });
+    }
+
+    const updatedTransaction = await prisma.transaction.update({
+      where: { id: Number(id) },
+      data: { status },
+    });
+
+    return res.json({
+      success: true,
+      message: `Transaction marked as ${status}.`,
+      data: updatedTransaction,
+    });
+  } catch (error) {
+    console.error("Error updating transaction status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update transaction status.",
+      error: error.message,
+    });
+  }
+};
+
 export const getTransactions = async (req, res) => {
   try {
     // Debug logging
@@ -114,7 +159,6 @@ export const getTransactions = async (req, res) => {
         in: [
           Status.COMPLETED, 
           Status.CANCELLED, 
-          Status.DEFERRED, 
           Status.PARTIALLY_COMPLETE,
           Status.STALLED  
         ]
@@ -412,6 +456,7 @@ export const getTransactionSummary = async (req, res) => {
       }
     });
 
+
     // Transform to more readable format
     const summary = {
       total: statusCounts.reduce((acc, curr) => acc + curr._count.transactionStatus, 0),
@@ -434,4 +479,5 @@ export const getTransactionSummary = async (req, res) => {
       message: "0-o: Internal Server Error"
     });
   }
+  
 };
