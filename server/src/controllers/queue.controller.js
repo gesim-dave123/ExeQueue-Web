@@ -7,7 +7,6 @@ import {
   sendLiveDisplayUpdate,
 } from "./statistics.controller.js";
 
-import { decryptQueueId } from "../../utils/encryptId.js";
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
@@ -273,8 +272,15 @@ export const getQueue = async (req, res) => {
       new Date(),
       "Asia/Manila"
     );
-    const { queueId: queueIdStr, referenceNumber: referenceNumberStr } =
-      req.params;
+
+    const {
+      status,
+      windowId: windowIdStr,
+      requestStatus,
+      referenceNumber: referenceNumberStr,
+    } = req.query;
+
+    const { queueId: queueIdStr } = req.params;
     const { role } = req.user;
 
     // 🔒 Role validation
@@ -284,44 +290,91 @@ export const getQueue = async (req, res) => {
         message: "Unauthorized role.",
       });
     }
-    if (!queueIdStr || !referenceNumberStr) {
+
+    // 🧩 Validate queueId
+    if (!queueIdStr) {
       return res.status(400).json({
         success: false,
-        message: "Missing required params. (queueId, referenceNumber)",
+        message: "Missing required param: queueId",
       });
     }
 
-    const decryptedQueueId = decryptQueueId(queueIdStr);
-    if (!decryptQueueId) {
-      return res.status(400).json({
-        success: false,
-        message: "Bad Request, queueId was not decrypted properly",
-      });
-    }
-
-    if (!isIntegerParam(decryptedQueueId)) {
+    if (!isIntegerParam(queueIdStr)) {
       return res.status(400).json({
         success: false,
         message: "Invalid param. 'queueId' must be an integer.",
       });
     }
-    const queueId = Number(decryptedQueueId);
 
-    if (isNaN(queueId)) {
-      return res.sttaus(400).json({
-        success: false,
-        message:
-          "An error occurred. Expecting a number but recieved a string. (queueId)",
-      });
-    }
+    const queueId = Number(queueIdStr);
 
-    let whereClause = {
-      queueId: queueId,
-      referenceNumber: referenceNumberStr,
+    // 🎯 Base where clause
+    const whereClause = {
+      queueId,
       isActive: true,
-      queueStatus: Status.WAITING,
+      session: {
+        isActive: true,
+        isServing: true,
+      },
     };
 
+    // 🧱 Optional filters
+    if (status) {
+      if (
+        ![
+          Status.WAITING,
+          Status.CANCELLED,
+          Status.COMPLETED,
+          Status.DEFERRED,
+          Status.IN_SERVICE,
+        ].includes(status)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Bad Request. Invalid Queue Status.",
+        });
+      }
+
+      whereClause.queueStatus = status;
+    } else {
+      whereClause.queueStatus = Status.WAITING;
+    }
+
+    if (referenceNumberStr) {
+      // Optional: simple validation for ref format
+      if (!/^[A-Z0-9-]+$/i.test(referenceNumberStr)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid reference number format.",
+        });
+      }
+      whereClause.referenceNumber = referenceNumberStr;
+    }
+
+    if (windowIdStr) {
+      if (!isIntegerParam(windowIdStr)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid param. 'windowId' must be an integer.",
+        });
+      }
+
+      whereClause.windowId = Number(windowIdStr);
+    }
+
+    // 🧩 Handle requestStatus filter
+    const requestStatuses = Array.isArray(requestStatus)
+      ? requestStatus
+      : requestStatus
+      ? requestStatus.split(",")
+      : [];
+
+    const requestWhere =
+      requestStatuses.length > 0
+        ? { requestStatus: { in: requestStatuses } }
+        : { isActive: true };
+
+    // 🧠 Query database
     const newQueue = await prisma.queue.findFirst({
       where: whereClause,
       select: {
@@ -338,6 +391,7 @@ export const getQueue = async (req, res) => {
         windowId: true,
         createdAt: true,
         requests: {
+          where: requestWhere,
           select: {
             requestId: true,
             requestStatus: true,
@@ -351,13 +405,16 @@ export const getQueue = async (req, res) => {
       },
     });
 
+    console.log("Fetched Queue:", newQueue);
+
     if (!newQueue) {
       return res.status(404).json({
         success: false,
-        message: "Error Occured. Queue Not Found",
+        message: "Queue not found.",
       });
     }
 
+    // ✅ Success response
     return res.status(200).json({
       success: true,
       message: "Queue fetched successfully!",
@@ -367,7 +424,8 @@ export const getQueue = async (req, res) => {
     console.error("Error fetching queue:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch queue",
+      message: "Failed to fetch queue.",
+      error: error.message,
     });
   }
 };
@@ -802,7 +860,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       requestStatus,
     } = req.params;
 
-    // Validate integer params
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -895,15 +952,25 @@ export const setDeferredRequestStatus = async (req, res) => {
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
-        include: {
-          requestType: true, // Include related data if needed
+        select: {
+          requestId: true,
+          requestStatus: true,
+          requestType: {
+            select: {
+              requestTypeId: true,
+              requestName: true,
+            },
+          },
+          processedBy: true,
+          processedAt: true,
+          updatedAt: true,
         },
       });
 
       return { requestUpdate };
     });
 
-    // ✅ Broadcast ONLY the specific request update to ALL windows
+    // ✅ Broadcast ONLY the specific request update to ALL window
     io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
       queueId: queueId,
       requestId: updated.requestUpdate.requestId,
@@ -1087,13 +1154,18 @@ export const markQueueStatus = async (req, res) => {
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
-        include: {
-          requests: {
-            include: {
-              requestType: true,
-            },
-          },
+        select: {
+          queueId: true,
+          referenceNumber: true,
+          windowId: true,
         },
+        // include: {
+        //   requests: {
+        //     include: {
+        //       requestType: true,
+        //     },
+        //   },
+        // },
       });
 
       await tx.transactionHistory.create({
@@ -1116,54 +1188,52 @@ export const markQueueStatus = async (req, res) => {
       [Status.PARTIALLY_COMPLETE]: QueueActions.QUEUE_PARTIALLY_COMPLETE,
     };
     const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
-
-    console.log("Updated Queue: ", updatedQueue);
-
-    const newQueueData = {
-      queueId: updatedQueue.queueId,
-      sessionId: updatedQueue.sessionId,
-      studentId: updatedQueue.studentId,
-      studentFullName: updatedQueue.studentFullName,
-      courseCode: updatedQueue.courseCode,
-      courseName: updatedQueue.courseName,
-      yearLevel: updatedQueue.yearLevel,
-      queueNumber: updatedQueue.queueNumber,
-      sequenceNumber: updatedQueue.currentCount,
-      resetIteration: updatedQueue.resetIteration,
-      queueType: updatedQueue.queueType,
-      queueStatus: updatedQueue.queueStatus,
-      referenceNumber: updatedQueue.referenceNumber,
-      isActive: updatedQueue.isActive,
-      windowId: updatedQueue.windowId,
-      servedByStaff: updatedQueue.servedByStaff,
-      calledAt: updatedQueue.calledAt,
-      completedAt: updatedQueue.completedAt,
-      deletedAt: updatedQueue.deletedAt,
-      createdAt: updatedQueue.createdAt,
-      updatedAt: updatedQueue.updatedAt,
-      requests: updatedQueue.requests
-        .filter(
-          (req) =>
-            req.requestStatus === Status.STALLED ||
-            req.requestStatus === Status.SKIPPED
-        )
-        .map((req) => ({
-          requestId: req.requestId,
-          queueId: updatedQueue.queueId,
-          requestTypeId: req.requestTypeId,
-          requestStatus: req.requestStatus,
-          isActive: req.isActive,
-          createdAt: req.createdAt,
-          updatedAt: req.updatedAt,
-          requestType: {
-            requestTypeId: req.requestType.requestTypeId,
-            requestName: req.requestType.requestName,
-          },
-        })),
-    };
+    // const newQueueData = {
+    //   queueId: updatedQueue.queueId,
+    //   sessionId: updatedQueue.sessionId,
+    //   studentId: updatedQueue.studentId,
+    //   studentFullName: updatedQueue.studentFullName,
+    //   courseCode: updatedQueue.courseCode,
+    //   courseName: updatedQueue.courseName,
+    //   yearLevel: updatedQueue.yearLevel,
+    //   queueNumber: updatedQueue.queueNumber,
+    //   sequenceNumber: updatedQueue.currentCount,
+    //   resetIteration: updatedQueue.resetIteration,
+    //   queueType: updatedQueue.queueType,
+    //   queueStatus: updatedQueue.queueStatus,
+    //   referenceNumber: updatedQueue.referenceNumber,
+    //   isActive: updatedQueue.isActive,
+    //   windowId: updatedQueue.windowId,
+    //   servedByStaff: updatedQueue.servedByStaff,
+    //   calledAt: updatedQueue.calledAt,
+    //   completedAt: updatedQueue.completedAt,
+    //   deletedAt: updatedQueue.deletedAt,
+    //   createdAt: updatedQueue.createdAt,
+    //   updatedAt: updatedQueue.updatedAt,
+    //   requests: updatedQueue.requests
+    //     .filter(
+    //       (req) =>
+    //         req.requestStatus === Status.STALLED ||
+    //         req.requestStatus === Status.SKIPPED
+    //     )
+    //     .map((req) => ({
+    //       requestId: req.requestId,
+    //       queueId: updatedQueue.queueId,
+    //       requestTypeId: req.requestTypeId,
+    //       requestStatus: req.requestStatus,
+    //       isActive: req.isActive,
+    //       createdAt: req.createdAt,
+    //       updatedAt: req.updatedAt,
+    //       requestType: {
+    //         requestTypeId: req.requestType.requestTypeId,
+    //         requestName: req.requestType.requestName,
+    //       },
+    //     })),
+    // };
     // io.emit(event, newQueueData);
     // io.to(`window:${windowId}`).emit(event, newQueueData);
-    io.emit(event, newQueueData);
+    console.log("Updated Queue", updatedQueue);
+    io.emit(event, updatedQueue);
 
     console.log(
       `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber} → window:${windowId}`
@@ -1264,11 +1334,7 @@ export const callNextQueue = async (req, res) => {
         message: "Invalid windowId parameter",
       });
     }
-
-    const todayUTC = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
-
     const result = await prisma.$transaction(async (tx) => {
-      // 🧠 Step 1: Find the most recent queue served today (if any)
       const lastServed = await tx.queue.findFirst({
         where: {
           servedByStaff: sasStaffId,
@@ -1285,13 +1351,10 @@ export const callNextQueue = async (req, res) => {
         },
         orderBy: { calledAt: "desc" },
       });
-
-      // 🧩 Step 2: Determine next type to serve
       let nextType = Queue_Type.PRIORITY;
       if (lastServed?.queueType === Queue_Type.PRIORITY.toString())
         nextType = Queue_Type.REGULAR;
 
-      // 🧩 Step 3: Try to find next queue of the desired type
       let nextQueue = await tx.queue.findFirst({
         where: {
           queueStatus: Status.WAITING,
@@ -1305,8 +1368,6 @@ export const callNextQueue = async (req, res) => {
           { sequenceNumber: "asc" },
         ],
       });
-
-      // 🧩 Step 4: Fallback — if no queue of that type exists, pick any remaining
       if (!nextQueue) {
         nextQueue = await tx.queue.findFirst({
           where: {
@@ -1314,7 +1375,7 @@ export const callNextQueue = async (req, res) => {
             session: { isActive: true, isServing: true },
           },
           orderBy: [
-            { queueType: "desc" }, // PRIORITY first if possible
+            { queueType: "desc" },
             {
               session: { sessionNumber: "asc" },
             },
@@ -1322,26 +1383,22 @@ export const callNextQueue = async (req, res) => {
           ],
         });
       }
-
       if (!nextQueue) return null;
-
-      // 🧩 Step 5: Lock it in — prevent race condition
       const updated = await tx.queue.updateMany({
         where: {
           queueId: nextQueue.queueId,
-          queueStatus: Status.WAITING, // Only update if still waiting
+          queueStatus: Status.WAITING,
         },
         data: {
           queueStatus: Status.IN_SERVICE,
           windowId,
           servedByStaff: sasStaffId,
-          calledAt: todayUTC,
+          calledAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
       });
 
       if (updated.count === 0) return "TAKEN";
 
-      // 🧩 Step 6: Return the updated record
       return await tx.queue.findUnique({
         where: { queueId: nextQueue.queueId },
         include: { requests: { include: { requestType: true } } },
@@ -1361,13 +1418,10 @@ export const callNextQueue = async (req, res) => {
 
     // Broadcast: remove this queue globally
     io.emit(QueueActions.QUEUE_TAKEN, { queueId: result.queueId });
-    io.to(`window:${result.windowId}`).emit(QueueActions.TAKE_QUEUE, result);
-    //  io.emit(QueueActions.TAKE_QUEUE, result);
 
     console.log(
       `📣 Window ${windowId} called next queue ${result.referenceNumber}`
     );
-    // ✅ Add this line
     sendDashboardUpdate({
       message: "Queue called - status changed to IN_SERVICE",
       queueId: result.queueId,
@@ -1376,7 +1430,6 @@ export const callNextQueue = async (req, res) => {
       message: "Queue called - status changed to IN_SERVICE",
       queueId: result.queueId,
     });
-
     res.status(200).json({
       success: true,
       message: `Now serving ${result.referenceNumber}`,
