@@ -22,13 +22,6 @@ import {
 const router = express.Router();
 
 router.get(
-  "/:queueId/:referenceNumber",
-  authenticateToken,
-  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  getQueue
-);
-
-router.get(
   "/view",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
@@ -98,6 +91,13 @@ router.get(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   currentServedQueue
+);
+
+router.get(
+  "/one/:queueId",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getQueue
 );
 
 export default router;
