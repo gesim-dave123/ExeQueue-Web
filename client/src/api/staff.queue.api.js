@@ -270,10 +270,20 @@ export const getDeferredQueue = async (status) => {
   }
 };
 
-export const getQueueByIdAndReference = async (queueId, referenceNumber) => {
+export const getSingleQueue = async (queueId, options = {}) => {
   try {
+    const { status, windowId, requestStatus, referenceNumber } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      ...(referenceNumber && { referenceNumber: referenceNumber }),
+      ...(status && { status: status }),
+      ...(windowId && { windowId: windowId.toString() }),
+      ...(requestStatus && { requestStatus }),
+    });
+
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/${queueId}/${referenceNumber}`,
+      `${backendConnection()}/api/staff/queue/one/${queueId}/?${params.toString()}`,
       {
         headers: {
           "Content-Type": "application/json",
