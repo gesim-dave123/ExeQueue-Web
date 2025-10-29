@@ -1,18 +1,22 @@
 import React, { useState } from "react";
+import { useAuth } from "../../context/AuthProvider"; // ✅ Make sure this path matches your project
 
 export default function Profile() {
+  const { user, userFullName, setUserFullName } = useAuth(); // ✅ include userFullName + setter
+
+  // ✅ Load initial data
   const savedData = {
-    fullName: "Lance Timothy Satorre",
-    username: "lansattor213",
-    email: "lanztim@example.com",
+    fullName: userFullName || user?.fullName || user?.name || "Default Name",
+    username: user?.username || user?.userName || "defaultUser",
+    email: user?.email || "default@example.com",
     password: "*******************",
   };
 
-  const [originalData, setOriginalData] = useState(savedData); // last saved version
-  const [formData, setFormData] = useState(savedData); // live editing version
+  const [originalData, setOriginalData] = useState(savedData);
+  const [formData, setFormData] = useState(savedData);
   const [isEditing, setIsEditing] = useState(false);
 
-  // handle typing
+  // ✅ handle typing
   const handleChange = (e) => {
     setFormData((prev) => ({
       ...prev,
@@ -20,16 +24,17 @@ export default function Profile() {
     }));
   };
 
-  // save changes
+  // ✅ save changes and update global name
   const handleSave = () => {
-    setOriginalData(formData); // update saved version
+    setOriginalData(formData);
+    setUserFullName(formData.fullName); // ✅ updates name globally
     setIsEditing(false);
     console.log("Data saved:", formData);
   };
 
-  // discard changes
+  // ✅ discard changes
   const handleDiscard = () => {
-    setFormData(originalData); // reset to last saved
+    setFormData(originalData);
     setIsEditing(false);
     console.log("Changes discarded.");
   };
@@ -90,7 +95,9 @@ export default function Profile() {
                 {formData.fullName}
               </p>
               <span className="text-sm sm:text-base lg:text-lg font-medium text-[#686969]">
-                Personnel
+                {user?.role === "WORKING_SCHOLAR"
+                  ? "Working Scholar"
+                  : "Personnel"}
               </span>
             </div>
 
@@ -107,8 +114,8 @@ export default function Profile() {
                   value={formData.fullName}
                   onChange={handleChange}
                   className={`w-full bg-[#F5F5F5] rounded-lg px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
-    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
-    ${isEditing ? "text-black" : "text-gray-500"}`}
+                    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
+                    ${isEditing ? "text-black" : "text-gray-500"}`}
                   disabled={!isEditing}
                 />
               </div>
@@ -124,8 +131,8 @@ export default function Profile() {
                   value={formData.username}
                   onChange={handleChange}
                   className={`w-full bg-[#F5F5F5] rounded-lg px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
-    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
-    ${isEditing ? "text-black" : "text-gray-500"}`}
+                    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
+                    ${isEditing ? "text-black" : "text-gray-500"}`}
                   disabled={!isEditing}
                 />
               </div>
@@ -141,8 +148,8 @@ export default function Profile() {
                   value={formData.email}
                   onChange={handleChange}
                   className={`w-full bg-[#F5F5F5] rounded-lg px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
-    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
-    ${isEditing ? "text-black" : "text-gray-500"}`}
+                    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
+                    ${isEditing ? "text-black" : "text-gray-500"}`}
                   disabled={!isEditing}
                 />
               </div>
@@ -158,8 +165,8 @@ export default function Profile() {
                   value={formData.password}
                   onChange={handleChange}
                   className={`w-full bg-[#F5F5F5] rounded-lg px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
-    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
-    ${isEditing ? "text-black" : "text-gray-500"}`}
+                    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
+                    ${isEditing ? "text-black" : "text-gray-500"}`}
                   disabled={!isEditing}
                 />
               </div>

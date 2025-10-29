@@ -4,8 +4,8 @@ import { Globe } from "lucide-react";
 
 export default function Contact() {
   return (
-    <footer className="bg-[#10458B] mt-20 text-white py-10 px-6 md:px-10 rounded-4xl w-full xl:w-6xl 2xl:w-[180vh]">
-      <div className="max-w-8xl mx-auto flex flex-col md:flex-row justify-between items-start gap-10">
+    <footer className="bg-[#10458B] mt-20 text-white py-8 px-6 md:px-15 rounded-4xl w-full xl:w-[95%] 2xl:w-[100%]">
+      <div className="max-w-8xl mx-auto flex flex-col md:flex-row justify-between items-start gap-40">
         {/* Left Section */}
         <div className="md:mx-10 lg:mx-20 flex flex-col max-w-md w-full top-1/2 transform -translate-y-[15%] ">
           <div className="flex items-center gap-2">
@@ -71,8 +71,7 @@ export default function Contact() {
 
       {/* Bottom Note */}
       <div className="mt-10 flex items-center justify-center text-xs text-gray-400  lg:w-8xl">
-        © 2025 ExeQueue v1.0.1 | All Rights
-        Reserved.
+        © 2025 ExeQueue v1.0.1 | All Rights Reserved.
       </div>
     </footer>
   );
