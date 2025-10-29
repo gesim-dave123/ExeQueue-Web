@@ -1,44 +1,66 @@
 import crypto from "crypto";
 
-let KEY;
-if (
-  process.env.JWT_SECRET.match(/^[0-9a-fA-F]+$/) &&
-  process.env.JWT_SECRET.length === 64
-) {
-  KEY = Buffer.from(process.env.JWT_SECRET, "hex");
-} else {
-  KEY = crypto.createHash("sha256").update(process.env.JWT_SECRET).digest();
-}
+const KEY = crypto
+  .createHash("sha256")
+  .update(process.env.JWT_SECRET)
+  .digest()
+  .subarray(0, 16); // AES-128 key
 
-console.log("Key length:", KEY.length); // Should be 32
-
+/**
+ * Encrypts a numeric queue ID into a short, tamper-resistant token.
+ * Produces ~18–20 chars total.
+ */
 export function encryptQueueId(id) {
-  const iv = crypto.randomBytes(12); // 96-bit IV
-  const cipher = crypto.createCipheriv("aes-256-gcm", KEY, iv);
+  const iv = crypto.randomBytes(8); // compact 8-byte IV
+  const ivFull = Buffer.concat([iv, Buffer.alloc(8, 0)]); // pad to 16 bytes for AES-CTR
+  const cipher = crypto.createCipheriv("aes-128-ctr", KEY, ivFull);
 
-  const encrypted = Buffer.concat([
-    cipher.update(String(id), "utf8"),
-    cipher.final(),
-  ]);
-  const tag = cipher.getAuthTag();
+  const idBuffer = Buffer.alloc(4);
+  idBuffer.writeUInt32BE(Number(id));
 
-  // Token = iv + tag + ciphertext → base64url
-  return Buffer.concat([iv, tag, encrypted]).toString("base64url");
+  const encrypted = Buffer.concat([cipher.update(idBuffer), cipher.final()]);
+
+  // 6-byte HMAC-SHA256 tag for tamper detection
+  const mac = crypto
+    .createHmac("sha256", KEY)
+    .update(Buffer.concat([iv, encrypted]))
+    .digest()
+    .subarray(0, 6);
+
+  return Buffer.concat([iv, encrypted, mac]).toString("base64url");
 }
 
+/**
+ * Decrypts a token back to the original queue ID.
+ * Returns null if token is invalid or tampered.
+ */
 export function decryptQueueId(token) {
-  const raw = Buffer.from(token, "base64url");
-  const iv = raw.subarray(0, 12);
-  const tag = raw.subarray(12, 28);
-  const encrypted = raw.subarray(28);
+  try {
+    const raw = Buffer.from(token, "base64url");
+    if (raw.length < 8 + 4 + 6) return null;
 
-  const decipher = crypto.createDecipheriv("aes-256-gcm", KEY, iv);
-  decipher.setAuthTag(tag);
+    const iv = raw.subarray(0, 8);
+    const encrypted = raw.subarray(8, 12);
+    const mac = raw.subarray(12);
 
-  const decrypted = Buffer.concat([
-    decipher.update(encrypted),
-    decipher.final(),
-  ]).toString("utf8");
+    const expectedMac = crypto
+      .createHmac("sha256", KEY)
+      .update(Buffer.concat([iv, encrypted]))
+      .digest()
+      .subarray(0, 6);
 
-  return parseInt(decrypted, 10);
+    if (mac.length !== expectedMac.length) return null;
+    if (!crypto.timingSafeEqual(mac, expectedMac)) return null;
+
+    const ivFull = Buffer.concat([iv, Buffer.alloc(8, 0)]);
+    const decipher = crypto.createDecipheriv("aes-128-ctr", KEY, ivFull);
+    const decrypted = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]);
+
+    return decrypted.readUInt32BE(0);
+  } catch (err) {
+    return null;
+  }
 }
