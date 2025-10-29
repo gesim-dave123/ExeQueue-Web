@@ -410,12 +410,14 @@ export default function Request() {
         const referenceNumber = response?.queueData?.referenceNumber;
         const queueId = response?.queueData?.queueId;
 
-        if (referenceNumber) {
-          navigate(`/student/queue/display/${queueId}/${referenceNumber}`);
+        if (queueId) {
+          navigate(`/student/queue/display/${queueId}`, {
+            state: { referenceNumber },
+          });
         } else {
           console.warn("⚠️ No reference number found in response:", response);
           // navigate("/student/queue/display");
-          navigate("/")
+          navigate("/");
         }
       } else {
         console.error(

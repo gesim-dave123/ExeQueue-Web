@@ -94,12 +94,13 @@ import { getQueueDisplay } from "../../api/student";
 
 export default function DisplayQueue() {
   const navigate = useNavigate();
-  const { queueId, referenceNumber } = useParams();
+  const { queueId } = useParams();
   const location = useLocation();
   const [queueData, setQueueData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const referenceNumber = location.state?.referenceNumber || null;
   // Get ref from query string (/display?ref=xxxxx)
   const queryParams = new URLSearchParams(location.search);
   // const referenceNumber = queryParams.get("ref");
@@ -107,17 +108,22 @@ export default function DisplayQueue() {
   useEffect(() => {
     const fetchQueueData = async () => {
       try {
-        if (!referenceNumber) {
-          setError("No reference number provided.");
+        if (!queueId) {
+          setError("No Queue Id provided.");
           setLoading(false);
           return;
         }
-
-        const response = await getQueueDisplay(referenceNumber);
+        const options =
+          {
+            referenceNumber: referenceNumber,
+          } || undefined;
+        const response = await getQueueDisplay(queueId, options);
         if (response?.success) {
+          console.log("Queue: ", response);
           const payload = response.data ?? response;
           const details =
             payload.queueDetails ?? payload?.data?.queueDetails ?? payload;
+
           const normalized = payload.queueDetails ? payload : payload;
           setQueueData(payload.queueDetails ? payload.queueDetails : payload);
 
@@ -137,7 +143,7 @@ export default function DisplayQueue() {
     };
 
     fetchQueueData();
-  }, [referenceNumber]);
+  }, [queueId]);
 
   const yearLevelMap = {
     "1st": "First Year",
@@ -145,6 +151,8 @@ export default function DisplayQueue() {
     "3rd": "Third Year",
     "4th": "Fourth Year",
     "5th": "Fifth Year",
+    "6th": "Sixth Year",
+    Irregular: "Irregular",
   };
 
   if (loading)
@@ -208,13 +216,7 @@ export default function DisplayQueue() {
           Your Queue Number
         </span>
         <h1 className={`text-6xl sm:text-7xl font-bold ${typeColor} mb-2`}>
-          {queueData?.formattedQueueNumber
-            ? isPriority
-              ? `P${queueData.formattedQueueNumber}`
-              : `R${queueData.formattedQueueNumber}`
-            : isPriority
-            ? `P${String(queueData?.queueNumber ?? "").padStart(2, "0")}`
-            : `R${String(queueData?.queueNumber ?? "").padStart(2, "0")}`}
+          {queueData?.formattedQueueNumber}
         </h1>
         {/* Divider */}
         <div className="w-full flex justify-center my-4">
@@ -252,8 +254,8 @@ export default function DisplayQueue() {
           <div className="flex justify-between items-start">
             <span className="text-gray-600">Requests:</span>
             <div className="flex flex-col items-end text-blue-600 font-medium text-right space-y-1">
-              {queueData?.serviceRequests?.length ? (
-                queueData.serviceRequests.map((req, idx) => (
+              {queueData?.requests?.length ? (
+                queueData.requests.map((req, idx) => (
                   <span key={idx} className="hover:underline cursor-pointer">
                     {req.requestName ?? req.requestType?.requestName}
                   </span>

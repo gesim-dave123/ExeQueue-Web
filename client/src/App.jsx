@@ -65,10 +65,7 @@ function App() {
             <Route path="queue/">
               <Route path="request" element={<Request />} />
               {/* <Route path="generate" element={<GenerateQueue />} /> */}
-              <Route
-                path="display/:queueId/:referenceNumber"
-                element={<DisplayQueue />}
-              />
+              <Route path="display/:queueId" element={<DisplayQueue />} />
               <Route path="search" element={<SearchQueue />} />
               <Route path="search/result" element={<SearchQueueResult />} />
             </Route>
