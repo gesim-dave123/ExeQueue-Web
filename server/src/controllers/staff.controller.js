@@ -3,17 +3,13 @@ import bcrypt from "bcryptjs";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { getShiftTag } from "../../utils/shiftTag.js";
-import {
-  QueueActions,
-  QueueEvents,
-  WindowEvents,
-} from "../services/enums/SocketEvents.js";
+import { QueueActions, WindowEvents } from "../services/enums/SocketEvents.js";
 // import { sendDashboardUpdate } from "./sse.controllers.js";
+import { encryptQueueId } from "../../utils/encryptId.js";
 import {
   sendDashboardUpdate,
   sendLiveDisplayUpdate,
 } from "./statistics.controller.js";
-
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
@@ -124,7 +120,6 @@ export const releaseServiceWindow = async (req, res) => {
     const io = req.app.get("io");
 
     const result = await prisma.$transaction(async (tx) => {
-      // Find the active assignment first
       const activeAssignment = await tx.windowAssignment.findFirst({
         where: { sasStaffId, shiftTag: shift, releasedAt: null },
         include: {
@@ -140,7 +135,6 @@ export const releaseServiceWindow = async (req, res) => {
         throw new Error("No active window assignment found");
       }
 
-      // 🆕 Check if there's a current queue being served by this window
       const currentQueue = await tx.queue.findFirst({
         where: {
           windowId: activeAssignment.windowId,
@@ -149,7 +143,6 @@ export const releaseServiceWindow = async (req, res) => {
         },
       });
 
-      // 🆕 If there's a current queue, reset it back to WAITING
       if (currentQueue) {
         await tx.queue.update({
           where: { queueId: currentQueue.queueId },
@@ -159,60 +152,27 @@ export const releaseServiceWindow = async (req, res) => {
             servedByStaff: null,
             calledAt: null,
           },
-        });
-
-        // ✅ Get complete queue data with requests for perfect sync
-        const queueWithRequests = await tx.queue.findUnique({
-          where: { queueId: currentQueue.queueId },
-          include: {
-            requests: {
-              where: { isActive: true },
-              include: {
-                requestType: {
-                  select: {
-                    requestTypeId: true,
-                    requestName: true,
-                  },
-                },
-              },
-            },
+          select: {
+            queueId: true,
           },
         });
 
-        io.to(QueueEvents.REFETCH).emit(QueueActions.QUEUE_RESET, {
-          // ✅ Core queue identification & formatting
-          queueId: queueWithRequests.queueId,
-          queueType: queueWithRequests.queueType, // PRIORITY or REGULAR
-          queueNumber: queueWithRequests.queueNumber, // For queueNo formatting
-          queueStatus: Status.WAITING,
-          windowId: null,
-          studentFullName: queueWithRequests.studentFullName,
-          studentId: queueWithRequests.studentId,
-          courseCode: queueWithRequests.courseCode,
-          yearLevel: queueWithRequests.yearLevel,
-          createdAt: queueWithRequests.createdAt,
-          referenceNumber: queueWithRequests.referenceNumber,
+        const queue = await tx.queue.findUnique({
+          where: { queueId: currentQueue.queueId },
+          select: {
+            queueId: true,
+            windowId: true,
+            referenceNumber: true,
+          },
+        });
+        io.emit(QueueActions.QUEUE_RESET, {
+          queueId: encryptQueueId(queue.queueId),
+          windowId: queue.windowId,
+          referenceNumber: queue.referenceNumber,
           previousWindowId: activeAssignment.windowId,
-          reason: "Window released",
-          requests: queueWithRequests.requests.map((req) => ({
-            requestId: req.requestId,
-            queueId: queueWithRequests.queueId,
-            requestTypeId: req.requestTypeId,
-            requestStatus: req.requestStatus,
-            isActive: req.isActive,
-            createdAt: req.createdAt,
-            updatedAt: req.updatedAt,
-            requestType: {
-              requestTypeId: req.requestType.requestTypeId,
-              requestName: req.requestType.requestName,
-            },
-          })),
-
-          timestamp: Date.now(),
         });
       }
 
-      // Release the window assignment
       const released = await tx.windowAssignment.updateMany({
         where: { sasStaffId, shiftTag: shift, releasedAt: null },
         data: { releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila") },
@@ -225,7 +185,6 @@ export const releaseServiceWindow = async (req, res) => {
         resetQueue: currentQueue,
       };
     });
-    // io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, data);
     io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, {
       windowId: result.windowId,
       previousWindowId: result.windowId,
