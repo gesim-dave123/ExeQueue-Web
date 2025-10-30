@@ -243,7 +243,7 @@ export default function Request() {
     } else if (!/^\d{8}$/.test(formData.studentId)) {
       newErrors.studentId = 'Student ID must be exactly 8 digits';
     }
-    // if (!formData.courseId.trim()) newErrors.course = 'Course is required';
+    if (!formData.courseId) newErrors.course = 'Course is required';
     if (!formData.yearLevel.trim())
       newErrors.yearLevel = 'Year level is required';
 
