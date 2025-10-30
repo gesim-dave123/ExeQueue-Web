@@ -487,7 +487,7 @@ export const getQueueList = async (req, res) => {
   }
 };
 
-export const getQueueListByStatus = async (req, res) => {
+export const getQueueListByQuery = async (req, res) => {
   try {
     const {
       status,
@@ -496,6 +496,7 @@ export const getQueueListByStatus = async (req, res) => {
       include_total = false,
       windowId: windowIdStr,
       requestStatus,
+      search: searchStr,
     } = req.query;
 
     // Validate status
@@ -566,7 +567,48 @@ export const getQueueListByStatus = async (req, res) => {
           }
         : { isActive: true };
 
-    // --- 👇 Use select instead of include to restrict fields ---
+    if (searchStr) {
+      const normalizedSearch = searchStr.trim();
+      const isSearchAQueueNumber = normalizedSearch.match(/^[PR](\d{3,})$/i);
+      if (isSearchAQueueNumber) {
+        const prefix = isSearchAQueueNumber[0].toUpperCase()[0];
+        whereClause.queueType =
+          prefix === "P" ? Queue_Type.PRIORITY : Queue_Type.REGULAR;
+        whereClause.queueNumber = parseInt(isSearchAQueueNumber[1]);
+      } else if (/^\d+$/.test(normalizedSearch)) {
+        const numValue = parseInt(normalizedSearch);
+        if (normalizedSearch.length <= 3) {
+          whereClause.queueNumber = numValue;
+        } else if (normalizedSearch.length >= 4) {
+          whereClause.studentId = {
+            contains: normalizedSearch,
+            mode: "insensitive",
+          };
+        }
+      } else if (normalizedSearch.length >= 2) {
+        whereClause.OR = [
+          {
+            studentFullName: {
+              equals: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+          {
+            studentFullName: {
+              startsWith: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+          {
+            studentFullName: {
+              contains: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+        ];
+      }
+    }
+
     const queues = await prisma.queue.findMany({
       where: whereClause,
       select: {
@@ -602,14 +644,11 @@ export const getQueueListByStatus = async (req, res) => {
         { sequenceNumber: "asc" },
       ],
     });
-
-    // Optional: Filter empty requests if specific requestStatus given
     let filteredQueues = queues;
     if (requestStatus) {
       filteredQueues = queues.filter((queue) => queue.requests.length > 0);
     }
 
-    // Build response
     const response = {
       success: true,
       message: windowIdStr
@@ -650,7 +689,7 @@ export const getQueueListByStatus = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error("An error occurred in getQueueListByStatus:", error);
+    console.error("An error occurred in getQueueListByQuery:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
