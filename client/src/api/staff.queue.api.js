@@ -31,7 +31,7 @@ export const studentsQueueDetails = async (queueDetails) => {
     };
   }
 };
-export const getQueueListByStatus = async (status, options = {}) => {
+export const getQueueListByQuery = async (status, options = {}) => {
   try {
     const {
       limit = 100,
@@ -39,6 +39,7 @@ export const getQueueListByStatus = async (status, options = {}) => {
       include_total = false,
       windowId,
       requestStatus,
+      searchValue,
     } = options;
 
     // Build query parameters
@@ -49,6 +50,7 @@ export const getQueueListByStatus = async (status, options = {}) => {
       include_total: include_total.toString(),
       ...(windowId && { windowId: windowId.toString() }),
       ...(requestStatus && { requestStatus }),
+      ...(searchValue && { search: searchValue.toString() }),
     });
 
     const response = await axios.get(
@@ -78,7 +80,7 @@ export const getQueueListByStatus = async (status, options = {}) => {
       };
     }
   } catch (error) {
-    console.error("Error in getQueuesByStatus:", error);
+    console.error("Error in getQueueListByQuery:", error);
 
     // Return structured error response
     return {
@@ -240,7 +242,7 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
       return [];
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getQueueByStatusAndWindow:", error);
     return [];
   }
 };
@@ -265,7 +267,7 @@ export const getDeferredQueue = async (status) => {
       return [];
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getDeferredQueue:", error);
     return [];
   }
 };
@@ -298,7 +300,7 @@ export const getSingleQueue = async (queueId, options = {}) => {
       return response.data.message;
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getSingleQueue:", error);
     return null;
   }
 };
