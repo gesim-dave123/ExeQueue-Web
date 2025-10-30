@@ -15,7 +15,12 @@ import { socketAuthentication } from "./socket/socket.auth.js";
 import { socketHandler } from "./socket/socketHandler.js";
 import StatisticsRoute from './routes/statistics.route.js'
 import transactionRoutes from './routes/transaction.route.js';
+import { 
+  startSkippedRequestMonitor, 
+  startStalledRequestFinalizer 
+} from './controllers/queue.controller.js';
 // import io from 'io'
+import { initializeScheduledJobs } from './controllers/transaction.controller.js';
 dotenv.config();
 
 validateAccess();
@@ -59,6 +64,18 @@ const io = new Server(server, {
     credentials: true,
   },
 });
+
+console.log('🚀 Starting scheduled background jobs...');
+
+// Monitor SKIPPED requests and auto-cancel after 1 hour
+startSkippedRequestMonitor();
+
+// Finalize STALLED requests at end of day (11:59 PM)
+startStalledRequestFinalizer();
+initializeScheduledJobs();
+
+console.log('✅ All scheduled jobs started successfully');
+
 
 app.set("io", io);
 socketAuthentication(io);

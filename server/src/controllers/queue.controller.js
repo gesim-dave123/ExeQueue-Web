@@ -2,12 +2,269 @@ import { Queue_Type, Role, Status } from "@prisma/client";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { QueueActions } from "../services/enums/SocketEvents.js";
+import cron from 'node-cron';
 
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
 );
 const isIntegerParam = (val) => /^\d+$/.test(val);
+
+export function startSkippedRequestMonitor() {
+  // Run every 15 minutes
+  cron.schedule('*/15 * * * *', async () => {
+    console.log('⏰ Running SKIPPED request monitor...');
+    
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      // Find all SKIPPED requests older than 1 hour
+      const skippedRequests = await prisma.request.findMany({
+        where: {
+          requestStatus: Status.SKIPPED,
+          updatedAt: {
+            lte: oneHourAgo
+          },
+          isActive: true
+        },
+        include: {
+          queue: true
+        }
+      });
+
+      console.log(`📋 Found ${skippedRequests.length} SKIPPED requests to cancel`);
+
+      for (const request of skippedRequests) {
+        await prisma.$transaction(async (tx) => {
+          // Update request to CANCELLED
+          await tx.request.update({
+            where: { requestId: request.requestId },
+            data: {
+              requestStatus: Status.CANCELLED,
+              processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+              updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            }
+          });
+
+          // ✅ Update transaction history to CANCELLED (finalizes it)
+          await tx.transactionHistory.updateMany({
+            where: {
+              queueId: request.queueId,
+              requestId: request.requestId,
+              transactionStatus: Status.SKIPPED
+            },
+            data: {
+              transactionStatus: Status.CANCELLED,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            }
+          });
+
+          console.log(`✅ Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error in SKIPPED request monitor:', error);
+    }
+  });
+
+  console.log('✅ SKIPPED request monitor started (runs every 15 minutes)');
+}
+
+export const manuallyFinalizeStalledRequests = async (req, res) => {
+  try {
+    const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    
+    const todayEnd = new Date(todayStart);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const stalledRequests = await prisma.request.findMany({
+      where: {
+        requestStatus: Status.STALLED,
+        updatedAt: {
+          gte: todayStart,
+          lte: todayEnd
+        },
+        isActive: true
+      },
+      include: {
+        queue: true
+      }
+    });
+
+    let finalized = 0;
+
+    for (const request of stalledRequests) {
+      const existingTransaction = await prisma.transactionHistory.findFirst({
+        where: {
+          queueId: request.queueId,
+          requestId: request.requestId,
+          transactionStatus: Status.STALLED
+        }
+      });
+
+      if (!existingTransaction) {
+        await prisma.transactionHistory.create({
+          data: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            performedById: request.processedBy,
+            performedByRole: 'SYSTEM',
+            transactionStatus: Status.STALLED,
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+          }
+        });
+        finalized++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Finalized ${finalized} STALLED requests`,
+      totalFound: stalledRequests.length,
+      finalized
+    });
+
+  } catch (error) {
+    console.error('Error in manual STALLED finalization:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+export const manuallyCancelSkippedRequests = async (req, res) => {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    
+    const skippedRequests = await prisma.request.findMany({
+      where: {
+        requestStatus: Status.SKIPPED,
+        updatedAt: {
+          lte: oneHourAgo
+        },
+        isActive: true
+      },
+      include: {
+        queue: true
+      }
+    });
+
+    let cancelled = 0;
+
+    for (const request of skippedRequests) {
+      await prisma.$transaction(async (tx) => {
+        await tx.request.update({
+          where: { requestId: request.requestId },
+          data: {
+            requestStatus: Status.CANCELLED,
+            processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+          }
+        });
+
+        await tx.transactionHistory.updateMany({
+          where: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            transactionStatus: Status.SKIPPED
+          },
+          data: {
+            transactionStatus: Status.CANCELLED,
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+          }
+        });
+
+        cancelled++;
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Cancelled ${cancelled} SKIPPED requests (> 1 hour)`,
+      totalFound: skippedRequests.length,
+      cancelled
+    });
+
+  } catch (error) {
+    console.error('Error in manual SKIPPED cancellation:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+export function startStalledRequestFinalizer() {
+  // Run daily at 11:59 PM Manila time
+  cron.schedule('59 23 * * *', async () => {
+    console.log('🌙 Running end-of-day STALLED request finalizer...');
+    
+    try {
+      const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
+        new Date(),
+        "Asia/Manila"
+      );
+      
+      const todayEnd = new Date(todayStart);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      // Find all STALLED requests that weren't updated today
+      const stalledRequests = await prisma.request.findMany({
+        where: {
+          requestStatus: Status.STALLED,
+          updatedAt: {
+            gte: todayStart,
+            lte: todayEnd
+          },
+          isActive: true
+        },
+        include: {
+          queue: true
+        }
+      });
+
+      console.log(`📋 Found ${stalledRequests.length} STALLED requests to finalize`);
+
+      for (const request of stalledRequests) {
+        // Check if transaction history already exists
+        const existingTransaction = await prisma.transactionHistory.findFirst({
+          where: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            transactionStatus: Status.STALLED
+          }
+        });
+
+        // ✅ Only create transaction if it doesn't exist yet
+        if (!existingTransaction) {
+          await prisma.transactionHistory.create({
+            data: {
+              queueId: request.queueId,
+              requestId: request.requestId,
+              performedById: request.processedBy,
+              performedByRole: 'SYSTEM', // Automated by system
+              transactionStatus: Status.STALLED,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            }
+          });
+
+          console.log(`✅ Finalized STALLED request ${request.requestId} (end of day)`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error in STALLED request finalizer:', error);
+    }
+  });
+
+  console.log('✅ STALLED request finalizer started (runs daily at 11:59 PM)');
+}
+
 
 export const viewQueues = async (req, res) => {
   try {
@@ -971,34 +1228,39 @@ export const markQueueStatus = async (req, res) => {
 
       // ✅ CRITICAL FIX: Only create queue-level transaction for PARTIALLY_COMPLETE
       // For COMPLETED/CANCELLED, the request-level transactions are sufficient!
+      if (finalStatus !== Status.DEFERRED) {
+        console.log('📝 Creating transaction history for all requests...');
+        
+        for (const request of queueUpdate.requests) {
+          await createTransactionHistorySafe(tx, {
+            queueId,
+            requestId: request.requestId,
+            performedById: sasStaffId,
+            performedByRole: role,
+            transactionStatus: request.requestStatus, // Use the request's actual status
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+          });
+        }
+      }
+      
       const shouldCreateQueueTransaction = 
-        existingQueue.queueStatus !== finalStatus && // Status changed
-        finalStatus === Status.PARTIALLY_COMPLETE;   // Only for mixed outcomes
+        existingQueue.queueStatus !== finalStatus &&
+        finalStatus === Status.PARTIALLY_COMPLETE;
 
       if (shouldCreateQueueTransaction) {
         console.log('➕ Creating queue-level transaction for PARTIALLY_COMPLETE');
         await createTransactionHistorySafe(tx, {
           queueId,
-          requestId: null, // Queue-level status
+          requestId: null,
           performedById: sasStaffId,
           performedByRole: role,
           transactionStatus: finalStatus,
           createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
         });
-      } else {
-        console.log('⏭️ Skipping queue-level transaction:', {
-          reason: finalStatus === Status.DEFERRED 
-            ? 'DEFERRED status' 
-            : finalStatus === Status.COMPLETED || finalStatus === Status.CANCELLED
-              ? 'Request-level transactions already exist'
-              : 'Status unchanged',
-          currentStatus: finalStatus,
-          previousStatus: existingQueue.queueStatus
-        });
       }
-
       return queueUpdate;
     });
+
 
     const actionMap = {
       [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,

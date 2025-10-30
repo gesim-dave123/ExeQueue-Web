@@ -1,7 +1,7 @@
 import { Role } from "@prisma/client";
 import express from "express";
 import {
-  getTransactions,
+  getTransactionsWithStalledLogic, // ✅ Use the new version
   getTransactionStats,
 } from "../controllers/transaction.controller.js";
 import {
@@ -16,7 +16,7 @@ router.get(
   "/",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  getTransactions
+  getTransactionsWithStalledLogic // ✅ Updated to use new logic
 );
 
 router.get(
@@ -32,5 +32,13 @@ router.patch( //237
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   updateTransactionStatus
 );
+
+router.get(
+  "/stats",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getTransactionStats
+);
+
 
 export default router;

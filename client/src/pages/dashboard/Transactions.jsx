@@ -37,26 +37,19 @@ export default function Transactions() {
     date: useRef(null),
   };
 
-  const courseFull = {
-    BSIT: "Bachelor of Science in Information Technology",
-    BSCS: "Bachelor of Science in Computer Science",
-    BSME: "Bachelor of Science in Mechanical Engineering",
-    BSA: "Bachelor of Science in Accountancy",
-    BEED: "Bachelor of Elementary Education",
-  };
+  // ✅ REMOVED courseFull mapping - now showing just course codes
 
   const fetchAPI = async (url, options = {}) => {
     try {
       const response = await fetch(url, {
         ...options,
-        credentials: 'include', // Important: sends cookies
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           ...options.headers,
         },
       });
 
-      // Check if response is JSON
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         console.error('❌ Response is not JSON:', await response.text());
@@ -65,7 +58,6 @@ export default function Transactions() {
 
       const data = await response.json();
 
-      // Check for HTTP errors
       if (!response.ok) {
         throw new Error(data.message || `HTTP error ${response.status}`);
       }
@@ -77,7 +69,6 @@ export default function Transactions() {
     }
   };
 
-  // Fetch filter options
   const fetchFilterOptions = async () => {
     try {
       console.log('🔄 Fetching filter options...');
@@ -90,7 +81,6 @@ export default function Transactions() {
       }
     } catch (error) {
       console.error("Error fetching filter options:", error);
-      // Set empty arrays as fallback
       setFilterOptions({
         courses: [],
         requests: [],
@@ -99,7 +89,6 @@ export default function Transactions() {
     }
   };
 
-  // Fetch transactions
   const fetchTransactions = async () => {
     setLoading(true);
     try {
@@ -112,7 +101,6 @@ export default function Transactions() {
         search: searchQuery
       });
 
-      // Remove empty filters
       Object.keys(filters).forEach(key => {
         if (!filters[key]) {
           params.delete(key);
@@ -135,7 +123,6 @@ export default function Transactions() {
       }
     } catch (error) {
       console.error("Error fetching transactions:", error);
-      // Set empty state on error
       setTransactions([]);
       setPagination({
         currentPage: 1,
@@ -259,23 +246,22 @@ export default function Transactions() {
     return `${months[date.getMonth()]}. ${date.getDate()}, ${date.getFullYear()}`;
   };
 
-const handleDateSelect = (day) => {
-  const selected = new Date(
-    calendarDate.getFullYear(),
-    calendarDate.getMonth(),
-    day
-  );
-  setSelectedDate(selected);
-  
-  //Format date correctly without timezone conversion
-  const year = selected.getFullYear();
-  const month = String(selected.getMonth() + 1).padStart(2, '0');
-  const dayStr = String(selected.getDate()).padStart(2, '0');
-  const formattedDate = `${year}-${month}-${dayStr}`;
-  
-  console.log('📅 Date selected:', { day, selected, formattedDate });
-  handleFilterChange("date", formattedDate);
-};
+  const handleDateSelect = (day) => {
+    const selected = new Date(
+      calendarDate.getFullYear(),
+      calendarDate.getMonth(),
+      day
+    );
+    setSelectedDate(selected);
+    
+    const year = selected.getFullYear();
+    const month = String(selected.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(selected.getDate()).padStart(2, '0');
+    const formattedDate = `${year}-${month}-${dayStr}`;
+    
+    console.log('📅 Date selected:', { day, selected, formattedDate });
+    handleFilterChange("date", formattedDate);
+  };
 
   const changeMonth = (offset) => {
     setCalendarDate(
@@ -563,11 +549,11 @@ const handleDateSelect = (day) => {
               </div>
 
               <div className="flex-1 min-w-[150px]">
+                {/* ✅ REMOVED displayFn - now just showing course code as-is */}
                 <CustomDropdown
                   label="Course"
                   filterType="course"
                   options={filterOptions.courses}
-                  displayFn={(course) => courseFull[course] || course}
                 />
               </div>
 
