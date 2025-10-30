@@ -40,7 +40,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen flex items-start lg:items-center py-7 px-3 xl:px-0 xl:pl-1 xl:pr-7">
+    <div className="min-h-screen flex items-start xl:items-center  py-7 lg:py-20 xl:pt-7 xl:pb-7 px-6 sm:px-10 xl:px-0 xl:pl-1 xl:pr-7">
       <div className="h-full w-full flex flex-col text-start rounded-3xl p-5 sm:p-8 xl:p-10 bg-white mt-12 lg:mt-0 shadow-xs">
         {/* Title */}
         <h1 className="text-2xl sm:text-3xl xl:text-4xl font-semibold">
