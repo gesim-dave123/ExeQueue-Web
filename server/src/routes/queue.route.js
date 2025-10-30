@@ -7,7 +7,7 @@ import {
   determineNextQueue,
   getQueue,
   getQueueList,
-  getQueueListByStatus, // Add this import
+  getQueueListByQuery, // Add this import
   markQueueStatus,
   restoreSkippedQueue,
   setDeferredRequestStatus,
@@ -49,7 +49,7 @@ router.get(
   "/list",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  getQueueListByStatus
+  getQueueListByQuery
 );
 
 router.put(
