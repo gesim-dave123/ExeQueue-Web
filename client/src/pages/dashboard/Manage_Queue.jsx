@@ -34,7 +34,7 @@ import {
   currentServedQueue,
   getCallNextQueue,
   getDeferredQueue,
-  getQueueListByStatus,
+  getQueueListByQuery,
   markQueueStatus,
   setDeferredRequestStatus,
   setRequestStatus,
@@ -189,7 +189,7 @@ export default function Manage_Queue() {
       setIsLoading(true);
 
       // ✅ Fetch WAITING queues (global - no windowId)
-      const waitingQueues = await getQueueListByStatus(Status.WAITING);
+      const waitingQueues = await getQueueListByQuery(Status.WAITING);
 
       if (waitingQueues && Array.isArray(waitingQueues)) {
         const formattedQueue = waitingQueues.map(formatQueueData);
@@ -253,7 +253,8 @@ export default function Manage_Queue() {
     setIsLoading(false);
   }, []);
   useEffect(() => {
-    if (selectedWindow?.id && !showWindowModal) { //Only fetch queues AFTER window is assigned
+    if (selectedWindow?.id && !showWindowModal) {
+      //Only fetch queues AFTER window is assigned
       fetchQueueList();
     }
   }, [selectedWindow?.id, showWindowModal, fetchQueueList]);
@@ -279,7 +280,6 @@ export default function Manage_Queue() {
       );
     };
 
-    
     const handleDeferredQueue = (queue) => {
       const formattedDeferredQueue = formatQueueData(queue);
       showToast(
@@ -287,7 +287,8 @@ export default function Manage_Queue() {
         "warning"
       );
 
-      setDeferredQueue((prev) => { // Add to deferred list if not exists
+      setDeferredQueue((prev) => {
+        // Add to deferred list if not exists
         const exists = prev.some(
           (q) => q.queueId === formattedDeferredQueue.queueId
         );
@@ -300,14 +301,16 @@ export default function Manage_Queue() {
       console.log("✅ Queue Completed:", queue);
       const formattedCompletedQueue = formatQueueData(queue);
 
-
-      setDeferredQueue((prev) =>      // Remove from deferred list if it exists there
-        prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
+      setDeferredQueue(
+        (
+          prev // Remove from deferred list if it exists there
+        ) => prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
       );
 
-      
-      setGlobalQueueList((prev) => // Also remove from global queue list if needed
-        prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
+      setGlobalQueueList(
+        (
+          prev // Also remove from global queue list if needed
+        ) => prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
       );
     };
 

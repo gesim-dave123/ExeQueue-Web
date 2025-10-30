@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getQueueListByStatus,
+  getQueueListByQuery,
   getSingleQueue,
 } from "../../../api/staff.queue.api";
 import { normalizeStatusForDisplay } from "../../../utils/NormalizeStatus";
@@ -28,26 +28,42 @@ const ManageQueueHook = ({
   const [globalQueueMap, setGlobalQueueMap] = useState(new Map());
   const [globalQueueIds, setGlobalQueueIds] = useState([]); // Ordered IDs
   const [totalWaitingCount, setTotalWaitingCount] = useState(0);
+  const [hasMoreWaiting, setHasMoreWaiting] = useState(true);
 
   const [deferredQueueMap, setDeferredQueueMap] = useState(new Map());
   const [deferredQueueIds, setDeferredQueueIds] = useState([]);
   const [totalDeferredCount, setTotalDeferredCount] = useState(0);
+  const [hasMoreDeferred, setHasMoreDeferred] = useState(true);
+
+  const [waitingSearchMap, setWaitingSearchMap] = useState(new Map());
+  const [waitingSearchIds, setWaitingSearchIds] = useState([]);
+  const [isWaitingSearchMode, setIsWaitingSearchMode] = useState(false);
+  const [waitingSearchTotal, setWaitingSearchTotal] = useState(0);
+  const [hasMoreWaitingSearch, setHasMoreWaitingSearch] = useState(false);
+
+  const [deferredSearchMap, setDeferredSearchMap] = useState(new Map());
+  const [deferredSearchIds, setDeferredSearchIds] = useState([]);
+  const [isDeferredSearchMode, setIsDeferredSearchMode] = useState(false);
+  const [deferredSearchTotal, setDeferredSearchTotal] = useState(0);
+  const [hasMoreDeferredSearch, setHasMoreDeferredSearch] = useState(false);
+
+  const waitingSearchValueRef = useRef("");
+  const deferredSearchValueRef = useRef("");
 
   const [currentQueue, setCurrentQueue] = useState(null);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [nextInLineLoading, setNextInlineLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Pagination state
   const isFetchingRef = useRef(false);
   const INITIAL_LOAD = 100;
   const LOAD_MORE_SIZE = 50;
-  const [hasMoreWaiting, setHasMoreWaiting] = useState(true);
-  const [hasMoreDeferred, setHasMoreDeferred] = useState(true);
+  // const [hasMoreWaiting, setHasMoreWaiting] = useState(true);
+  // const [hasMoreDeferred, setHasMoreDeferred] = useState(true);
 
   // ==================== HELPER FUNCTIONS ====================
   const sortByPriorityPattern = useCallback((queues) => {
-    console.log("🔢 Starting sort with queues:", queues?.length);
+    // console.log("🔢 Starting sort with queues:", queues?.length);
     // console.log("Queue", queues);
     if (!queues || queues.length === 0) {
       console.log("⚠️ No queues to sort");
@@ -83,7 +99,7 @@ const ManageQueueHook = ({
 
     return sorted;
   }, []);
-  // Add queue to waiting list with sorting
+
   const addToWaitingQueue = useCallback(
     (formattedQueue) => {
       setGlobalQueueMap((prev) => {
@@ -152,7 +168,7 @@ const ManageQueueHook = ({
     setTotalDeferredCount((prev) => Math.max(0, prev - 1));
   }, []);
 
-  // ==================== OPTIMIZED FETCH WITH PAGINATION ====================
+  // ==================== HANDLE FETCH FUNCTIONS ====================
 
   const fetchQueueList = useCallback(async () => {
     if (!selectedWindow?.id) {
@@ -162,16 +178,12 @@ const ManageQueueHook = ({
 
     try {
       setIsLoading(true);
-
-      // ✅ Fetch WAITING queues with pagination
-      const waitingQueues = await getQueueListByStatus(Status.WAITING, {
+      const waitingQueues = await getQueueListByQuery(Status.WAITING, {
         limit: INITIAL_LOAD,
         offset: 0,
         include_total: true,
       });
       console.log("Fetched waiting queues:", waitingQueues);
-      // const waitingQueues = await getQueueListByStatus(Status.WAITING);
-
       if (waitingQueues?.queues && Array.isArray(waitingQueues.queues)) {
         const formattedQueue = waitingQueues.queues.map(formatQueueData);
         const sortedQueue = sortByPriorityPattern(formattedQueue);
@@ -210,15 +222,7 @@ const ManageQueueHook = ({
         setTotalWaitingCount(sortedQueue.length);
         setHasMoreWaiting(false);
       }
-
-      // ✅ Fetch DEFERRED queues with pagination
-      // const deferredQueues = await getDeferredQueue(Status.DEFERRED, {
-      //   limit: INITIAL_LOAD,
-      //   offset: 0,
-      //   include_total: true,
-      // });
-      const deferredQueues = await getQueueListByStatus(Status.DEFERRED, {
-        // requestStatus: [Status.STALLED, Status.SKIPPED],
+      const deferredQueues = await getQueueListByQuery(Status.DEFERRED, {
         limit: INITIAL_LOAD,
         offset: 0,
         include_total: true,
@@ -261,6 +265,129 @@ const ManageQueueHook = ({
     }
   }, [selectedWindow?.id, sortByPriorityPattern, formatQueueData, Status]);
 
+  const handleWaitingSearch = useCallback(
+    async (searchValue) => {
+      const trimmedSearch = searchValue?.trim() || "";
+      waitingSearchValueRef.current = trimmedSearch;
+
+      if (!trimmedSearch) {
+        // Clear search mode - return to main list
+        setIsWaitingSearchMode(false);
+        setWaitingSearchMap(new Map());
+        setWaitingSearchIds([]);
+        setWaitingSearchTotal(0);
+        setHasMoreWaitingSearch(false);
+        return;
+      }
+
+      setIsWaitingSearchMode(true);
+      // setIsLoading(true);
+
+      try {
+        const response = await getQueueListByQuery(Status.WAITING, {
+          limit: INITIAL_LOAD,
+          offset: 0,
+          searchValue: trimmedSearch,
+          include_total: true,
+        });
+
+        const queues = response?.queues || response;
+        if (Array.isArray(queues)) {
+          const formatted = queues.map(formatQueueData);
+          const sorted = sortByPriorityPattern(formatted);
+
+          const newMap = new Map();
+          const newIds = [];
+          sorted.forEach((q) => {
+            newMap.set(q.queueId, q);
+            newIds.push(q.queueId);
+          });
+
+          setWaitingSearchMap(newMap);
+          setWaitingSearchIds(newIds);
+          setWaitingSearchTotal(response?.pagination?.total || sorted.length);
+          setHasMoreWaitingSearch(
+            newIds.length < (response?.pagination?.total || 0)
+          );
+        }
+      } catch (error) {
+        console.error("Waiting search error:", error);
+      } finally {
+        // setIsLoading(false);
+      }
+    },
+    [formatQueueData, sortByPriorityPattern, Status]
+  );
+
+  const handleDeferredSearch = useCallback(
+    async (searchValue) => {
+      const trimmedSearch = searchValue?.trim() || "";
+      deferredSearchValueRef.current = trimmedSearch;
+
+      if (!trimmedSearch) {
+        setIsDeferredSearchMode(false);
+        setDeferredSearchMap(new Map());
+        setDeferredSearchIds([]);
+        setDeferredSearchTotal(0);
+        setHasMoreDeferredSearch(false);
+        return;
+      }
+
+      setIsDeferredSearchMode(true);
+      // setIsLoading(true);
+
+      try {
+        const response = await getQueueListByQuery(Status.DEFERRED, {
+          requestStatus: [Status.STALLED, Status.SKIPPED],
+          limit: INITIAL_LOAD,
+          offset: 0,
+          searchValue: trimmedSearch,
+          include_total: true,
+        });
+
+        const queues = response?.queues || response;
+        if (Array.isArray(queues)) {
+          const formatted = queues.map(formatQueueData);
+
+          const newMap = new Map();
+          const newIds = [];
+          formatted.forEach((q) => {
+            newMap.set(q.queueId, q);
+            newIds.push(q.queueId);
+          });
+
+          setDeferredSearchMap(newMap);
+          setDeferredSearchIds(newIds);
+          setDeferredSearchTotal(
+            response?.pagination?.total || formatted.length
+          );
+          setHasMoreDeferredSearch(
+            newIds.length < (response?.pagination?.total || 0)
+          );
+        }
+      } catch (error) {
+        console.error("Deferred search error:", error);
+      } finally {
+        // setIsLoading(false);
+      }
+    },
+    [formatQueueData, Status]
+  );
+
+  const handleFetchQueue = useCallback(async (data, options = {}) => {
+    try {
+      const fetchedQueue = await getSingleQueue(data.queueId, options);
+      console.log("Fetched Queue Response:", fetchedQueue);
+      if (!fetchedQueue) throw new Error("There was a problem fetching queue!");
+      const formattedQueue = formatQueueData(fetchedQueue);
+      if (!formattedQueue)
+        throw new Error("There was a problem formmatting queue!");
+      return formattedQueue;
+    } catch (error) {
+      console.log("Error: ", error);
+    }
+  });
+
   // ==================== LOAD MORE FUNCTIONS ====================
   const loadMoreWaitingQueues = useCallback(async () => {
     if (isFetchingRef.current || !hasMoreWaiting || isLoading) return;
@@ -270,7 +397,7 @@ const ManageQueueHook = ({
 
     try {
       console.log("Loading more waiting queues...");
-      const response = await getQueueListByStatus(Status.WAITING, {
+      const response = await getQueueListByQuery(Status.WAITING, {
         limit: LOAD_MORE_SIZE,
         offset: globalQueueIds.length,
       });
@@ -347,7 +474,7 @@ const ManageQueueHook = ({
     if (!hasMoreDeferred || isLoading) return;
 
     try {
-      const response = await getQueueListByStatus(Status.DEFERRED, {
+      const response = await getQueueListByQuery(Status.DEFERRED, {
         requestStatus: [Status.STALLED, Status.SKIPPED],
         limit: LOAD_MORE_SIZE,
         offset: deferredQueueIds.length,
@@ -386,22 +513,101 @@ const ManageQueueHook = ({
     Status,
   ]);
 
-  // ==================== SOCKET EVENT HANDLERS (OPTIMIZED) ====================
-  const handleFetchQueue = useCallback(async (data, options = {}) => {
-    try {
-      const fetchedQueue = await getSingleQueue(data.queueId, options);
-      console.log("Fetched Queue Response:", fetchedQueue);
-      if (!fetchedQueue) throw new Error("There was a problem fetching queue!");
-      const formattedQueue = formatQueueData(fetchedQueue);
-      if (!formattedQueue)
-        throw new Error("There was a problem formmatting queue!");
-      return formattedQueue;
-    } catch (error) {
-      console.log("Error: ", error);
-    }
-  });
+  const loadMoreWaitingSearch = useCallback(async () => {
+    if (!hasMoreWaitingSearch || !isWaitingSearchMode || isLoading) return;
 
-  // ✅ Define all handlers with useCallback at the top level
+    setNextInlineLoading(true);
+    try {
+      const response = await getQueueListByQuery(Status.WAITING, {
+        limit: LOAD_MORE_SIZE,
+        offset: waitingSearchIds.length,
+        searchValue: waitingSearchValueRef.current,
+        include_total: true,
+      });
+
+      const queues = response?.queues || response;
+      if (Array.isArray(queues) && queues.length > 0) {
+        const formatted = queues.map(formatQueueData);
+
+        setWaitingSearchMap((prev) => {
+          const newMap = new Map(prev);
+          formatted.forEach((q) => newMap.set(q.queueId, q));
+          return newMap;
+        });
+
+        setWaitingSearchIds((prev) => [
+          ...prev,
+          ...formatted.map((q) => q.queueId),
+        ]);
+
+        setHasMoreWaitingSearch(
+          waitingSearchIds.length + formatted.length < waitingSearchTotal
+        );
+      } else {
+        setHasMoreWaitingSearch(false);
+      }
+    } catch (error) {
+      console.error("Error loading more waiting search results:", error);
+    } finally {
+      setNextInlineLoading(false);
+    }
+  }, [
+    hasMoreWaitingSearch,
+    isWaitingSearchMode,
+    isLoading,
+    waitingSearchIds.length,
+    waitingSearchTotal,
+    formatQueueData,
+    Status,
+  ]);
+  const loadMoreDeferredSearch = useCallback(async () => {
+    if (!hasMoreDeferredSearch || !isDeferredSearchMode || isLoading) return;
+
+    try {
+      const response = await getQueueListByQuery(Status.DEFERRED, {
+        requestStatus: [Status.STALLED, Status.SKIPPED],
+        limit: LOAD_MORE_SIZE,
+        offset: deferredSearchIds.length,
+        searchValue: deferredSearchValueRef.current,
+        include_total: true,
+      });
+
+      const queues = response?.queues || response;
+      if (Array.isArray(queues) && queues.length > 0) {
+        const formatted = queues.map(formatQueueData);
+
+        setDeferredSearchMap((prev) => {
+          const newMap = new Map(prev);
+          formatted.forEach((q) => newMap.set(q.queueId, q));
+          return newMap;
+        });
+
+        setDeferredSearchIds((prev) => [
+          ...prev,
+          ...formatted.map((q) => q.queueId),
+        ]);
+
+        setHasMoreDeferredSearch(
+          deferredSearchIds.length + formatted.length < deferredSearchTotal
+        );
+      } else {
+        setHasMoreDeferredSearch(false);
+      }
+    } catch (error) {
+      console.error("Error loading more deferred search results:", error);
+    }
+  }, [
+    hasMoreDeferredSearch,
+    isDeferredSearchMode,
+    isLoading,
+    deferredSearchIds.length,
+    deferredSearchTotal,
+    formatQueueData,
+    Status,
+  ]);
+
+  // ==================== SOCKET EVENT HANDLERS (OPTIMIZED) ====================
+
   const addSingleQueue = useCallback(
     async (data) => {
       try {
@@ -526,9 +732,7 @@ const ManageQueueHook = ({
           const queueIdKey = String(data.queueId);
           const queue = prev.get(queueIdKey);
           if (!queue) {
-            console.warn(
-              `Queue ${queueIdKey} not found in deferredQueueMap`
-            );
+            console.warn(`Queue ${queueIdKey} not found in deferredQueueMap`);
             return new Map(prev);
           }
 
@@ -799,29 +1003,52 @@ const ManageQueueHook = ({
     .filter(Boolean);
 
   return {
-    // State
-    globalQueueList,
+    // Main Waiting Queue
+    globalQueueList: isWaitingSearchMode
+      ? waitingSearchIds.map((id) => waitingSearchMap.get(id)).filter(Boolean)
+      : globalQueueList,
     globalQueueMap,
     globalQueueIds,
-    totalWaitingCount,
-    deferredQueue,
+    totalWaitingCount: isWaitingSearchMode
+      ? waitingSearchTotal
+      : totalWaitingCount,
+    hasMoreWaiting: isWaitingSearchMode ? hasMoreWaitingSearch : hasMoreWaiting,
+
+    // Main Deferred Queue
+    deferredQueue: isDeferredSearchMode
+      ? deferredSearchIds.map((id) => deferredSearchMap.get(id)).filter(Boolean)
+      : deferredQueue,
     deferredQueueMap,
     deferredQueueIds,
-    totalDeferredCount,
+    totalDeferredCount: isDeferredSearchMode
+      ? deferredSearchTotal
+      : totalDeferredCount,
+    hasMoreDeferred: isDeferredSearchMode
+      ? hasMoreDeferredSearch
+      : hasMoreDeferred,
+
+    // Search states
+    isWaitingSearchMode,
+    isDeferredSearchMode,
+
+    // Other states...
     currentQueue,
     selectedQueue,
     isLoading,
     setIsLoading,
     nextInLineLoading,
-    setNextInlineLoading,
-    hasMoreWaiting,
-    hasMoreDeferred,
 
     // Actions
     setCurrentQueue,
     setSelectedQueue,
-    loadMoreWaitingQueues,
-    loadMoreDeferredQueues,
+    handleWaitingSearch,
+    handleDeferredSearch,
+    loadMoreWaitingQueues: isWaitingSearchMode
+      ? loadMoreWaitingSearch
+      : loadMoreWaitingQueues,
+    loadMoreDeferredQueues: isDeferredSearchMode
+      ? loadMoreDeferredSearch
+      : loadMoreDeferredQueues,
     fetchQueueList,
   };
 };
