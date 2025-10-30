@@ -41,11 +41,13 @@ import {
 } from "../../components/LoadingSkeletons/LoadingSkeletonManageQueue.jsx";
 import { Status } from "../../constants/queueEnums.js";
 import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
+import { useDebounce } from "../../utils/hooks/useDebounce.jsx";
 import ManageQueueHook from "./ManageQueue/ManageQueueHook.jsx";
 
 export default function Manage_Queue() {
   const navigate = useNavigate();
   const parentRef = useRef(null);
+  const deferredParentRef = useRef(null);
   const autoCallInProgressRef = useRef(false);
   const [deferredOpen, setDeferredOpen] = useState(true);
   const [nextInLineOpen, setNextInLineOpen] = useState(true);
@@ -62,6 +64,9 @@ export default function Manage_Queue() {
   const [callingNext, setCallingNext] = useState(false);
   const { socket, isConnected } = useSocket();
   const [wasQueueEmpty, setWasQueueEmpty] = useState(false);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const debouncedDeferredSearchTerm = useDebounce(deferredSearchTerm, 500);
+  const isNumeric = (val) => /^\d+$/.test(val);
 
   const DEFAULT_QUEUE = {
     queueNo: "R000",
@@ -146,67 +151,83 @@ export default function Manage_Queue() {
     }
   };
   const {
-    globalQueueList, // ✅ Drop-in replacement
-    deferredQueue, // ✅ Drop-in replacement
-    currentQueue, // ✅ Drop-in replacement
-    selectedQueue, // ✅ Drop-in replacement
-    isLoading, // ✅ Drop-in replacement
+    // Main lists (now conditionally returns search results when in search mode)
+    globalQueueList, // ✅ Contains waiting queue OR search results
+    deferredQueue, // ✅ Contains deferred queue OR search results
+    currentQueue,
+    selectedQueue,
+    isLoading,
     setIsLoading,
     nextInLineLoading,
     setNextInlineLoading,
 
-    // New: Total counts
-    totalWaitingCount, // NEW: Total in DB (e.g., 3000)
-    totalDeferredCount, // NEW: Total deferred
+    // Total counts (automatically switches between regular and search totals)
+    totalWaitingCount, // Total waiting (or search results total)
+    totalDeferredCount, // Total deferred (or search results total)
 
-    // New: Pagination
-    hasMoreWaiting, // NEW: Can load more waiting queues
-    hasMoreDeferred, // NEW: Can load more deferred queues
+    // Pagination flags (automatically switches between regular and search pagination)
+    hasMoreWaiting, // Can load more waiting (or search results)
+    hasMoreDeferred, // Can load more deferred (or search results)
+
+    // 🆕 Search mode indicators
+    isWaitingSearchMode, // NEW: True when searching waiting queue
+    isDeferredSearchMode, // NEW: True when searching deferred queue
 
     // Actions
-    setCurrentQueue, // ✅ Same as before
-    setSelectedQueue, // ✅ Same as before
-    loadMoreWaitingQueues, // NEW: Load next batch
-    loadMoreDeferredQueues, // NEW: Load next batch
-    fetchQueueList, // ✅ Same as before (for manual refresh)
+    setCurrentQueue,
+    setSelectedQueue,
+
+    // Load more functions (automatically use correct function based on search mode)
+    loadMoreWaitingQueues, // Loads more waiting OR search results
+    loadMoreDeferredQueues, // Loads more deferred OR search results
+
+    fetchQueueList, // Manual refresh
+
+    // 🆕 Search functions
+    handleWaitingSearch, // NEW: Trigger waiting queue search
+    handleDeferredSearch, // NEW: Trigger deferred queue search
   } = ManageQueueHook({
     socket,
     isConnected,
-    // selectedWindow,
     showWindowModal,
     setShowWindowModal,
-    // sortByPriorityPattern,
-    loadWindows, // Your existing function
-    showToast, // Your existing function
-    // formatTime, // Your existing function
+    loadWindows,
+    showToast,
     setSelectedWindow,
     selectedWindow,
-    Status, // Your Status enum
-    QueueActions, // Your QueueActions enum
-    SocketEvents, // Your SocketEvents enum
-    WindowEvents, // Your WindowEvents enum
+    Status,
+    QueueActions,
+    SocketEvents,
+    WindowEvents,
   });
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = (searchTerm || "").trim();
 
+      if (isNumeric(trimmed)) {
+        handleWaitingSearch(trimmed);
+      } else if (trimmed === "" || trimmed.length > 1) {
+        handleWaitingSearch(trimmed);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, handleWaitingSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = (deferredSearchTerm || "").trim();
+      if (trimmed === "" || trimmed.length > 1) {
+        handleDeferredSearch(trimmed);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [deferredSearchTerm, handleDeferredSearch]);
   const isDefaultQueue = (queue) => {
     return queue && queue.queueNo === "R000" && queue.studentId === "N/A";
   };
   const nextInLine = (globalQueueList || []).slice(0);
-  const filteredNextInLine = (nextInLine || []).filter((item) => {
-    const search = searchTerm?.toLowerCase() || "";
-    return (
-      (item.queueNo?.toLowerCase() || "").includes(search) ||
-      (item.name?.toLowerCase() || "").includes(search) ||
-      (item.studentId?.toLowerCase() || "").includes(search)
-    );
-  });
-  const filteredDeferredQueue = deferredQueue.filter((item) => {
-    const search = deferredSearchTerm?.toLowerCase() || "";
-    return (
-      (item.queueNo?.toLowerCase() || "").includes(search) ||
-      (item.name?.toLowerCase() || "").includes(search) ||
-      (item.studentId?.toLowerCase() || "").includes(search)
-    );
-  });
   const handleCallNext = async (overrideWindow) => {
     const activeWindow = overrideWindow || selectedWindow;
     setCallingNext(true);
@@ -736,6 +757,23 @@ export default function Manage_Queue() {
       loadMoreWaitingQueues();
     }
   };
+  const deferredVirtualizer = useVirtualizer({
+    count: deferredQueue.length,
+    getScrollElement: () => deferredParentRef.current,
+    estimateSize: () => 60, // Estimate row height
+    overscan: 5,
+  });
+
+  const handleDeferredScroll = (e) => {
+    if (scrollTimeout) return;
+    scrollTimeout = setTimeout(() => (scrollTimeout = null), 300);
+
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    if (nearBottom && hasMoreWaiting && !isLoading) {
+      loadMoreDeferredQueues();
+    }
+  };
 
   return (
     <div className="relative min-h-screen w-full">
@@ -1072,16 +1110,16 @@ export default function Manage_Queue() {
                 </button>
 
                 {deferredOpen && (
-                  <div className="p-4 bg-">
-                    <div className="mb-4 text-right">
-                      <div className="relative inline-block max-w-md w-full">
+                  <div className="p-4">
+                    {/* Search bar */}
+                    <div className="mb-4 flex justify-end">
+                      <div className="relative w-full max-w-sm">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                           <svg
                             className="h-5 w-5 text-gray-400"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
                           >
                             <path
                               strokeLinecap="round"
@@ -1091,7 +1129,6 @@ export default function Manage_Queue() {
                             />
                           </svg>
                         </div>
-
                         <input
                           type="text"
                           placeholder="Search by name, ID"
@@ -1099,17 +1136,20 @@ export default function Manage_Queue() {
                           onChange={(e) =>
                             setDeferredSearchTerm(e.target.value)
                           }
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
 
-                    {/* Table Container */}
+                    {/* Virtualized Table */}
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      {/* Fixed Header */}
-                      <div className="overflow-y-scroll custom-scrollbar max-h-96">
+                      <div
+                        ref={deferredParentRef}
+                        onScroll={handleDeferredScroll}
+                        className="overflow-y-auto custom-scrollbar max-h-96 relative"
+                      >
                         <table className="w-full min-w-[700px]">
-                          <thead className="bg-white sticky top-0 z-10">
+                          <thead className="sticky top-0 z-10 bg-white">
                             <tr className="border-b border-[#E2E3E4]">
                               <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-40">
                                 Student ID
@@ -1126,85 +1166,120 @@ export default function Manage_Queue() {
                             </tr>
                           </thead>
 
-                          {/* Scrollable Body */}
-                          <tbody>
-                            {filteredDeferredQueue.length > 0 ? (
-                              filteredDeferredQueue.map((item, index) => (
-                                <tr
-                                  key={index}
-                                  className="border-b border-[#E2E3E4] hover:bg-gray-50"
-                                >
-                                  <td className="text-left py-3 px-4 text-sm text-[#202124] w-40">
-                                    {item.studentId}
-                                  </td>
-                                  <td className="text-left py-3 px-4 text-sm text-[#202124] w-48">
-                                    {item.name}
-                                  </td>
-                                  <td className="text-left py-3 px-4 text-sm text-[#202124] w-64">
-                                    <div className="relative">
-                                      {/* ✅ Add safety check for empty requests array */}
-                                      {item.requests &&
-                                      item.requests.length > 0 ? (
-                                        <>
-                                          {item.requests[0].name}
-                                          {item.requests.length > 1 && (
-                                            <>
-                                              <span
-                                                className="ml-2 bg-transparent font-semibold border-1 border-[#1A73E8] text-[#1A73E8] text-xs px-2 py-0.5 rounded-full cursor-pointer"
-                                                onMouseEnter={() =>
-                                                  setHoveredRow(
-                                                    `deferred-${index}`
-                                                  )
-                                                }
-                                                onMouseLeave={() =>
-                                                  setHoveredRow(null)
-                                                }
-                                              >
-                                                +{item.requests.length - 1}
-                                              </span>
-                                              {hoveredRow ===
-                                                `deferred-${index}` && (
-                                                <div className="absolute bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white text-black p-3 rounded-lg shadow-lg z-50 min-w-[200px]">
-                                                  {item.requests
-                                                    .slice(1)
-                                                    .map((req, idx) => (
-                                                      <div
-                                                        key={idx}
-                                                        className="py-1 text-xs"
-                                                      >
-                                                        {req.name}
-                                                      </div>
-                                                    ))}
-                                                  <div className="absolute top-full left-38 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-transparent"></div>
-                                                </div>
-                                              )}
-                                            </>
-                                          )}
-                                        </>
-                                      ) : (
-                                        <span className="text-gray-400 italic">
-                                          All requests processed
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="text-left py-3 px-4">
-                                    <button
-                                      onClick={() => openActionPanel(item)}
-                                      className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-xl hover:bg-blue-600 transition-colors cursor-pointer"
-                                    >
-                                      View
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
+                          <tbody
+                            style={{
+                              height: `${deferredVirtualizer.getTotalSize()}px`,
+                              position: "relative",
+                            }}
+                          >
+                            {deferredVirtualizer
+                              .getVirtualItems()
+                              .map((virtualRow) => {
+                                const item = deferredQueue[virtualRow.index];
+                                if (!item) return null;
+
+                                return (
+                                  <tr
+                                    key={item.queueId || virtualRow.index}
+                                    className="border-b border-[#E2E3E4] hover:bg-gray-50 transition"
+                                    style={{
+                                      position: "absolute",
+                                      top: 0,
+                                      transform: `translateY(${virtualRow.start}px)`,
+                                      width: "100%",
+                                    }}
+                                  >
+                                    <td className="text-left py-3 px-4 text-sm text-[#202124] w-40">
+                                      {item.studentId}
+                                    </td>
+
+                                    <td className="text-left py-3 px-4 text-sm text-[#202124] w-48">
+                                      <span
+                                        className="truncate block max-w-[180px]"
+                                        title={item.name}
+                                      >
+                                        {item.name}
+                                      </span>
+                                    </td>
+
+                                    <td className="text-left py-3 px-4 text-sm text-[#202124] w-64">
+                                      <div className="relative">
+                                        {item.requests &&
+                                        item.requests.length > 0 ? (
+                                          <>
+                                            <span
+                                              className="truncate block max-w-[180px]"
+                                              title={item.requests[0].name}
+                                            >
+                                              {item.requests[0].name}
+                                            </span>
+                                            {item.requests.length > 1 && (
+                                              <>
+                                                <span
+                                                  className="ml-2 bg-transparent font-semibold border border-[#1A73E8] text-[#1A73E8] text-xs px-2 py-0.5 rounded-full cursor-pointer inline-block"
+                                                  onMouseEnter={() =>
+                                                    setHoveredRow(
+                                                      `deferred-${virtualRow.index}`
+                                                    )
+                                                  }
+                                                  onMouseLeave={() =>
+                                                    setHoveredRow(null)
+                                                  }
+                                                >
+                                                  +{item.requests.length - 1}
+                                                </span>
+                                                {hoveredRow ===
+                                                  `deferred-${virtualRow.index}` && (
+                                                  <div className="absolute bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white text-black p-3 rounded-lg shadow-lg z-50 min-w-[200px]">
+                                                    {item.requests
+                                                      .slice(1)
+                                                      .map((req) => (
+                                                        <div
+                                                          key={req.id}
+                                                          className="py-1 text-xs"
+                                                        >
+                                                          {req.name}
+                                                        </div>
+                                                      ))}
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <span className="text-gray-400 italic">
+                                            All requests processed
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+
+                                    <td className="text-left py-3 px-4">
+                                      <button
+                                        onClick={() => openActionPanel(item)}
+                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-xl hover:bg-blue-600 transition-colors"
+                                      >
+                                        View
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+
+                            {isLoading && hasMoreDeferred && (
+                              <tr
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  transform: `translateY(${deferredVirtualizer.getTotalSize()}px)`,
+                                  width: "100%",
+                                }}
+                              >
                                 <td
                                   colSpan="4"
-                                  className="py-8 text-center text-gray-500"
+                                  className="py-4 text-center text-gray-500 animate-pulse"
                                 >
-                                  No results found
+                                  Loading more queues...
                                 </td>
                               </tr>
                             )}
@@ -1212,11 +1287,21 @@ export default function Manage_Queue() {
                         </table>
                       </div>
                     </div>
+
+                    {/* Empty state */}
+                    {deferredQueue.length === 0 && !isLoading && (
+                      <div className="py-8 text-center text-gray-500">
+                        {isDeferredSearchMode
+                          ? "No results found"
+                          : "No deferred queues"}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
               <div className="bg-white rounded-xl shadow-xs overflow-hidden">
+                {/* Header */}
                 <button
                   onClick={() => setNextInLineOpen(!nextInLineOpen)}
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -1235,6 +1320,8 @@ export default function Manage_Queue() {
                     <ChevronDown className="w-5 h-5 text-gray-600" />
                   )}
                 </button>
+
+                {/* Content */}
                 {nextInLineOpen && (
                   <div className="p-4">
                     {/* Search Bar */}
@@ -1255,7 +1342,6 @@ export default function Manage_Queue() {
                             />
                           </svg>
                         </div>
-
                         <input
                           type="text"
                           placeholder="Search by queue number, name, ID"
@@ -1265,39 +1351,45 @@ export default function Manage_Queue() {
                         />
                       </div>
                     </div>
-
-                    {/* Virtualized Table */}
+                    {/* Optional: show “Clear search” only
+                    {isWaitingSearchMode && (
+                      <div className="mb-2 text-right">
+                        <button
+                          onClick={() => setSearchTerm("")}
+                          className="text-blue-600 text-sm hover:underline"
+                        >
+                          Clear search
+                        </button>
+                      </div>
+                    )} */}
+                    {/* Table */}
                     <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      {/* Scrollable Container - Now wraps both header and body */}
                       <div
                         ref={parentRef}
                         onScroll={handleScroll}
                         className="overflow-y-auto custom-scrollbar max-h-96 relative"
                       >
-                        {/* Single table for both header and body */}
-                        <table className="w-full min-w-[700px]">
-                          {/* Fixed Header */}
-                          <thead className="sticky top-0 z-10 bg-white">
+                        <table className="w-full border-collapse text-sm text-gray-900">
+                          <thead className="sticky top-0 bg-white z-10">
                             <tr>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-32">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-32">
                                 Queue No.
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-40">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-40">
                                 Student ID
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-48">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-48">
                                 Name
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-64">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-64">
                                 Request
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-32">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-32">
                                 Time
                               </th>
                             </tr>
                           </thead>
 
-                          {/* Body */}
                           <tbody
                             style={{
                               height: `${rowVirtualizer.getTotalSize()}px`,
@@ -1307,8 +1399,7 @@ export default function Manage_Queue() {
                             {rowVirtualizer
                               .getVirtualItems()
                               .map((virtualRow) => {
-                                const item =
-                                  filteredNextInLine[virtualRow.index];
+                                const item = globalQueueList[virtualRow.index];
                                 if (!item) return null;
 
                                 return (
@@ -1322,7 +1413,7 @@ export default function Manage_Queue() {
                                       width: "100%",
                                     }}
                                   >
-                                    <td className="text-left py-4 px-4 text-sm font-semibold w-32">
+                                    <td className="py-4 px-4 font-semibold w-32">
                                       <span
                                         className={
                                           item.type === "Priority"
@@ -1334,11 +1425,11 @@ export default function Manage_Queue() {
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-4 px-4 text-sm text-[#202124] w-40">
+                                    <td className="py-4 px-4 w-40">
                                       {item.studentId}
                                     </td>
 
-                                    <td className="text-left py-4 px-4 text-sm text-[#202124] w-48">
+                                    <td className="py-4 px-4 w-48">
                                       <span
                                         className="truncate block max-w-[180px]"
                                         title={item.name}
@@ -1347,7 +1438,7 @@ export default function Manage_Queue() {
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-4 px-4 text-sm text-[#202124] w-64">
+                                    <td className="py-4 px-4 w-64">
                                       {item.requests &&
                                       item.requests.length > 0 ? (
                                         <div className="relative flex items-center">
@@ -1360,7 +1451,7 @@ export default function Manage_Queue() {
                                           {item.requests.length > 1 && (
                                             <>
                                               <span
-                                                className="ml-2 bg-transparent text-[#1A73E8] font-semibold border border-[#1A73E8] text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
+                                                className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
                                                 onMouseEnter={() =>
                                                   setHoveredRow(
                                                     virtualRow.index
@@ -1374,7 +1465,7 @@ export default function Manage_Queue() {
                                               </span>
                                               {hoveredRow ===
                                                 virtualRow.index && (
-                                                <div className="absolute bottom-full left-0 mb-2 bg-white border border-[#E2E3E4] text-black p-3 rounded-lg shadow-lg z-50 min-w-[200px] max-w-[300px]">
+                                                <div className="absolute bottom-full left-0 mb-2 bg-white border border-[#E2E3E4] p-3 rounded-lg shadow-lg z-50 min-w-[200px] max-w-[300px]">
                                                   {item.requests
                                                     .slice(1)
                                                     .map((req) => (
@@ -1397,12 +1488,13 @@ export default function Manage_Queue() {
                                       )}
                                     </td>
 
-                                    <td className="text-left py-3 px-4 text-sm text-gray-900 w-32">
+                                    <td className="py-4 px-4 w-32">
                                       {item.time}
                                     </td>
                                   </tr>
                                 );
                               })}
+
                             {nextInLineLoading && (
                               <tr
                                 style={{
@@ -1424,6 +1516,14 @@ export default function Manage_Queue() {
                         </table>
                       </div>
                     </div>
+                    {/* Empty State */}
+                    {globalQueueList.length === 0 && !isLoading && (
+                      <div className="py-8 text-center text-gray-500">
+                        {isWaitingSearchMode
+                          ? "No results found"
+                          : "No queues available"}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
