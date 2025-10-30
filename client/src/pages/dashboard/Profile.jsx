@@ -68,14 +68,14 @@ export default function Profile() {
             {isEditing ? (
               <button
                 onClick={handleDiscard}
-                className="flex border border-red-500 text-red-500 font-medium items-center py-2 px-3 lg:py-2.5 lg:px-4 gap-2 rounded-lg sm:rounded-xl text-sm lg:text-base w-auto"
+                className="flex cursor-pointer border border-red-500 text-red-500 font-medium items-center py-2 px-3 lg:py-2.5 lg:px-4 gap-2 rounded-lg sm:rounded-xl text-sm lg:text-base w-auto"
               >
                 Discard
               </button>
             ) : (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex border border-[#1A73E8] text-[#1A73E8] font-medium items-center py-2 px-3 lg:py-2.5 lg:px-4 gap-2 rounded-lg sm:rounded-xl text-sm lg:text-base w-auto"
+                className="flex cursor-pointer border border-[#1A73E8] text-[#1A73E8] font-medium items-center py-2 px-3 lg:py-2.5 lg:px-4 gap-2 rounded-lg sm:rounded-xl text-sm lg:text-base w-auto"
               >
                 <img
                   src="/assets/Profile/edit.png"
@@ -176,7 +176,7 @@ export default function Profile() {
                 <button
                   onClick={handleSave}
                   disabled={!isEditing}
-                  className={`w-full sm:w-auto font-medium py-2.5 sm:py-3 px-4 sm:px-5 rounded-lg sm:rounded-xl text-sm sm:text-base ${
+                  className={`w-full cursor-pointer sm:w-auto font-medium py-2.5 sm:py-3 px-4 sm:px-5 rounded-lg sm:rounded-xl text-sm sm:text-base ${
                     isEditing
                       ? "bg-[#1A73E8] text-white"
                       : "bg-[#1A73E8]/40 text-white cursor-not-allowed"
