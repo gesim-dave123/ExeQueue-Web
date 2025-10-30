@@ -16,13 +16,10 @@ import cron from 'node-cron';
  * - date: Filter by date (ISO format)
  * - search: Search by student ID, name, or reference number
  * 
- * import { Status } from "@prisma/client";
-import prisma from "../../prisma/prisma.js";
-import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
-import cron from 'node-cron';
+ * /
 
 /**
- * 🔄 AUTO-FINALIZE DEFERRED QUEUES AT 10 PM
+ *  AUTO-FINALIZE DEFERRED QUEUES AT 10 PM
  * Runs daily at 10:00 PM Manila time
  * Finalizes all deferred queues that weren't resolved during the day
  */
@@ -62,7 +59,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       });
     }
 
-    // 📅 Get today's date boundaries (Manila time)
+    //  Get today's date boundaries (Manila time)
     const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
       "Asia/Manila"
@@ -72,7 +69,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
 
     let whereClause = {};
 
-    // 🔒 STALLED LOGIC: Only show STALLED from previous days (finalized)
+    // STALLED LOGIC: Only show STALLED from previous days (finalized)
     if (status === Status.STALLED) {
       // User specifically filtered for STALLED
       whereClause = {
@@ -88,7 +85,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       // If it's CANCELLED or COMPLETED, show all (including today's)
       // No date restriction needed for these
     } else {
-      // 🎯 DEFAULT: Show finalized transactions only
+      // DEFAULT: Show finalized transactions only
       whereClause.OR = [
         {
           // Show COMPLETED from any day (including today)
@@ -112,7 +109,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       ];
     }
 
-    // 📅 Date filter (if user selects a specific date)
+    // Date filter (if user selects a specific date)
     if (date) {
       try {
         const startDate = new Date(date + 'T00:00:00.000+08:00');
@@ -150,7 +147,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       }
     }
 
-    // 🎓 Course filter
+    //  Course filter
     if (course) {
       whereClause.queue = {
         ...whereClause.queue,
@@ -158,7 +155,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       };
     }
 
-    // 📋 Request filter
+    //  Request filter
     if (request) {
       const requestFilter = {
         OR: [
@@ -207,7 +204,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       }
     }
 
-    // 🔍 Search filter
+    // Search filter
     if (search) {
       whereClause.queue = {
         ...whereClause.queue,
@@ -353,7 +350,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
 export const scheduleDeferredFinalization = () => {
   // Schedule: Run at 10:00 PM every day (Manila timezone)
   cron.schedule('0 22 * * *', async () => {
-    console.log('🕙 [10 PM] Running deferred queue finalization...');
+    console.log('[10 PM] Running deferred queue finalization...');
     
     try {
       const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
@@ -377,7 +374,7 @@ export const scheduleDeferredFinalization = () => {
         }
       });
 
-      console.log(`📋 Found ${deferredQueues.length} deferred queues to finalize`);
+      console.log(`Found ${deferredQueues.length} deferred queues to finalize`);
 
       for (const queue of deferredQueues) {
         // Determine final status based on request statuses
@@ -429,9 +426,9 @@ export const scheduleDeferredFinalization = () => {
         console.log(`✅ Finalized queue ${queue.referenceNumber} → ${finalStatus}`);
       }
 
-      console.log('✨ Deferred finalization completed');
+      console.log('Deferred finalization completed');
     } catch (error) {
-      console.error('❌ Error in deferred finalization:', error);
+      console.error('Error in deferred finalization:', error);
     }
   }, {
     timezone: 'Asia/Manila'
@@ -460,7 +457,7 @@ export const scheduleSkippedToCancelled = () => {
         }
       });
 
-      console.log(`📋 Found ${expiredRequests.length} expired skipped requests`);
+      console.log(` Found ${expiredRequests.length} expired skipped requests`);
 
       for (const request of expiredRequests) {
         // Update request to CANCELLED
@@ -483,12 +480,12 @@ export const scheduleSkippedToCancelled = () => {
           }
         });
 
-        console.log(`✅ Auto-cancelled skipped request ${request.requestId} after 1 hour`);
+        console.log(` Auto-cancelled skipped request ${request.requestId} after 1 hour`);
       }
 
-      console.log('✨ Skipped request check completed');
+      console.log('Skipped request check completed');
     } catch (error) {
-      console.error('❌ Error in skipped-to-cancelled check:', error);
+      console.error(' Error in skipped-to-cancelled check:', error);
     }
   });
 };
@@ -538,7 +535,7 @@ export const updateTransactionStatus = async (req, res) => {
 
 export const getTransactions = async (req, res) => {
   try {
-    console.log("📊 Transaction request received:", {
+    console.log("Transaction request received:", {
       query: req.query,
       user: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'No user'
     });
@@ -595,7 +592,7 @@ export const getTransactions = async (req, res) => {
       }
     }
 
-    // ✅ FIX: Course filter (corrected structure)
+    // FIX: Course filter (corrected structure)
     if (course) {
       whereClause.queue.courseCode = course;
       console.log('🎓 Course filter applied:', course);
@@ -611,7 +608,7 @@ export const getTransactions = async (req, res) => {
       }
       whereClause.transactionStatus = status;
     } else {
-      // ✅ Default: Only show COMPLETED, CANCELLED, and STALLED
+      // Default: Only show COMPLETED, CANCELLED, and STALLED
       whereClause.transactionStatus = {
         in: [
           Status.COMPLETED, 
@@ -736,13 +733,13 @@ export const getTransactions = async (req, res) => {
       prisma.transactionHistory.findMany(queryOptions),
       prisma.transactionHistory.count({ where: whereClause })
     ]);
-
-    console.log("📊 Query results:", {
+/*
+    console.log("Query results:", {
       totalCount,
       fetchedCount: transactions.length,
       pageRequested: pageNum
     });
-
+*/
     const skip = (pageNum - 1) * limitNum;
     const paginatedTransactions = transactions.slice(skip, skip + limitNum);
 
@@ -789,7 +786,7 @@ export const getTransactions = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "✅ Transactions fetched successfully",
+      message: "Transactions fetched successfully",
       data: {
         transactions: formattedTransactions,
         pagination: {
@@ -806,7 +803,7 @@ export const getTransactions = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error fetching transactions:", error);
+    console.error("Error fetching transactions:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -831,7 +828,7 @@ export const getTransactionStats = async (req, res) => {
 
     // Get all unique values for filters
     const [courses, requests, statuses] = await Promise.all([
-      // ✅ Get unique courses from queues that have finalized transactions
+      // Get unique courses from queues that have finalized transactions
       prisma.queue.findMany({
         where: {
           transactionHistories: {
@@ -843,7 +840,7 @@ export const getTransactionStats = async (req, res) => {
                   Status.STALLED,
                   Status.PARTIALLY_COMPLETE
                 ]
-                // 🚫 Exclude SKIPPED
+                //  Exclude SKIPPED
               }
             }
           }
@@ -859,7 +856,7 @@ export const getTransactionStats = async (req, res) => {
           .sort();
       }),
       
-      // ✅ Get request types that have finalized transactions
+      // Get request types that have finalized transactions
       prisma.transactionHistory.findMany({
         where: {
           request: {
@@ -872,7 +869,7 @@ export const getTransactionStats = async (req, res) => {
               Status.STALLED,
               Status.PARTIALLY_COMPLETE
             ]
-            // 🚫 Exclude SKIPPED
+            // Exclude SKIPPED
           }
         },
         distinct: ['requestId'],
@@ -922,7 +919,7 @@ export const getTransactionStats = async (req, res) => {
       }).then(results => {
         return results
           .map(r => r.transactionStatus)
-          .filter(status => status !== Status.SKIPPED) // 🚫 Extra safety filter
+          .filter(status => status !== Status.SKIPPED) // Extra safety filter
           .sort();
       })
     ]);
@@ -947,12 +944,6 @@ export const getTransactionStats = async (req, res) => {
   }
 };
 
-
-/**
- * GET /api/transactions/summary
- * Optional: Get summary statistics for transactions
- * Useful for dashboard or overview displays
- */
 
 export const getTransactionSummary = async (req, res) => {
   try {
@@ -1009,8 +1000,8 @@ export const getTransactionSummary = async (req, res) => {
 };
 
 export const initializeScheduledJobs = () => {
-  console.log('🕐 Initializing scheduled jobs...');
+  console.log('Initializing scheduled jobs...');
   scheduleDeferredFinalization();
   scheduleSkippedToCancelled();
-  console.log('✅ Scheduled jobs initialized successfully');
+  console.log('Scheduled jobs initialized successfully');
 };
