@@ -315,7 +315,7 @@ export default function Dashboard() {
                 </h3>
               </div>
               <p
-                className={`text-3xl md:text-5xl font-bold mt-7 xl:text-start ${
+                className={`text-3xl md:text-5xl font-bold mt-7 ${
                   win.currentServing?.formattedQueueNumber?.startsWith('P')
                     ? 'text-[#F9AB00]'
                     : 'text-[#1A73E8]'
