@@ -203,8 +203,8 @@ export default function Analytics() {
     : null;
 
   return (
-    <div className="min-h-screen bg-transparent p-6">
-      <div className="w-full min-h-[80vh] mx-auto pl-5">
+    <div className="min-h-screen bg-transparent pr-6  md:pl-14 lg:pl-8 xl:pl-1 lg:py-4 md:pr-7 lg:pr-10">
+      <div className="w-full min-h-[80vh] mx-auto pl-0 pr-1 lg:pl-5">
         {/* Header */}
         <div className="mb-8 pt-10">
           <h1 className="text-3xl text-left font-semibold text-[#202124]">
@@ -216,7 +216,7 @@ export default function Analytics() {
         </div>
 
         {/* Top Stats Cards - Always show TODAY's data */}
-        <div className="flex gap-6 mb-6">
+        <div className="lg:flex gap-6 mb-6">
           {/* Card 1 - Today's Queue */}
           <div className="bg-white flex-2 rounded-xl shadow-xs p-5 flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -227,7 +227,7 @@ export default function Analytics() {
                 Today's Queue
               </h3>
             </div>
-            <div className="flex justify-evenly gap-7 px-4">
+            <div className="flex flex-col sm:flex-row justify-evenly gap-7 px-4">
               <div className="border border-[#E2E3E4] rounded-2xl justify-between px-5 py-7 flex items-center gap-5 flex-1">
                 <div>
                   <p className="text-md md:text-md font-medium text-[#202124]">
@@ -254,36 +254,38 @@ export default function Analytics() {
               </div>
             </div>
           </div>
+          <div className="flex flex-col md:flex-row flex-2  gap-5 mt-7 sm:mt-7 md:mt-7 lg:mt-0 ">
+        {/* Card 2 - Total Regular */}
+                  <div className="bg-white flex-1 rounded-xl shadow-xs   p-5 flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-[#F5F5F5] p-2 rounded-xl">
+                        <img src="/assets/person icon.png" alt="" />
+                      </div>
+                      <h3 className="text-base md:text-lg font-medium text-[#202124]">
+                        Total Regular
+                      </h3>
+                    </div>
+                    <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
+                      {todayData?.totalRegular || 0}
+                    </p>
+                  </div>
 
-          {/* Card 2 - Total Regular */}
-          <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#F5F5F5] p-2 rounded-xl">
-                <img src="/assets/person icon.png" alt="" />
-              </div>
-              <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                Total Regular
-              </h3>
-            </div>
-            <p className="text-4xl md:text-6xl font-semibold text-[#202124] xl:text-start">
-              {todayData?.totalRegular || 0}
-            </p>
+                  {/* Card 3 - Total Priority */}
+                  <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-[#F5F5F5] p-2 rounded-xl">
+                        <img src="/assets/star icon.png" alt="" />
+                      </div>
+                      <h3 className="text-base md:text-lg font-medium text-[#202124]">
+                        Total Priority
+                      </h3>
+                    </div>
+                    <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
+                      {todayData?.totalPriority || 0}
+                    </p>
+                  </div>
           </div>
-
-          {/* Card 3 - Total Priority */}
-          <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-[#F5F5F5] p-2 rounded-xl">
-                <img src="/assets/star icon.png" alt="" />
-              </div>
-              <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                Total Priority
-              </h3>
-            </div>
-            <p className="text-4xl md:text-6xl font-semibold text-[#202124] xl:text-start">
-              {todayData?.totalPriority || 0}
-            </p>
-          </div>
+          
         </div>
 
         {/* View Toggle Buttons */}
@@ -313,9 +315,9 @@ export default function Analytics() {
         </div>
 
         {/* Bottom Section */}
-        <div className="flex gap-6">
+        <div className="flex gap-6 mb-5">
           {/* Queue Summary */}
-          <div className="lg:col-span-2 flex flex-1 bg-white rounded-xl shadow-xs p-6 gap-5">
+          <div className="lg:col-span-2 flex flex-1 flex-col lg:flex-row bg-white rounded-xl shadow-xs p-6 gap-5">
             <div className="flex-3">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -387,12 +389,12 @@ export default function Analytics() {
             </div>
 
             {/* Request Breakdown */}
-            <div className="bg-white flex-1 flex flex-col border-l border-[#E2E3E4] px-6">
-              <div className="flex items-center gap-2 mb-4">
+            <div className="bg-white flex-1 flex flex-col mt-2  border-t lg:border-t-0 lg:border-l pl-0 lg:pl-4 border-[#E2E3E4] ">
+              <div className="flex text-left items-center  mt-5 lg:mt-0 gap-2 mb-4">
                 <div className="bg-[#F5F5F5] p-2 rounded-xl">
                   <img src="/assets/analytics/breakdown.png" alt="" />
                 </div>
-                <h3 className="font-semibold text-gray-700">
+                <h3 className="font-semibold  text-gray-700">
                   Request Breakdown
                 </h3>
               </div>
@@ -405,7 +407,7 @@ export default function Analytics() {
                   requests.map((request, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between"
+                      className="flex text-left items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-xl">{request.icon}</span>
