@@ -55,6 +55,8 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
+  const [statusFilter, setStatusFilter] = useState(null);
+
   // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
   const [hoveredRow, setHoveredRow] = useState(null);
 
@@ -1089,7 +1091,7 @@ export default function Manage_Queue() {
                 </div>
               )}
 
-              <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
+             <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
                 <button
                   onClick={() => setDeferredOpen(!deferredOpen)}
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -1111,9 +1113,9 @@ export default function Manage_Queue() {
 
                 {deferredOpen && (
                   <div className="p-4">
-                    {/* Search bar */}
-                    <div className="mb-4 flex justify-end">
-                      <div className="relative w-full max-w-sm">
+                    {/* Search bar and filter buttons */}
+                    <div className="mb-4 flex justify-between items-center gap-4">
+                      <div className="relative flex-1 max-w-sm">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                           <svg
                             className="h-5 w-5 text-gray-400"
@@ -1139,6 +1141,29 @@ export default function Manage_Queue() {
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setStatusFilter('stalled')}
+                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                            statusFilter === 'stalled'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Stalled
+                        </button>
+                        <button
+                          onClick={() => setStatusFilter('skipped')}
+                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                            statusFilter === 'skipped'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          Skipped
+                        </button>
+                      </div>
                     </div>
 
                     {/* Virtualized Table */}
@@ -1146,21 +1171,24 @@ export default function Manage_Queue() {
                       <div
                         ref={deferredParentRef}
                         onScroll={handleDeferredScroll}
-                        className="overflow-y-auto custom-scrollbar max-h-96 relative"
+                        className="overflow-y-auto custom-scrollbar max-h-96"
                       >
-                        <table className="w-full min-w-[700px]">
-                          <thead className="sticky top-0 z-10 bg-white">
+                        <table className="text-sm  w-full text-gray-900 table-fixed">
+                          <thead className="sticky top-0 bg-white z-10">
                             <tr className="border-b border-[#E2E3E4]">
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-40">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
                                 Student ID
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-48">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
                                 Name
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-64">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '250px'}}>
                                 Request
                               </th>
-                              <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969] w-32">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '120px'}}>
+                                Status
+                              </th>
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '120px'}}>
                                 Action
                               </th>
                             </tr>
@@ -1185,28 +1213,31 @@ export default function Manage_Queue() {
                                     style={{
                                       position: "absolute",
                                       top: 0,
+                                      left: 0,
                                       transform: `translateY(${virtualRow.start}px)`,
                                       width: "100%",
+                                      display: "table",
+                                      tableLayout: "fixed",
                                     }}
                                   >
-                                    <td className="text-left py-3 px-4 text-sm text-[#202124] w-40">
+                                    <td className="text-left py-3 px-4" style={{width: '150px'}}>
                                       {item.studentId}
                                     </td>
 
-                                    <td className="text-left py-3 px-4 text-sm text-[#202124] w-48">
+                                    <td className="text-left py-3 px-4" style={{width: '200px'}}>
                                       <span
-                                        className="truncate block max-w-[180px]"
+                                        className="truncate block"
                                         title={item.name}
                                       >
                                         {item.name}
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-3 px-4 text-sm text-[#202124] w-64">
+                                    <td className="text-left py-3 px-4" style={{width: '250px'}}>
                                       <div className="relative">
                                         {item.requests &&
                                         item.requests.length > 0 ? (
-                                          <>
+                                          <div className="flex items-center">
                                             <span
                                               className="truncate block max-w-[180px]"
                                               title={item.requests[0].name}
@@ -1216,7 +1247,7 @@ export default function Manage_Queue() {
                                             {item.requests.length > 1 && (
                                               <>
                                                 <span
-                                                  className="ml-2 bg-transparent font-semibold border border-[#1A73E8] text-[#1A73E8] text-xs px-2 py-0.5 rounded-full cursor-pointer inline-block"
+                                                  className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
                                                   onMouseEnter={() =>
                                                     setHoveredRow(
                                                       `deferred-${virtualRow.index}`
@@ -1230,13 +1261,13 @@ export default function Manage_Queue() {
                                                 </span>
                                                 {hoveredRow ===
                                                   `deferred-${virtualRow.index}` && (
-                                                  <div className="absolute bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white text-black p-3 rounded-lg shadow-lg z-50 min-w-[200px]">
+                                                  <div className="absolute bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-10 min-w-[200px] max-w-[300px]">
                                                     {item.requests
                                                       .slice(1)
                                                       .map((req) => (
                                                         <div
                                                           key={req.id}
-                                                          className="py-1 text-xs"
+                                                          className="py-1 text-xs break-words"
                                                         >
                                                           {req.name}
                                                         </div>
@@ -1245,7 +1276,7 @@ export default function Manage_Queue() {
                                                 )}
                                               </>
                                             )}
-                                          </>
+                                          </div>
                                         ) : (
                                           <span className="text-gray-400 italic">
                                             All requests processed
@@ -1254,10 +1285,16 @@ export default function Manage_Queue() {
                                       </div>
                                     </td>
 
-                                    <td className="text-left py-3 px-4">
+                                    <td className="text-left py-3 px-4" style={{width: '120px'}}>
+                                      <span className="text-gray-600">
+                                        {item.status || 'Stalled'}
+                                      </span>
+                                    </td>
+
+                                    <td className="text-left py-3 px-4" style={{width: '120px'}}>
                                       <button
                                         onClick={() => openActionPanel(item)}
-                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-xl hover:bg-blue-600 transition-colors"
+                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
                                       >
                                         View
                                       </button>
@@ -1271,12 +1308,15 @@ export default function Manage_Queue() {
                                 style={{
                                   position: "absolute",
                                   top: 0,
+                                  left: 0,
                                   transform: `translateY(${deferredVirtualizer.getTotalSize()}px)`,
                                   width: "100%",
+                                  display: "table",
+                                  tableLayout: "fixed",
                                 }}
                               >
                                 <td
-                                  colSpan="4"
+                                  colSpan="5"
                                   className="py-4 text-center text-gray-500 animate-pulse"
                                 >
                                   Loading more queues...
@@ -1321,7 +1361,7 @@ export default function Manage_Queue() {
                   )}
                 </button>
 
-                {/* Content */}
+               {/* Content */}
                 {nextInLineOpen && (
                   <div className="p-4">
                     {/* Search Bar */}
@@ -1351,7 +1391,7 @@ export default function Manage_Queue() {
                         />
                       </div>
                     </div>
-                    {/* Optional: show “Clear search” only
+                    {/* Optional: show "Clear search" only
                     {isWaitingSearchMode && (
                       <div className="mb-2 text-right">
                         <button
@@ -1367,29 +1407,30 @@ export default function Manage_Queue() {
                       <div
                         ref={parentRef}
                         onScroll={handleScroll}
-                        className="overflow-y-auto custom-scrollbar max-h-96 relative"
+                        className="w-full overflow-y-auto custom-scrollbar max-h-96 "
                       >
-                        <table className="w-full border-collapse text-sm text-gray-900">
+                        <table className="text-sm w-full text-gray-900 table-fixed">
                           <thead className="sticky top-0 bg-white z-10">
-                            <tr>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-32">
+                            <tr className="border-b border-[#E2E3E4]">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
                                 Queue No.
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-40">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
                                 Student ID
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-48">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
                                 Name
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-64">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
                                 Request
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969] w-32">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '120px'}}>
                                 Time
                               </th>
                             </tr>
                           </thead>
-
+                        
+                        
                           <tbody
                             style={{
                               height: `${rowVirtualizer.getTotalSize()}px`,
@@ -1403,17 +1444,21 @@ export default function Manage_Queue() {
                                 if (!item) return null;
 
                                 return (
+                                  
                                   <tr
                                     key={item.queueId || virtualRow.index}
-                                    className="border-b border-[#E2E3E4] hover:bg-gray-50 transition"
-                                    style={{
+                                    className="border-b  border-[#E2E3E4] hover:bg-gray-50 transition"
+                                       style={{
                                       position: "absolute",
                                       top: 0,
+                                      left: 0,
                                       transform: `translateY(${virtualRow.start}px)`,
                                       width: "100%",
+                                      display: "table",
+                                      tableLayout: "fixed",
                                     }}
                                   >
-                                    <td className="py-4 px-4 font-semibold w-32">
+                                    <td className="text-left py-4 px-4 font-semibold" style={{width: '150px'}}>
                                       <span
                                         className={
                                           item.type === "Priority"
@@ -1425,20 +1470,20 @@ export default function Manage_Queue() {
                                       </span>
                                     </td>
 
-                                    <td className="py-4 px-4 w-40">
+                                    <td className="text-left py-4 px-4" style={{width: '200px'}}>
                                       {item.studentId}
                                     </td>
 
-                                    <td className="py-4 px-4 w-48">
+                                    <td className="text-left py-4 px-4" style={{width: '200px'}}>
                                       <span
-                                        className="truncate block max-w-[180px]"
+                                        className="truncate block"
                                         title={item.name}
                                       >
                                         {item.name}
                                       </span>
                                     </td>
 
-                                    <td className="py-4 px-4 w-64">
+                                    <td className="text-left py-4 px-4" style={{width: '200px'}}>
                                       {item.requests &&
                                       item.requests.length > 0 ? (
                                         <div className="relative flex items-center">
@@ -1465,7 +1510,7 @@ export default function Manage_Queue() {
                                               </span>
                                               {hoveredRow ===
                                                 virtualRow.index && (
-                                                <div className="absolute bottom-full left-0 mb-2 bg-white border border-[#E2E3E4] p-3 rounded-lg shadow-lg z-50 min-w-[200px] max-w-[300px]">
+                                                <div className="absolute bottom-full left-0 mb-2 bg-white border border-[#E2E3E4] p-3 rounded-lg shadow-lg z-40 min-w-[200px] max-w-[300px]">
                                                   {item.requests
                                                     .slice(1)
                                                     .map((req) => (
@@ -1488,7 +1533,7 @@ export default function Manage_Queue() {
                                       )}
                                     </td>
 
-                                    <td className="py-4 px-4 w-32">
+                                    <td className="py-4 px-4 text-left" style={{width: '120px'}}>
                                       {item.time}
                                     </td>
                                   </tr>
