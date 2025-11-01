@@ -65,7 +65,9 @@ const io = new Server(server, {
   },
 });
 
-console.log('🚀 Starting scheduled background jobs...');
+app.set("io", io);
+socketAuthentication(io);
+socketHandler(io);
 
 // Monitor SKIPPED requests and auto-cancel after 1 hour
 startSkippedRequestMonitor();
@@ -73,13 +75,6 @@ startSkippedRequestMonitor();
 // Finalize STALLED requests at end of day (11:59 PM)
 startStalledRequestFinalizer();
 initializeScheduledJobs();
-
-console.log('✅ All scheduled jobs started successfully');
-
-
-app.set("io", io);
-socketAuthentication(io);
-socketHandler(io);
 
 server.listen(PORT, () => {
   console.log("Server is running on port ", PORT);

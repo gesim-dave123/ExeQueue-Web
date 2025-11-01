@@ -13,7 +13,7 @@ const isIntegerParam = (val) => /^\d+$/.test(val);
 export function startSkippedRequestMonitor() {
   // Run every 15 minutes
   cron.schedule('*/15 * * * *', async () => {
-    console.log('⏰ Running SKIPPED request monitor...');
+  console.log('Running SKIPPED request monitor...');
     
     try {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -32,7 +32,7 @@ export function startSkippedRequestMonitor() {
         }
       });
 
-      console.log(`📋 Found ${skippedRequests.length} SKIPPED requests to cancel`);
+      console.log(` Found ${skippedRequests.length} SKIPPED requests to cancel`);
 
       for (const request of skippedRequests) {
         await prisma.$transaction(async (tx) => {
@@ -46,7 +46,7 @@ export function startSkippedRequestMonitor() {
             }
           });
 
-          // ✅ Update transaction history to CANCELLED (finalizes it)
+          //Update transaction history to CANCELLED (finalizes it)
           await tx.transactionHistory.updateMany({
             where: {
               queueId: request.queueId,
@@ -59,15 +59,15 @@ export function startSkippedRequestMonitor() {
             }
           });
 
-          console.log(`✅ Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
+         // console.log(`Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
         });
       }
     } catch (error) {
-      console.error('❌ Error in SKIPPED request monitor:', error);
+      console.error('Error in SKIPPED request monitor:', error);
     }
   });
 
-  console.log('✅ SKIPPED request monitor started (runs every 15 minutes)');
+ // console.log('SKIPPED request monitor started (runs every 15 minutes)');
 }
 
 export const manuallyFinalizeStalledRequests = async (req, res) => {
@@ -203,7 +203,7 @@ export const manuallyCancelSkippedRequests = async (req, res) => {
 export function startStalledRequestFinalizer() {
   // Run daily at 11:59 PM Manila time
   cron.schedule('59 23 * * *', async () => {
-    console.log('🌙 Running end-of-day STALLED request finalizer...');
+    console.log('Running end-of-day STALLED request finalizer...');
     
     try {
       const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
@@ -229,7 +229,7 @@ export function startStalledRequestFinalizer() {
         }
       });
 
-      console.log(`📋 Found ${stalledRequests.length} STALLED requests to finalize`);
+      console.log(`Found ${stalledRequests.length} STALLED requests to finalize`);
 
       for (const request of stalledRequests) {
         // Check if transaction history already exists
@@ -241,7 +241,7 @@ export function startStalledRequestFinalizer() {
           }
         });
 
-        // ✅ Only create transaction if it doesn't exist yet
+        // Only create transaction if it doesn't exist yet
         if (!existingTransaction) {
           await prisma.transactionHistory.create({
             data: {
@@ -254,15 +254,15 @@ export function startStalledRequestFinalizer() {
             }
           });
 
-          console.log(`✅ Finalized STALLED request ${request.requestId} (end of day)`);
+          console.log(`Finalized STALLED request ${request.requestId} (end of day)`);
         }
       }
     } catch (error) {
-      console.error('❌ Error in STALLED request finalizer:', error);
+      console.error('Error in STALLED request finalizer:', error);
     }
   });
 
-  console.log('✅ STALLED request finalizer started (runs daily at 11:59 PM)');
+  console.log('STALLED request finalizer started (runs daily at 11:59 PM)');
 }
 
 
@@ -569,7 +569,7 @@ export const getQueueList = async (req, res) => {
 export const getQueueListByStatus = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
-    const { status, windowId: windowIdStr, requestStatus } = req.query; // ✅ NEW: requestStatus param
+    const { status, windowId: windowIdStr, requestStatus } = req.query;
 
     if (!sasStaffId) {
       return res.status(401).json({
@@ -666,7 +666,7 @@ export const getQueueListByStatus = async (req, res) => {
             allowedStatuses.includes(req.requestStatus)
           ),
         }))
-        .filter((queue) => queue.requests.length > 0); // ✅ Only include queues with matching requests
+        .filter((queue) => queue.requests.length > 0); //Only include queues with matching requests
     }
 
     // Response handling
@@ -828,7 +828,7 @@ export const setRequestStatus = async (req, res) => {
         },
       });
 
-      // ✅ UPSERT transaction history (update if exists, create if doesn't)
+      //UPSERT transaction history (update if exists, create if doesn't)
       await createTransactionHistorySafe(tx, {
         queueId: queueId,
         requestId: requestId,
@@ -856,7 +856,7 @@ export const setRequestStatus = async (req, res) => {
       data: updated.requestUpdate,
     });
   } catch (error) {
-    console.error("❌ Error setting request status:", error);
+    console.error("Error setting request status:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -864,20 +864,9 @@ export const setRequestStatus = async (req, res) => {
     });
   }
 };
-/*
-await tx.transactionHistory.create({
-        data: {
-          queueId: queueId,
-          requestId: requestId,  // Link to the specific request
-          performedById: sasStaffId,
-          performedByRole: role,
-          transactionStatus: newStatus,  // STALLED, COMPLETED, etc.
-          createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-        }
-      });
-*/
+
 async function createTransactionHistorySafe(tx, data) {
-  // 🔍 Find existing transaction for this specific queueId + requestId combination
+  // Find existing transaction for this specific queueId + requestId combination
   const existingTransaction = await tx.transactionHistory.findFirst({
     where: {
       queueId: data.queueId,
@@ -889,8 +878,8 @@ async function createTransactionHistorySafe(tx, data) {
   });
 
   if (existingTransaction) {
-    // ✅ UPDATE existing transaction
-    console.log('🔄 Updating existing transaction:', {
+    //UPDATE existing transaction
+    console.log('Updating existing transaction:', {
       id: existingTransaction.transactionHistoryId,
       queueId: data.queueId,
       requestId: data.requestId,
@@ -913,8 +902,8 @@ async function createTransactionHistorySafe(tx, data) {
     return updated;
   }
 
-  // ✅ CREATE new transaction
-  console.log('➕ Creating new transaction:', {
+  // CREATE new transaction
+  console.log('Creating new transaction:', {
     queueId: data.queueId,
     requestId: data.requestId,
     status: data.transactionStatus
@@ -1030,7 +1019,7 @@ export const setDeferredRequestStatus = async (req, res) => {
         },
       });
 
-      // ✅ UPSERT transaction history
+      //UPSERT transaction history
       await createTransactionHistorySafe(tx, {
         queueId: queueId,
         requestId: requestId,
@@ -1058,7 +1047,7 @@ export const setDeferredRequestStatus = async (req, res) => {
       data: updated.requestUpdate,
     });
   } catch (error) {
-    console.error("❌ Error setting deferred request status:", error);
+    console.error("Error setting deferred request status:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -1105,7 +1094,7 @@ export const createQueueSession = async (req, res) => {
 
       return newSession;
     });
-    console.log("✅ New queue session created:", result);
+    console.log("New queue session created:", result);
     return res.status(201).json({
       success: true,
       message:
@@ -1113,7 +1102,7 @@ export const createQueueSession = async (req, res) => {
       session: result,
     });
   } catch (error) {
-    console.error("❌ Error creating queue session:", error);
+    console.error("Error creating queue session:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to create queue session",
@@ -1226,41 +1215,70 @@ export const markQueueStatus = async (req, res) => {
         },
       });
 
-      // ✅ CRITICAL FIX: Only create queue-level transaction for PARTIALLY_COMPLETE
-      // For COMPLETED/CANCELLED, the request-level transactions are sufficient!
+      // CRITICAL FIX: Create transaction history for each request individually
+      // This prevents duplicates and ensures correct request tracking
       if (finalStatus !== Status.DEFERRED) {
-        console.log('📝 Creating transaction history for all requests...');
+        console.log('[---IMPORTANT---]Creating transaction history for all requests...');
         
         for (const request of queueUpdate.requests) {
-          await createTransactionHistorySafe(tx, {
-            queueId,
-            requestId: request.requestId,
-            performedById: sasStaffId,
-            performedByRole: role,
-            transactionStatus: request.requestStatus, // Use the request's actual status
-            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+          // Only create transaction for requests that don't have one yet
+          const existingTransaction = await tx.transactionHistory.findFirst({
+            where: {
+              queueId,
+              requestId: request.requestId,
+              transactionStatus: request.requestStatus
+            }
           });
+
+          if (!existingTransaction) {
+            await tx.transactionHistory.create({
+              data: {
+                queueId,
+                requestId: request.requestId,
+                performedById: sasStaffId,
+                performedByRole: role,
+                transactionStatus: request.requestStatus,
+                createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              }
+            });
+            console.log(`Created transaction for request ${request.requestId} with status ${request.requestStatus}`);
+          } else {
+            console.log(`Skipped duplicate transaction for request ${request.requestId}`);
+          }
         }
       }
       
+      // Only create queue-level transaction for PARTIALLY_COMPLETE (if doesn't exist)
       const shouldCreateQueueTransaction = 
         existingQueue.queueStatus !== finalStatus &&
         finalStatus === Status.PARTIALLY_COMPLETE;
 
       if (shouldCreateQueueTransaction) {
-        console.log('➕ Creating queue-level transaction for PARTIALLY_COMPLETE');
-        await createTransactionHistorySafe(tx, {
-          queueId,
-          requestId: null,
-          performedById: sasStaffId,
-          performedByRole: role,
-          transactionStatus: finalStatus,
-          createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+        const existingQueueTransaction = await tx.transactionHistory.findFirst({
+          where: {
+            queueId,
+            requestId: null,
+            transactionStatus: Status.PARTIALLY_COMPLETE
+          }
         });
+
+        if (!existingQueueTransaction) {
+          console.log('Creating queue-level transaction for PARTIALLY_COMPLETE');
+          await tx.transactionHistory.create({
+            data: {
+              queueId,
+              requestId: null,
+              performedById: sasStaffId,
+              performedByRole: role,
+              transactionStatus: finalStatus,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            }
+          });
+        }
       }
+      
       return queueUpdate;
     });
-
 
     const actionMap = {
       [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
@@ -1327,7 +1345,7 @@ export const markQueueStatus = async (req, res) => {
       queue: updatedQueue,
     });
   } catch (error) {
-    console.error("❌ Error in markQueueStatus:", error);
+    console.error("Error in markQueueStatus:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1410,7 +1428,6 @@ export const callNextQueue = async (req, res) => {
     const todayUTC = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
 
     const result = await prisma.$transaction(async (tx) => {
-      // 🧠 Step 1: Find the most recent queue served today (if any)
       const lastServed = await tx.queue.findFirst({
         where: {
           servedByStaff: sasStaffId,
@@ -1423,12 +1440,12 @@ export const callNextQueue = async (req, res) => {
         orderBy: { calledAt: "desc" },
       });
 
-      // 🧩 Step 2: Determine next type to serve
+      // Determine next type to serve
       let nextType = Queue_Type.PRIORITY;
       if (lastServed?.queueType === Queue_Type.PRIORITY.toString())
         nextType = Queue_Type.REGULAR;
 
-      // 🧩 Step 3: Try to find next queue of the desired type
+      // Try to find next queue of the desired type
       let nextQueue = await tx.queue.findFirst({
         where: {
           queueStatus: Status.WAITING,
@@ -1443,7 +1460,6 @@ export const callNextQueue = async (req, res) => {
         ],
       });
 
-      // 🧩 Step 4: Fallback — if no queue of that type exists, pick any remaining
       if (!nextQueue) {
         nextQueue = await tx.queue.findFirst({
           where: {
@@ -1462,7 +1478,6 @@ export const callNextQueue = async (req, res) => {
 
       if (!nextQueue) return null;
 
-      // 🧩 Step 5: Lock it in — prevent race condition
       const updated = await tx.queue.updateMany({
         where: {
           queueId: nextQueue.queueId,
@@ -1478,7 +1493,6 @@ export const callNextQueue = async (req, res) => {
 
       if (updated.count === 0) return "TAKEN";
 
-      // 🧩 Step 6: Return the updated record
       return await tx.queue.findUnique({
         where: { queueId: nextQueue.queueId },
         include: { requests: { include: { requestType: true } } },
@@ -1511,7 +1525,7 @@ export const callNextQueue = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ Error in callNextQueue:", error);
+    console.error("Error in callNextQueue:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
@@ -1592,7 +1606,7 @@ export const currentServedQueue = async (req, res) => {
 
     if (isDifferentStaff) {
       console.log(
-        `🔄 Transferring queue ${currentQueue.queueNo} from staff ${currentQueue.servedByStaff} to ${sasStaffId}`
+        `Transferring queue ${currentQueue.queueNo} from staff ${currentQueue.servedByStaff} to ${sasStaffId}`
       );
 
       // Update the queue to be owned by the new staff
@@ -1627,7 +1641,7 @@ export const currentServedQueue = async (req, res) => {
       isInherited: false,
     });
   } catch (error) {
-    console.error("❌ Error fetching current served queue:", error);
+    console.error("Error fetching current served queue:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch current queue",
