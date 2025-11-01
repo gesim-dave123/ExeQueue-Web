@@ -601,38 +601,38 @@ export const getTransactionStats = async (req, res) => {
       }),
       
       prisma.transactionHistory.groupBy({
-        by: ['transactionStatus'],
-        where: {
-          requestId: {
-            not: null
-          },
-          OR: [
-            {
-              transactionStatus: {
-                in: [
-                  Status.COMPLETED,
-                  Status.CANCELLED,
-                  Status.PARTIALLY_COMPLETE
-                ]
-              }
-            },
-            {
-              transactionStatus: Status.STALLED,
-              createdAt: {
-                lt: todayStart
-              }
-            }
+  by: ['transactionStatus'],
+  where: {
+    requestId: {
+      not: null
+    },
+    OR: [
+      {
+        transactionStatus: {
+          in: [
+            Status.COMPLETED,
+            Status.CANCELLED,
+            Status.PARTIALLY_COMPLETE
           ]
-        },
-        _count: {
-          transactionStatus: true
         }
-      }).then(results => {
-        return results
-          .map(r => formatStatus(r.transactionStatus))
-          .filter(status => status !== 'Skipped')
-          .sort();
-      })
+      },
+      {
+        transactionStatus: Status.STALLED,
+        createdAt: {
+          lt: todayStart
+        }
+      }
+    ]
+  },
+  _count: {
+    transactionStatus: true
+  }
+}).then(results => {
+  return results
+    .map(r => r.transactionStatus) 
+    .filter(status => status !== 'SKIPPED') 
+    .sort();
+})
     ]);
 
     return res.status(200).json({
