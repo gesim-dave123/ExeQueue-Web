@@ -1,8 +1,8 @@
 import { Queue_Type, Role, Status } from "@prisma/client";
+import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { QueueActions } from "../services/enums/SocketEvents.js";
-import cron from 'node-cron';
 
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
@@ -12,27 +12,29 @@ const isIntegerParam = (val) => /^\d+$/.test(val);
 
 export function startSkippedRequestMonitor() {
   // Run every 15 minutes
-  cron.schedule('*/15 * * * *', async () => {
-  console.log('Running SKIPPED request monitor...');
-    
+  cron.schedule("*/15 * * * *", async () => {
+    console.log("Running SKIPPED request monitor...");
+
     try {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      
+
       // Find all SKIPPED requests older than 1 hour
       const skippedRequests = await prisma.request.findMany({
         where: {
           requestStatus: Status.SKIPPED,
           updatedAt: {
-            lte: oneHourAgo
+            lte: oneHourAgo,
           },
-          isActive: true
+          isActive: true,
         },
         include: {
-          queue: true
-        }
+          queue: true,
+        },
       });
 
-      console.log(` Found ${skippedRequests.length} SKIPPED requests to cancel`);
+      console.log(
+        ` Found ${skippedRequests.length} SKIPPED requests to cancel`
+      );
 
       for (const request of skippedRequests) {
         await prisma.$transaction(async (tx) => {
@@ -42,8 +44,8 @@ export function startSkippedRequestMonitor() {
             data: {
               requestStatus: Status.CANCELLED,
               processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-              updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-            }
+              updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
           });
 
           //Update transaction history to CANCELLED (finalizes it)
@@ -51,23 +53,23 @@ export function startSkippedRequestMonitor() {
             where: {
               queueId: request.queueId,
               requestId: request.requestId,
-              transactionStatus: Status.SKIPPED
+              transactionStatus: Status.SKIPPED,
             },
             data: {
               transactionStatus: Status.CANCELLED,
-              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-            }
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
           });
 
-         // console.log(`Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
+          // console.log(`Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
         });
       }
     } catch (error) {
-      console.error('Error in SKIPPED request monitor:', error);
+      console.error("Error in SKIPPED request monitor:", error);
     }
   });
 
- // console.log('SKIPPED request monitor started (runs every 15 minutes)');
+  // console.log('SKIPPED request monitor started (runs every 15 minutes)');
 }
 
 export const manuallyFinalizeStalledRequests = async (req, res) => {
@@ -76,7 +78,7 @@ export const manuallyFinalizeStalledRequests = async (req, res) => {
       new Date(),
       "Asia/Manila"
     );
-    
+
     const todayEnd = new Date(todayStart);
     todayEnd.setHours(23, 59, 59, 999);
 
@@ -85,13 +87,13 @@ export const manuallyFinalizeStalledRequests = async (req, res) => {
         requestStatus: Status.STALLED,
         updatedAt: {
           gte: todayStart,
-          lte: todayEnd
+          lte: todayEnd,
         },
-        isActive: true
+        isActive: true,
       },
       include: {
-        queue: true
-      }
+        queue: true,
+      },
     });
 
     let finalized = 0;
@@ -101,8 +103,8 @@ export const manuallyFinalizeStalledRequests = async (req, res) => {
         where: {
           queueId: request.queueId,
           requestId: request.requestId,
-          transactionStatus: Status.STALLED
-        }
+          transactionStatus: Status.STALLED,
+        },
       });
 
       if (!existingTransaction) {
@@ -111,10 +113,10 @@ export const manuallyFinalizeStalledRequests = async (req, res) => {
             queueId: request.queueId,
             requestId: request.requestId,
             performedById: request.processedBy,
-            performedByRole: 'SYSTEM',
+            performedByRole: "SYSTEM",
             transactionStatus: Status.STALLED,
-            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-          }
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
         });
         finalized++;
       }
@@ -124,15 +126,14 @@ export const manuallyFinalizeStalledRequests = async (req, res) => {
       success: true,
       message: `Finalized ${finalized} STALLED requests`,
       totalFound: stalledRequests.length,
-      finalized
+      finalized,
     });
-
   } catch (error) {
-    console.error('Error in manual STALLED finalization:', error);
+    console.error("Error in manual STALLED finalization:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -140,18 +141,18 @@ export const manuallyFinalizeStalledRequests = async (req, res) => {
 export const manuallyCancelSkippedRequests = async (req, res) => {
   try {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    
+
     const skippedRequests = await prisma.request.findMany({
       where: {
         requestStatus: Status.SKIPPED,
         updatedAt: {
-          lte: oneHourAgo
+          lte: oneHourAgo,
         },
-        isActive: true
+        isActive: true,
       },
       include: {
-        queue: true
-      }
+        queue: true,
+      },
     });
 
     let cancelled = 0;
@@ -163,20 +164,20 @@ export const manuallyCancelSkippedRequests = async (req, res) => {
           data: {
             requestStatus: Status.CANCELLED,
             processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-          }
+            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
         });
 
         await tx.transactionHistory.updateMany({
           where: {
             queueId: request.queueId,
             requestId: request.requestId,
-            transactionStatus: Status.SKIPPED
+            transactionStatus: Status.SKIPPED,
           },
           data: {
             transactionStatus: Status.CANCELLED,
-            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-          }
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
         });
 
         cancelled++;
@@ -187,30 +188,29 @@ export const manuallyCancelSkippedRequests = async (req, res) => {
       success: true,
       message: `Cancelled ${cancelled} SKIPPED requests (> 1 hour)`,
       totalFound: skippedRequests.length,
-      cancelled
+      cancelled,
     });
-
   } catch (error) {
-    console.error('Error in manual SKIPPED cancellation:', error);
+    console.error("Error in manual SKIPPED cancellation:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
 
 export function startStalledRequestFinalizer() {
   // Run daily at 11:59 PM Manila time
-  cron.schedule('59 23 * * *', async () => {
-    console.log('Running end-of-day STALLED request finalizer...');
-    
+  cron.schedule("59 23 * * *", async () => {
+    console.log("Running end-of-day STALLED request finalizer...");
+
     try {
       const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
         new Date(),
         "Asia/Manila"
       );
-      
+
       const todayEnd = new Date(todayStart);
       todayEnd.setHours(23, 59, 59, 999);
 
@@ -220,16 +220,18 @@ export function startStalledRequestFinalizer() {
           requestStatus: Status.STALLED,
           updatedAt: {
             gte: todayStart,
-            lte: todayEnd
+            lte: todayEnd,
           },
-          isActive: true
+          isActive: true,
         },
         include: {
-          queue: true
-        }
+          queue: true,
+        },
       });
 
-      console.log(`Found ${stalledRequests.length} STALLED requests to finalize`);
+      console.log(
+        `Found ${stalledRequests.length} STALLED requests to finalize`
+      );
 
       for (const request of stalledRequests) {
         // Check if transaction history already exists
@@ -237,8 +239,8 @@ export function startStalledRequestFinalizer() {
           where: {
             queueId: request.queueId,
             requestId: request.requestId,
-            transactionStatus: Status.STALLED
-          }
+            transactionStatus: Status.STALLED,
+          },
         });
 
         // Only create transaction if it doesn't exist yet
@@ -248,23 +250,24 @@ export function startStalledRequestFinalizer() {
               queueId: request.queueId,
               requestId: request.requestId,
               performedById: request.processedBy,
-              performedByRole: 'SYSTEM', // Automated by system
+              performedByRole: "SYSTEM", // Automated by system
               transactionStatus: Status.STALLED,
-              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-            }
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
           });
 
-          console.log(`Finalized STALLED request ${request.requestId} (end of day)`);
+          console.log(
+            `Finalized STALLED request ${request.requestId} (end of day)`
+          );
         }
       }
     } catch (error) {
-      console.error('Error in STALLED request finalizer:', error);
+      console.error("Error in STALLED request finalizer:", error);
     }
   });
 
-  console.log('STALLED request finalizer started (runs daily at 11:59 PM)');
+  console.log("STALLED request finalizer started (runs daily at 11:59 PM)");
 }
-
 
 export const viewQueues = async (req, res) => {
   try {
@@ -724,9 +727,9 @@ export const setRequestStatus = async (req, res) => {
       windowId: windowIdStr,
       requestStatus,
     } = req.params;
-    
+
     console.log("Request Params:", req.params);
-    
+
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -829,14 +832,14 @@ export const setRequestStatus = async (req, res) => {
       });
 
       //UPSERT transaction history (update if exists, create if doesn't)
-      await createTransactionHistorySafe(tx, {
-        queueId: queueId,
-        requestId: requestId,
-        performedById: sasStaffId,
-        performedByRole: role,
-        transactionStatus: newStatus,
-        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-      });
+      // await createTransactionHistorySafe(tx, {
+      //   queueId: queueId,
+      //   requestId: requestId,
+      //   performedById: sasStaffId,
+      //   performedByRole: role,
+      //   transactionStatus: newStatus,
+      //   createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+      // });
 
       return { requestUpdate };
     });
@@ -873,44 +876,44 @@ async function createTransactionHistorySafe(tx, data) {
       requestId: data.requestId || null,
     },
     orderBy: {
-      createdAt: 'desc'
-    }
+      createdAt: "desc",
+    },
   });
 
   if (existingTransaction) {
     //UPDATE existing transaction
-    console.log('Updating existing transaction:', {
+    console.log("Updating existing transaction:", {
       id: existingTransaction.transactionHistoryId,
       queueId: data.queueId,
       requestId: data.requestId,
       oldStatus: existingTransaction.transactionStatus,
-      newStatus: data.transactionStatus
+      newStatus: data.transactionStatus,
     });
 
     const updated = await tx.transactionHistory.update({
-      where: { 
-        transactionHistoryId: existingTransaction.transactionHistoryId 
+      where: {
+        transactionHistoryId: existingTransaction.transactionHistoryId,
       },
       data: {
         transactionStatus: data.transactionStatus,
         performedById: data.performedById,
         performedByRole: data.performedByRole,
-        createdAt: data.createdAt
-      }
+        createdAt: data.createdAt,
+      },
     });
 
     return updated;
   }
 
   // CREATE new transaction
-  console.log('Creating new transaction:', {
+  console.log("Creating new transaction:", {
     queueId: data.queueId,
     requestId: data.requestId,
-    status: data.transactionStatus
+    status: data.transactionStatus,
   });
 
   const created = await tx.transactionHistory.create({ data });
-  
+
   return created;
 }
 
@@ -1026,7 +1029,7 @@ export const setDeferredRequestStatus = async (req, res) => {
         performedById: sasStaffId,
         performedByRole: role,
         transactionStatus: newStatus,
-        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
       });
 
       return { requestUpdate };
@@ -1186,7 +1189,7 @@ export const markQueueStatus = async (req, res) => {
     const hasCancelled = requests.some(
       (r) => r.requestStatus === Status.CANCELLED
     );
-    
+
     let finalStatus = Status.IN_SERVICE;
 
     if (allCompleted) finalStatus = Status.COMPLETED;
@@ -1218,65 +1221,76 @@ export const markQueueStatus = async (req, res) => {
       // CRITICAL FIX: Create transaction history for each request individually
       // This prevents duplicates and ensures correct request tracking
       if (finalStatus !== Status.DEFERRED) {
-        console.log('[---IMPORTANT---]Creating transaction history for all requests...');
-        
-        for (const request of queueUpdate.requests) {
-          // Only create transaction for requests that don't have one yet
-          const existingTransaction = await tx.transactionHistory.findFirst({
-            where: {
-              queueId,
-              requestId: request.requestId,
-              transactionStatus: request.requestStatus
-            }
-          });
-
-          if (!existingTransaction) {
-            await tx.transactionHistory.create({
-              data: {
-                queueId,
-                requestId: request.requestId,
-                performedById: sasStaffId,
-                performedByRole: role,
-                transactionStatus: request.requestStatus,
-                createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-              }
-            });
-            console.log(`Created transaction for request ${request.requestId} with status ${request.requestStatus}`);
-          } else {
-            console.log(`Skipped duplicate transaction for request ${request.requestId}`);
-          }
-        }
+        console.log(
+          "[---IMPORTANT---]Creating transaction history for all requests..."
+        );
       }
-      
-      // Only create queue-level transaction for PARTIALLY_COMPLETE (if doesn't exist)
-      const shouldCreateQueueTransaction = 
-        existingQueue.queueStatus !== finalStatus &&
-        finalStatus === Status.PARTIALLY_COMPLETE;
 
-      if (shouldCreateQueueTransaction) {
-        const existingQueueTransaction = await tx.transactionHistory.findFirst({
+      for (const request of queueUpdate.requests) {
+        if(!(request.requestStatus === Status.STALLED || request.requestStatus === Status.SKIPPED)  ){
+        const existingTransaction = await tx.transactionHistory.findFirst({
           where: {
             queueId,
-            requestId: null,
-            transactionStatus: Status.PARTIALLY_COMPLETE
-          }
+            requestId: request.requestId,
+            transactionStatus: request.requestStatus,
+          },
         });
 
-        if (!existingQueueTransaction) {
-          console.log('Creating queue-level transaction for PARTIALLY_COMPLETE');
+        if (!existingTransaction) {
           await tx.transactionHistory.create({
             data: {
               queueId,
-              requestId: null,
+              requestId: request.requestId,
               performedById: sasStaffId,
               performedByRole: role,
-              transactionStatus: finalStatus,
-              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-            }
+              transactionStatus: request.requestStatus,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
           });
+          console.log(
+            `Created transaction for request ${request.requestId} with status ${request.requestStatus}`
+          );
+        } else {
+          console.log(
+            `Skipped duplicate transaction for request ${request.requestId}`
+          );
         }
+        }
+        // Only create transaction for requests that don't have one yet
+
       }
-      
+
+      // Only create queue-level transaction for PARTIALLY_COMPLETE (if doesn't exist)
+      // const shouldCreateQueueTransaction =
+      //   existingQueue.queueStatus !== finalStatus &&
+      //   finalStatus === Status.PARTIALLY_COMPLETE;
+
+      // if (shouldCreateQueueTransaction) {
+      //   const existingQueueTransaction = await tx.transactionHistory.findFirst({
+      //     where: {
+      //       queueId,
+      //       requestId: null,
+      //       transactionStatus: Status.PARTIALLY_COMPLETE,
+      //     },
+      //   });
+
+      //   if (!existingQueueTransaction) {
+      //     console.log(
+      //       "Creating queue-level transaction for PARTIALLY_COMPLETE"
+      //     );
+      //     await tx.transactionHistory.create({
+      //       data: {
+      //         queueId,
+      //         requestId: null,
+      //         performedById: sasStaffId,
+      //         performedByRole: role,
+      //         transactionStatus: finalStatus,
+      //         createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      //       },
+      //     });
+      //   }
+      // }
+
       return queueUpdate;
     });
 
@@ -1332,7 +1346,7 @@ export const markQueueStatus = async (req, res) => {
           },
         })),
     };
-    
+
     io.emit(event, newQueueData);
 
     console.log(
@@ -1352,8 +1366,6 @@ export const markQueueStatus = async (req, res) => {
     });
   }
 };
-
-
 
 //Check if a skipped queue returned within 1 hour.
 export const restoreSkippedQueue = async (req, res) => {
@@ -1649,7 +1661,6 @@ export const currentServedQueue = async (req, res) => {
     });
   }
 };
-
 
 function mapToStatus(statusString) {
   const statusMap = {
