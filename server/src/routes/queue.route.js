@@ -6,12 +6,14 @@ import {
   currentServedQueue,
   determineNextQueue,
   getQueueList,
-  getQueueListByStatus, // Add this import
+  getQueueListByStatus,
   markQueueStatus,
   restoreSkippedQueue,
   setDeferredRequestStatus,
   setRequestStatus,
   viewQueues,
+  manuallyFinalizeStalledRequests,
+  manuallyCancelSkippedRequests
 } from "../controllers/queue.controller.js";
 import {
   authenticateToken,
@@ -90,6 +92,20 @@ router.get(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   currentServedQueue
+);
+
+router.post(
+  "/test/finalize-stalled",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL),
+  manuallyFinalizeStalledRequests
+);
+
+router.post(
+  "/test/cancel-skipped",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL),
+  manuallyCancelSkippedRequests
 );
 
 export default router;
