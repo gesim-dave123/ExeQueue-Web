@@ -13,8 +13,9 @@
     "switch:online": "copy .env.online .env && echo Switched to ONLINE database",
     "local": "npm run switch:local && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\"",
     "online": "npm run switch:online && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\"",
-    "generate-data": "node src/generate-test-data-transactions.js",
-    "transc-wipe": "node src/cleanup-test-data.js"
+    "generate-data": "node client/_test_scripts/generate-test-data-transactions.js",
+    "transc-wipe": "node client/_test_scripts/cleanup-test-data.js",
+    "queue-data": "node client/_test_scripts/queue-test-script.js"
   },
   "keywords": [],
   "type": "module",
