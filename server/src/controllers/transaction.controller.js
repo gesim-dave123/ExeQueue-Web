@@ -1,7 +1,7 @@
 import { Status } from "@prisma/client";
+import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
-import cron from 'node-cron';
 
 /**
  * OPTIMIZED OFFSET PAGINATION
@@ -10,22 +10,22 @@ import cron from 'node-cron';
  * - Batches queries efficiently
  * - Works with page buttons (better UX for your use case)
  */
-
+const isIntegerParam = (val) => /^\d+$/.test(val);
 export const getTransactionsWithStalledLogic = async (req, res) => {
   try {
     console.log("Transaction request received:", {
       query: req.query,
-      user: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'No user'
+      user: req.user ? `${req.user.firstName} ${req.user.lastName}` : "No user",
     });
 
     const {
       page = 1,
       limit = 50,
-      course,
-      request,
+      course: courseStr,
+      request: requestTypeStr,
       status,
       date,
-      search
+      search,
     } = req.query;
 
     const pageNum = parseInt(page);
@@ -35,14 +35,29 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
     if (isNaN(pageNum) || pageNum < 1) {
       return res.status(400).json({
         success: false,
-        message: "Invalid page number"
+        message: "Invalid page number",
       });
     }
 
     if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
       return res.status(400).json({
         success: false,
-        message: "Invalid limit value (must be 1-100)"
+        message: "Invalid limit value (must be 1-100)",
+      });
+    }
+
+    const courseId = parseInt(courseStr);
+    const requestTypeId = parseInt(requestTypeStr);
+
+    // Validate that they are integers (if provided)
+    if (
+      (courseStr && isNaN(courseId)) ||
+      (requestTypeStr && isNaN(requestTypeId))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid query received, expected a numerical value for course or request",
       });
     }
 
@@ -60,8 +75,8 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
         transactionStatus: Status.STALLED,
         requestId: { not: null },
         createdAt: {
-          lt: todayStart
-        }
+          lt: todayStart,
+        },
       };
     } else if (status === Status.SKIPPED) {
       // Block SKIPPED from being shown
@@ -76,122 +91,109 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
             totalItems: 0,
             itemsPerPage: limitNum,
             hasNextPage: false,
-            hasPreviousPage: false
-          }
-        }
+            hasPreviousPage: false,
+          },
+        },
       });
     } else if (status) {
       whereClause = {
         transactionStatus: status,
-        requestId: { not: null }
+        requestId: { not: null },
       };
     } else {
       // DEFAULT: Show finalized transactions only
       whereClause.OR = [
         {
           transactionStatus: Status.COMPLETED,
-          requestId: { not: null }
+          requestId: { not: null },
         },
         {
           transactionStatus: Status.CANCELLED,
-          requestId: { not: null }
+          requestId: { not: null },
         },
         {
           transactionStatus: Status.STALLED,
           requestId: { not: null },
           createdAt: {
-            lt: todayStart
-          }
+            lt: todayStart,
+          },
         },
         {
           transactionStatus: Status.PARTIALLY_COMPLETE,
-          requestId: { not: null }
-        }
+          requestId: { not: null },
+        },
       ];
     }
 
     // Date filter
     if (date) {
       try {
-        const startDate = new Date(date + 'T00:00:00.000+08:00');
-        const endDate = new Date(date + 'T23:59:59.999+08:00');
-        
+        const startDate = new Date(date + "T00:00:00.000+08:00");
+        const endDate = new Date(date + "T23:59:59.999+08:00");
+
         if (whereClause.createdAt) {
           whereClause.createdAt = {
             ...whereClause.createdAt,
             gte: startDate,
-            lte: endDate
+            lte: endDate,
           };
         } else if (whereClause.OR) {
-          whereClause.OR = whereClause.OR.map(condition => ({
+          whereClause.OR = whereClause.OR.map((condition) => ({
             ...condition,
-            createdAt: condition.createdAt 
+            createdAt: condition.createdAt
               ? { ...condition.createdAt, gte: startDate, lte: endDate }
-              : { gte: startDate, lte: endDate }
+              : { gte: startDate, lte: endDate },
           }));
         } else {
           whereClause.createdAt = {
             gte: startDate,
-            lte: endDate
+            lte: endDate,
           };
         }
       } catch (error) {
-        console.error('Date parsing error:', error);
+        console.error("Date parsing error:", error);
         return res.status(400).json({
           success: false,
-          message: "Invalid date format"
+          message: "Invalid date format",
         });
       }
     }
 
     // Course filter
-    if (course) {
+    if (!isNaN(courseId)) {
       whereClause.queue = {
         ...whereClause.queue,
-        courseCode: course
+        courseCode: {
+          in: await prisma.course
+            .findMany({
+              where: { courseId: courseId },
+              select: { courseCode: true },
+            })
+            .then((r) => r.map((c) => c.courseCode)),
+        },
       };
     }
 
     // Request filter - exact match
-    if (request) {
-      const requestFilter = [
-        {
-          request: {
-            requestType: {
-              requestName: {
-                equals: request,
-                mode: 'insensitive'
-              }
-            }
-          }
-        }
-      ];
-
-      if (whereClause.OR && !whereClause.transactionStatus) {
-        whereClause = {
-          AND: [
-            { OR: whereClause.OR },
-            { OR: requestFilter }
-          ]
-        };
-      } else {
-        whereClause.OR = requestFilter;
-      }
+    if (!isNaN(requestTypeId)) {
+      whereClause.request = {
+        ...whereClause.request,
+        requestTypeId: requestTypeId,
+      };
     }
-
     // Search filter
     if (search) {
       whereClause.queue = {
         ...whereClause.queue,
         OR: [
-          { studentId: { contains: search, mode: 'insensitive' } },
-          { studentFullName: { contains: search, mode: 'insensitive' } },
-          { referenceNumber: { contains: search, mode: 'insensitive' } }
-        ]
+          { studentId: { contains: search, mode: "insensitive" } },
+          { studentFullName: { contains: search, mode: "insensitive" } },
+          { referenceNumber: { contains: search, mode: "insensitive" } },
+        ],
       };
     }
 
-    console.log('Final whereClause:', JSON.stringify(whereClause, null, 2));
+    console.log("Final whereClause:", JSON.stringify(whereClause, null, 2));
     // Use lean queries - only fetch what we need
     const selectFields = {
       transactionHistoryId: true,
@@ -207,24 +209,24 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
           courseCode: true,
           queueNumber: true,
           queueType: true,
-          referenceNumber: true
-        }
+          referenceNumber: true,
+        },
       },
       request: {
         select: {
           requestType: {
             select: {
-              requestName: true
-            }
-          }
-        }
+              requestName: true,
+            },
+          },
+        },
       },
       performer: {
         select: {
           firstName: true,
-          lastName: true
-        }
-      }
+          lastName: true,
+        },
+      },
     };
 
     // Run queries in parallel
@@ -233,8 +235,8 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
         where: whereClause,
         select: selectFields,
         orderBy: [
-          { createdAt: 'desc' },
-          { transactionHistoryId: 'desc' } // Secondary sort for consistency
+          { createdAt: "desc" },
+          { transactionHistoryId: "desc" }, // Secondary sort for consistency
         ],
         skip,
         take: limitNum,
@@ -242,24 +244,24 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
       //Only count on first page or when filters change
       // For subsequent pages, we can estimate or skip this
       prisma.transactionHistory.count({
-        where: whereClause
-      })
+        where: whereClause,
+      }),
     ]);
 
     console.log("Query results:", {
       totalCount,
       fetchedCount: transactions.length,
-      page: pageNum
+      page: pageNum,
     });
 
     // Format transactions (minimal processing)
-    const formattedTransactions = transactions.map(transaction => {
+    const formattedTransactions = transactions.map((transaction) => {
       let requestName = "Queue Status Change";
-      
+
       if (transaction.requestId && transaction.request?.requestType) {
         requestName = transaction.request.requestType.requestName;
       }
-      
+
       return {
         id: transaction.transactionHistoryId,
         studentId: transaction.queue.studentId,
@@ -269,21 +271,21 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
         status: transaction.transactionStatus,
         date: DateAndTimeFormatter.formatInTimeZone(
           transaction.createdAt,
-          'MMM. dd, yyyy',
-          'Asia/Manila'
+          "MMM. dd, yyyy",
+          "Asia/Manila"
         ),
         time: DateAndTimeFormatter.formatInTimeZone(
           transaction.createdAt,
-          'HH:mm:ss',
-          'Asia/Manila'
+          "HH:mm:ss",
+          "Asia/Manila"
         ),
-        performedBy: transaction.performer 
+        performedBy: transaction.performer
           ? `${transaction.performer.firstName} ${transaction.performer.lastName}`
           : "System",
         performerRole: transaction.performedByRole,
         queueNumber: transaction.queue.queueNumber,
         queueType: transaction.queue.queueType,
-        referenceNumber: transaction.queue.referenceNumber
+        referenceNumber: transaction.queue.referenceNumber,
       };
     });
 
@@ -300,17 +302,16 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
           totalItems: totalCount,
           itemsPerPage: limitNum,
           hasNextPage: pageNum < totalPages,
-          hasPreviousPage: pageNum > 1
-        }
-      }
+          hasPreviousPage: pageNum > 1,
+        },
+      },
     });
-
   } catch (error) {
     console.error("Error fetching transactions:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -322,110 +323,132 @@ const CACHE_TTL = 60000; // 1 minute cache
 async function getCachedCount(whereClause) {
   const cacheKey = JSON.stringify(whereClause);
   const cached = countCache.get(cacheKey);
-  
+
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    console.log('Using cached count:', cached.count);
+    console.log("Using cached count:", cached.count);
     return cached.count;
   }
-  
+
   const count = await prisma.transactionHistory.count({ where: whereClause });
   countCache.set(cacheKey, { count, timestamp: Date.now() });
-  
+
   // Clean old cache entries (prevent memory leak)
   if (countCache.size > 100) {
     const oldestKey = countCache.keys().next().value;
     countCache.delete(oldestKey);
   }
-  
+
   return count;
 }
 
 // ... rest of your existing functions (scheduleDeferredFinalization, etc.)
 export const scheduleDeferredFinalization = () => {
-  cron.schedule('0 22 * * *', async () => {
-    console.log('[10 PM] Running deferred queue finalization...');
-    
-    try {
-      const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
-        new Date(),
-        "Asia/Manila"
-      );
+  cron.schedule(
+    "0 22 * * *",
+    async () => {
+      console.log("[10 PM] Running deferred queue finalization...");
 
-      const deferredQueues = await prisma.queue.findMany({
-        where: {
-          queueStatus: Status.DEFERRED,
-          session: {
-            sessionDate: todayUTC,
-            isActive: true
-          }
-        },
-        include: {
-          requests: {
-            where: { isActive: true }
-          }
-        }
-      });
+      try {
+        const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+          new Date(),
+          "Asia/Manila"
+        );
 
-      console.log(`Found ${deferredQueues.length} deferred queues to finalize`);
-
-      for (const queue of deferredQueues) {
-        const requests = queue.requests;
-        
-        const allCompleted = requests.every(r => r.requestStatus === Status.COMPLETED);
-        const allCancelled = requests.every(r => r.requestStatus === Status.CANCELLED);
-        const hasStalled = requests.some(r => r.requestStatus === Status.STALLED);
-        const hasSkipped = requests.some(r => r.requestStatus === Status.SKIPPED);
-        const hasCompleted = requests.some(r => r.requestStatus === Status.COMPLETED);
-        const hasCancelled = requests.some(r => r.requestStatus === Status.CANCELLED);
-
-        let finalStatus = Status.DEFERRED;
-
-        if (allCompleted) {
-          finalStatus = Status.COMPLETED;
-        } else if (allCancelled) {
-          finalStatus = Status.CANCELLED;
-        } else if (hasStalled || hasSkipped) {
-          finalStatus = Status.DEFERRED;
-        } else if (hasCompleted && hasCancelled) {
-          finalStatus = Status.PARTIALLY_COMPLETE;
-        }
-
-        await prisma.queue.update({
-          where: { queueId: queue.queueId },
-          data: {
-            queueStatus: finalStatus,
-            completedAt: finalStatus === Status.COMPLETED || finalStatus === Status.CANCELLED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-              : null,
-            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-          }
+        const deferredQueues = await prisma.queue.findMany({
+          where: {
+            queueStatus: Status.DEFERRED,
+            session: {
+              sessionDate: todayUTC,
+              isActive: true,
+            },
+          },
+          include: {
+            requests: {
+              where: { isActive: true },
+            },
+          },
         });
 
-        await prisma.transactionHistory.create({
-          data: {
-            queueId: queue.queueId,
-            performedById: queue.servedByStaff || 'system',
-            performedByRole: 'PERSONNEL',
-            transactionStatus: finalStatus
-          }
-        });
+        console.log(
+          `Found ${deferredQueues.length} deferred queues to finalize`
+        );
 
-        console.log(`Finalized queue ${queue.referenceNumber} → ${finalStatus}`);
+        for (const queue of deferredQueues) {
+          const requests = queue.requests;
+
+          const allCompleted = requests.every(
+            (r) => r.requestStatus === Status.COMPLETED
+          );
+          const allCancelled = requests.every(
+            (r) => r.requestStatus === Status.CANCELLED
+          );
+          const hasStalled = requests.some(
+            (r) => r.requestStatus === Status.STALLED
+          );
+          const hasSkipped = requests.some(
+            (r) => r.requestStatus === Status.SKIPPED
+          );
+          const hasCompleted = requests.some(
+            (r) => r.requestStatus === Status.COMPLETED
+          );
+          const hasCancelled = requests.some(
+            (r) => r.requestStatus === Status.CANCELLED
+          );
+
+          let finalStatus = Status.DEFERRED;
+
+          if (allCompleted) {
+            finalStatus = Status.COMPLETED;
+          } else if (allCancelled) {
+            finalStatus = Status.CANCELLED;
+          } else if (hasStalled || hasSkipped) {
+            finalStatus = Status.DEFERRED;
+          } else if (hasCompleted && hasCancelled) {
+            finalStatus = Status.PARTIALLY_COMPLETE;
+          }
+
+          await prisma.queue.update({
+            where: { queueId: queue.queueId },
+            data: {
+              queueStatus: finalStatus,
+              completedAt:
+                finalStatus === Status.COMPLETED ||
+                finalStatus === Status.CANCELLED
+                  ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+                  : null,
+              updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
+          });
+
+          await prisma.transactionHistory.create({
+            data: {
+              queueId: queue.queueId,
+              performedById: queue.servedByStaff || "system",
+              performedByRole: "PERSONNEL",
+              transactionStatus: finalStatus,
+            },
+          });
+
+          console.log(
+            `Finalized queue ${queue.referenceNumber} → ${finalStatus}`
+          );
+        }
+
+        console.log("Deferred finalization completed");
+      } catch (error) {
+        console.error("Error in deferred finalization:", error);
       }
-
-      console.log('Deferred finalization completed');
-    } catch (error) {
-      console.error('Error in deferred finalization:', error);
+    },
+    {
+      timezone: "Asia/Manila",
     }
-  }, {
-    timezone: 'Asia/Manila'
-  });
+  );
 };
 
 export const scheduleSkippedToCancelled = () => {
-  cron.schedule('*/5 * * * *', async () => {
-    console.log('Checking for expired skipped requests...');
-    
+  cron.schedule("*/5 * * * *", async () => {
+    console.log("Checking for expired skipped requests...");
+
     try {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
@@ -433,13 +456,13 @@ export const scheduleSkippedToCancelled = () => {
         where: {
           requestStatus: Status.SKIPPED,
           updatedAt: {
-            lt: oneHourAgo
+            lt: oneHourAgo,
           },
-          isActive: true
+          isActive: true,
         },
         include: {
-          queue: true
-        }
+          queue: true,
+        },
       });
 
       console.log(`Found ${expiredRequests.length} expired skipped requests`);
@@ -449,26 +472,28 @@ export const scheduleSkippedToCancelled = () => {
           where: { requestId: request.requestId },
           data: {
             requestStatus: Status.CANCELLED,
-            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-          }
+            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
         });
 
         await prisma.transactionHistory.create({
           data: {
             queueId: request.queueId,
             requestId: request.requestId,
-            performedById: request.processedBy || 'system',
-            performedByRole: 'PERSONNEL',
-            transactionStatus: Status.CANCELLED
-          }
+            performedById: request.processedBy || "system",
+            performedByRole: "PERSONNEL",
+            transactionStatus: Status.CANCELLED,
+          },
         });
 
-        console.log(`Auto-cancelled skipped request ${request.requestId} after 1 hour`);
+        console.log(
+          `Auto-cancelled skipped request ${request.requestId} after 1 hour`
+        );
       }
 
-      console.log('Skipped request check completed');
+      console.log("Skipped request check completed");
     } catch (error) {
-      console.error('Error in skipped-to-cancelled check:', error);
+      console.error("Error in skipped-to-cancelled check:", error);
     }
   });
 };
@@ -525,114 +550,134 @@ export const getTransactionStats = async (req, res) => {
 
     const formatStatus = (status) => {
       const statusMap = {
-        'COMPLETED': 'Completed',
-        'CANCELLED': 'Cancelled',
-        'STALLED': 'Stalled',
-        'PARTIALLY_COMPLETE': 'Partially Complete',
-        'IN_SERVICE': 'In Service',
-        'WAITING': 'Waiting',
-        'DEFERRED': 'Deferred'
+        COMPLETED: "Completed",
+        CANCELLED: "Cancelled",
+        STALLED: "Stalled",
+        PARTIALLY_COMPLETE: "Partially Complete",
+        IN_SERVICE: "In Service",
+        WAITING: "Waiting",
+        DEFERRED: "Deferred",
       };
       return statusMap[status] || status;
     };
 
     const [courses, requests, statuses] = await Promise.all([
-      prisma.queue.findMany({
-        where: {
-          transactionHistories: {
-            some: {
-              transactionStatus: {
-                in: [
-                  Status.COMPLETED,
-                  Status.CANCELLED,
-                  Status.STALLED,
-                  Status.PARTIALLY_COMPLETE
-                ]
+      // 🧩 1. COURSES (two-step fetch)
+      (async () => {
+        // Step 1: Get distinct courseCodes from queues
+        const queueCourses = await prisma.queue.findMany({
+          where: {
+            transactionHistories: {
+              some: {
+                transactionStatus: {
+                  in: [
+                    Status.COMPLETED,
+                    Status.CANCELLED,
+                    Status.STALLED,
+                    Status.PARTIALLY_COMPLETE,
+                  ],
+                },
+                requestId: { not: null },
               },
-              requestId: {
-                not: null
-              }
-            }
-          }
-        },
-        select: {
-          courseCode: true
-        },
-        distinct: ['courseCode']
-      }).then(results => {
-        return results
-          .map(r => r.courseCode)
-          .filter(Boolean)
-          .sort();
-      }),
-      
-      prisma.transactionHistory.findMany({
-        where: {
-          request: {
-            isNot: null
+            },
           },
-          requestId: {
-            not: null
+          select: {
+            courseCode: true,
           },
-          transactionStatus: {
-            in: [
-              Status.COMPLETED,
-              Status.CANCELLED,
-              Status.STALLED,
-              Status.PARTIALLY_COMPLETE
-            ]
-          }
-        },
-        distinct: ['requestId'],
-        include: {
-          request: {
-            include: {
-              requestType: true
+          distinct: ["courseCode"],
+        });
+
+        // Step 2: Extract valid courseCodes
+        const courseCodes = queueCourses
+          .map((q) => q.courseCode)
+          .filter((code) => code !== null && code !== undefined);
+
+        if (courseCodes.length === 0) return [];
+
+        // Step 3: Fetch matching courses by courseCode
+        const courses = await prisma.course.findMany({
+          where: { courseCode: { in: courseCodes } },
+          select: {
+            courseId: true,
+            courseCode: true,
+            courseName: true,
+          },
+          orderBy: { courseName: "asc" },
+        });
+
+        return courses;
+      })(),
+      prisma.transactionHistory
+        .findMany({
+          where: {
+            request: { isNot: null },
+            requestId: { not: null },
+            transactionStatus: {
+              in: [
+                Status.COMPLETED,
+                Status.CANCELLED,
+                Status.STALLED,
+                // Status.PARTIALLY_COMPLETE,
+              ],
+            },
+          },
+          distinct: ["requestId"],
+          select: {
+            request: {
+              select: {
+                requestType: {
+                  select: {
+                    requestTypeId: true,
+                    requestName: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+        .then((results) => {
+          const uniqueRequestTypesMap = new Map();
+          results.forEach((t) => {
+            const rt = t.request?.requestType;
+            if (rt && !uniqueRequestTypesMap.has(rt.requestTypeId)) {
+              uniqueRequestTypesMap.set(rt.requestTypeId, rt);
             }
-          }
-        }
-      }).then(results => {
-        const uniqueRequestNames = [...new Set(
-          results
-            .filter(t => t.request?.requestType?.requestName)
-            .map(t => t.request.requestType.requestName)
-        )];
-        return uniqueRequestNames.sort();
-      }),
-      
-      prisma.transactionHistory.groupBy({
-  by: ['transactionStatus'],
-  where: {
-    requestId: {
-      not: null
-    },
-    OR: [
-      {
-        transactionStatus: {
-          in: [
-            Status.COMPLETED,
-            Status.CANCELLED,
-            Status.PARTIALLY_COMPLETE
-          ]
-        }
-      },
-      {
-        transactionStatus: Status.STALLED,
-        createdAt: {
-          lt: todayStart
-        }
-      }
-    ]
-  },
-  _count: {
-    transactionStatus: true
-  }
-}).then(results => {
-  return results
-    .map(r => r.transactionStatus) 
-    .filter(status => status !== 'SKIPPED') 
-    .sort();
-})
+          });
+          const uniqueRequestTypes = Array.from(
+            uniqueRequestTypesMap.values()
+          ).sort((a, b) => a.requestName.localeCompare(b.requestName));
+
+          return uniqueRequestTypes;
+        }),
+      prisma.transactionHistory
+        .groupBy({
+          by: ["transactionStatus"],
+          where: {
+            requestId: { not: null },
+            OR: [
+              {
+                transactionStatus: {
+                  in: [
+                    Status.COMPLETED,
+                    Status.CANCELLED,
+                    // Status.PARTIALLY_COMPLETE,
+                  ],
+                },
+              },
+              {
+                transactionStatus: Status.STALLED,
+                createdAt: { lt: todayStart },
+              },
+            ],
+          },
+          _count: { transactionStatus: true },
+        })
+        .then((results) => {
+          return results
+            .map((r) => r.transactionStatus)
+            .filter((status) => status !== "SKIPPED")
+            .sort();
+        }),
     ]);
 
     return res.status(200).json({
@@ -641,16 +686,15 @@ export const getTransactionStats = async (req, res) => {
       data: {
         courses,
         requests,
-        statuses
-      }
+        statuses,
+      },
     });
-
   } catch (error) {
     console.error("Error fetching transaction stats:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -672,46 +716,48 @@ export const getTransactionSummary = async (req, res) => {
       dateFilter = {
         queue: {
           session: {
-            sessionDate: searchDate
-          }
-        }
+            sessionDate: searchDate,
+          },
+        },
       };
     }
 
     const statusCounts = await prisma.transactionHistory.groupBy({
-      by: ['transactionStatus'],
+      by: ["transactionStatus"],
       where: dateFilter,
       _count: {
-        transactionStatus: true
-      }
+        transactionStatus: true,
+      },
     });
 
     const summary = {
-      total: statusCounts.reduce((acc, curr) => acc + curr._count.transactionStatus, 0),
+      total: statusCounts.reduce(
+        (acc, curr) => acc + curr._count.transactionStatus,
+        0
+      ),
       byStatus: statusCounts.reduce((acc, curr) => {
         acc[curr.transactionStatus] = curr._count.transactionStatus;
         return acc;
-      }, {})
+      }, {}),
     };
 
     return res.status(200).json({
       success: true,
       message: "Transaction summary fetched successfully",
-      data: summary
+      data: summary,
     });
-
   } catch (error) {
     console.error("Error fetching transaction summary:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error"
+      message: "Internal Server Error",
     });
   }
 };
 
 export const initializeScheduledJobs = () => {
-  console.log('Initializing scheduled jobs...');
+  console.log("Initializing scheduled jobs...");
   scheduleDeferredFinalization();
   scheduleSkippedToCancelled();
-  console.log('Scheduled jobs initialized successfully');
+  console.log("Scheduled jobs initialized successfully");
 };
