@@ -51,7 +51,7 @@ app.use('/api/student', StudentRoute);
 app.use('/api/staff', StaffRoute);
 app.use("/api/staff/queue", StaffQueue);
 app.use('/api/statistics', StatisticsRoute);
-app.use('/api/transactions', transactionRoutes);
+app.use('/api/staff/transaction', transactionRoutes);
 
 const server = createServer(app);
 const io = new Server(server, {
