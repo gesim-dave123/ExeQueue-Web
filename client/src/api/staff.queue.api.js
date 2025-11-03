@@ -32,19 +32,19 @@ export const studentsQueueDetails = async (queueDetails) => {
     };
   }
 };
+
 export const getQueueListByStatus = async (status) => {
   try {
     const response = await axios.get(
       `${backendConnection()}/api/staff/queue/list?status=${status}`,
-      {},
       {
         headers: {
-          "Content-Type": "application/type",
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
     );
-    // Correct condition - check if status is 200 AND success is true
+    
     if (response.status === 200 && response.data.success) {
       console.log("Queue List:", response.data.queueList);
       return response.data.queueList;
@@ -62,6 +62,7 @@ export const getCallNextQueue = async (windowId) => {
   try {
     const response = await axios.put(
       `${backendConnection()}/api/staff/queue/call/${windowId}`,
+      {}, // ✅ Empty body object
       {
         headers: {
           "Content-Type": "application/json",
@@ -69,6 +70,7 @@ export const getCallNextQueue = async (windowId) => {
         withCredentials: true,
       }
     );
+    
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
@@ -76,9 +78,9 @@ export const getCallNextQueue = async (windowId) => {
     return response.data;
   } catch (error) {
     console.error("❌ Error in Call Next Queue:", error);
+    // ✅ Fixed: use error.response instead of response
     if (error.response) {
       return error.response.data;
-      ssage;
     }
     return { success: false, message: "Network error." };
   }
@@ -94,6 +96,7 @@ export const setRequestStatus = async (
     console.log("Request Id in API:", requestId);
     const response = await axios.put(
       `${backendConnection()}/api/staff/queue/set/status/${queueId}/${requestId}/${requestStatus}/${windowId}`,
+      {}, // ✅ Empty body object
       {
         headers: {
           "Content-Type": "application/json",
@@ -108,8 +111,15 @@ export const setRequestStatus = async (
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Call Next Api", error);
-    return response.data.error;
+    console.error("❌ Error in setRequestStatus:", error);
+    // ✅ Fixed: use error.response instead of response
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { 
+      success: false, 
+      message: error.message || "Failed to update request status" 
+    };
   }
 };
 
@@ -123,6 +133,7 @@ export const setDeferredRequestStatus = async (
     console.log("Request Id in API:", requestId);
     const response = await axios.put(
       `${backendConnection()}/api/staff/queue/set/status/deferred/${queueId}/${requestId}/${windowId}/${requestStatus}`,
+      {}, // ✅ Empty body object
       {
         headers: {
           "Content-Type": "application/json",
@@ -137,8 +148,15 @@ export const setDeferredRequestStatus = async (
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Call Next Api", error);
-    return response.data.error;
+    console.error("❌ Error in setDeferredRequestStatus:", error);
+    // ✅ Fixed: use error.response instead of response
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { 
+      success: false, 
+      message: error.message || "Failed to update deferred request status" 
+    };
   }
 };
 
@@ -146,6 +164,7 @@ export const markQueueStatus = async (queueId, windowId) => {
   try {
     const response = await axios.put(
       `${backendConnection()}/api/staff/queue/${queueId}/${windowId}/mark-status`,
+      {}, // ✅ Empty body object
       {
         headers: {
           "Content-Type": "application/json",
@@ -153,15 +172,24 @@ export const markQueueStatus = async (queueId, windowId) => {
         withCredentials: true,
       }
     );
+    
     console.log("Response from api", response);
+    
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Mark Queue Status Api", error);
-    return response.data.error;
+    console.error("❌ Error in markQueueStatus:", error);
+    // ✅ Fixed: use error.response instead of response
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { 
+      success: false, 
+      message: error.message || "Failed to mark queue status" 
+    };
   }
 };
 
@@ -176,15 +204,24 @@ export const currentServedQueue = async (windowId) => {
         withCredentials: true,
       }
     );
+    
     console.log("Response from api", response);
+    
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Current Served Queue Api", error);
-    return response.data.error;
+    console.error("❌ Error in currentServedQueue:", error);
+    // ✅ Fixed: use error.response instead of response
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { 
+      success: false, 
+      message: error.message || "Failed to get current served queue" 
+    };
   }
 };
 
@@ -192,15 +229,14 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
   try {
     const response = await axios.get(
       `${backendConnection()}/api/staff/queue/list?status=${status}&windowId=${windowId}`,
-      {},
       {
         headers: {
-          "Content-Type": "application/type",
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
     );
-    // Correct condition - check if status is 200 AND success is true
+    
     if (response.status === 200 && response.data.success) {
       console.log("Queue List:", response.data.queueList);
       return response.data.queueList;
@@ -209,32 +245,32 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
       return [];
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getQueueByStatusAndWindow:", error);
     return [];
   }
 };
+
 export const getDeferredQueue = async (status) => {
   try {
     const response = await axios.get(
       `${backendConnection()}/api/staff/queue/list?status=${status}&requestStatus=STALLED,SKIPPED`,
-      {},
       {
         headers: {
-          "Content-Type": "application/type",
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
     );
-    // Correct condition - check if status is 200 AND success is true
+    
     if (response.status === 200 && response.data.success) {
-      console.log("Queue List:", response.data.queueList);
+      console.log("Deferred Response Api", response.data.queueList);
       return response.data.queueList;
     } else {
       console.warn("Unexpected response format:", response.data);
       return [];
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getDeferredQueue:", error);
     return [];
   }
 };

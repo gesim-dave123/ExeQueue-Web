@@ -1,4 +1,5 @@
 import { Queue_Type, Role, Status } from "@prisma/client";
+import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { QueueActions } from "../services/enums/SocketEvents.js";
@@ -11,6 +12,265 @@ const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   "Asia/Manila"
 );
 const isIntegerParam = (val) => /^\d+$/.test(val);
+
+export function startSkippedRequestMonitor() {
+  // Run every 15 minutes
+  cron.schedule("*/15 * * * *", async () => {
+    console.log("Running SKIPPED request monitor...");
+
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+      // Find all SKIPPED requests older than 1 hour
+      const skippedRequests = await prisma.request.findMany({
+        where: {
+          requestStatus: Status.SKIPPED,
+          updatedAt: {
+            lte: oneHourAgo,
+          },
+          isActive: true,
+        },
+        include: {
+          queue: true,
+        },
+      });
+
+      console.log(
+        ` Found ${skippedRequests.length} SKIPPED requests to cancel`
+      );
+
+      for (const request of skippedRequests) {
+        await prisma.$transaction(async (tx) => {
+          // Update request to CANCELLED
+          await tx.request.update({
+            where: { requestId: request.requestId },
+            data: {
+              requestStatus: Status.CANCELLED,
+              processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+              updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
+          });
+
+          //Update transaction history to CANCELLED (finalizes it)
+          await tx.transactionHistory.updateMany({
+            where: {
+              queueId: request.queueId,
+              requestId: request.requestId,
+              transactionStatus: Status.SKIPPED,
+            },
+            data: {
+              transactionStatus: Status.CANCELLED,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
+          });
+
+          // console.log(`Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
+        });
+      }
+    } catch (error) {
+      console.error("Error in SKIPPED request monitor:", error);
+    }
+  });
+
+  // console.log('SKIPPED request monitor started (runs every 15 minutes)');
+}
+
+export const manuallyFinalizeStalledRequests = async (req, res) => {
+  try {
+    const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    const todayEnd = new Date(todayStart);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const stalledRequests = await prisma.request.findMany({
+      where: {
+        requestStatus: Status.STALLED,
+        updatedAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+        isActive: true,
+      },
+      include: {
+        queue: true,
+      },
+    });
+
+    let finalized = 0;
+
+    for (const request of stalledRequests) {
+      const existingTransaction = await prisma.transactionHistory.findFirst({
+        where: {
+          queueId: request.queueId,
+          requestId: request.requestId,
+          transactionStatus: Status.STALLED,
+        },
+      });
+
+      if (!existingTransaction) {
+        await prisma.transactionHistory.create({
+          data: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            performedById: request.processedBy,
+            performedByRole: "SYSTEM",
+            transactionStatus: Status.STALLED,
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
+        });
+        finalized++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Finalized ${finalized} STALLED requests`,
+      totalFound: stalledRequests.length,
+      finalized,
+    });
+  } catch (error) {
+    console.error("Error in manual STALLED finalization:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const manuallyCancelSkippedRequests = async (req, res) => {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    const skippedRequests = await prisma.request.findMany({
+      where: {
+        requestStatus: Status.SKIPPED,
+        updatedAt: {
+          lte: oneHourAgo,
+        },
+        isActive: true,
+      },
+      include: {
+        queue: true,
+      },
+    });
+
+    let cancelled = 0;
+
+    for (const request of skippedRequests) {
+      await prisma.$transaction(async (tx) => {
+        await tx.request.update({
+          where: { requestId: request.requestId },
+          data: {
+            requestStatus: Status.CANCELLED,
+            processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
+        });
+
+        await tx.transactionHistory.updateMany({
+          where: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            transactionStatus: Status.SKIPPED,
+          },
+          data: {
+            transactionStatus: Status.CANCELLED,
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
+        });
+
+        cancelled++;
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Cancelled ${cancelled} SKIPPED requests (> 1 hour)`,
+      totalFound: skippedRequests.length,
+      cancelled,
+    });
+  } catch (error) {
+    console.error("Error in manual SKIPPED cancellation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export function startStalledRequestFinalizer() {
+  // Run daily at 11:59 PM Manila time
+  cron.schedule("59 23 * * *", async () => {
+    console.log("Running end-of-day STALLED request finalizer...");
+
+    try {
+      const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
+        new Date(),
+        "Asia/Manila"
+      );
+
+      const todayEnd = new Date(todayStart);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      // Find all STALLED requests that weren't updated today
+      const stalledRequests = await prisma.request.findMany({
+        where: {
+          requestStatus: Status.STALLED,
+          updatedAt: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
+          isActive: true,
+        },
+        include: {
+          queue: true,
+        },
+      });
+
+      console.log(
+        `Found ${stalledRequests.length} STALLED requests to finalize`
+      );
+
+      for (const request of stalledRequests) {
+        // Check if transaction history already exists
+        const existingTransaction = await prisma.transactionHistory.findFirst({
+          where: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            transactionStatus: Status.STALLED,
+          },
+        });
+
+        // Only create transaction if it doesn't exist yet
+        if (!existingTransaction) {
+          await prisma.transactionHistory.create({
+            data: {
+              queueId: request.queueId,
+              requestId: request.requestId,
+              performedById: request.processedBy,
+              performedByRole: "SYSTEM", // Automated by system
+              transactionStatus: Status.STALLED,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
+          });
+
+          console.log(
+            `Finalized STALLED request ${request.requestId} (end of day)`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error in STALLED request finalizer:", error);
+    }
+  });
+
+  console.log("STALLED request finalizer started (runs daily at 11:59 PM)");
+}
 
 export const viewQueues = async (req, res) => {
   try {
@@ -215,16 +475,6 @@ export const determineNextQueue = async (req, res) => {
             },
           },
         });
-
-        // Log the action
-        // await tx.transactionHistory.create({
-        //   data: {
-        //     queueId: nextQueue.queueId,
-        //     performedById: sasStaffId,
-        //     performedByRole: role,
-        //     transactionStatus: Status.IN_SERVICE
-        //   }
-        // });
 
         return finalQueue;
       },
@@ -472,8 +722,8 @@ export const getRequest = async (req, res) => {
 
 export const setRequestStatus = async (req, res) => {
   try {
+    const io = req.app.get("io");
     const { sasStaffId, role } = req.user;
-
     const {
       queueId: queueIdStr,
       requestId: requestIdStr,
@@ -482,6 +732,7 @@ export const setRequestStatus = async (req, res) => {
     } = req.params;
 
     console.log("Request Params:", req.params);
+
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -494,36 +745,32 @@ export const setRequestStatus = async (req, res) => {
       });
     }
 
-    // Convert to numbers after validation
     const queueId = Number(queueIdStr);
     const requestId = Number(requestIdStr);
     const windowId = Number(windowIdStr);
 
-    // 🔒 Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access — invalid role.",
+        message: "Unauthorized access – invalid role.",
       });
     }
 
     if (!requestStatus) {
       return res.status(400).json({
         success: false,
-        message: "Missing required filed. (requestStatus)",
+        message: "Missing required field. (requestStatus)",
       });
     }
 
-    // 🧩 Validate request data
     if (isNaN(queueId) || isNaN(requestId) || isNaN(windowId)) {
       return res.status(400).json({
         success: false,
         message:
-          "Invalid Type, should receive a number but recieved a string (queueId, requestId, windowId).",
+          "Invalid Type, should receive a number but received a string (queueId, requestId, windowId).",
       });
     }
 
-    // ✅ Allow only supported statuses
     if (
       ![
         Status.STALLED,
@@ -538,7 +785,6 @@ export const setRequestStatus = async (req, res) => {
       });
     }
 
-    // ✅ Verify this window owns this queue
     const queueCheck = await prisma.queue.findUnique({
       where: { queueId },
       select: { windowId: true, queueStatus: true },
@@ -565,75 +811,58 @@ export const setRequestStatus = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Queue not be WAITING to update request status.",
+        message: "Queue must not be WAITING to update request status.",
       });
     }
 
-    // 🧠 Transaction: update request + fetch queue for context
     const updated = await prisma.$transaction(async (tx) => {
       const newStatus = mapToStatus(requestStatus);
+
       const requestUpdate = await tx.request.update({
         where: { requestId },
         data: {
           requestStatus: newStatus,
           processedBy: sasStaffId,
           processedAt:
-            mapToStatus(requestStatus) === Status.COMPLETED
+            newStatus === Status.COMPLETED
               ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
-      });
-      const queueUpdate = await tx.queue.findUnique({
-        where: { queueId },
         include: {
-          requests: {
-            // where: {
-            //   requestStatus: {
-            //     in: [Status.STALLED, Status.SKIPPED],
-            //   },
-            // },
-            include: {
-              requestType: true,
-            },
-          },
+          requestType: true,
         },
       });
 
-      return { requestUpdate, queueUpdate };
+      //UPSERT transaction history (update if exists, create if doesn't)
+      // await createTransactionHistorySafe(tx, {
+      //   queueId: queueId,
+      //   requestId: requestId,
+      //   performedById: sasStaffId,
+      //   performedByRole: role,
+      //   transactionStatus: newStatus,
+      //   createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+      // });
+
+      return { requestUpdate };
     });
 
-    // // ✅ Emit real-time event to all windows with action type
-    // io.emit("QUEUE_UPDATED", {
-    //   action: "REQUEST_STATUS_UPDATED",
-    //   queueId: updated.queueUpdate.queueId,
-    //   queueStatus: updated.queueUpdate.queueStatus,
-    //   updatedQueue: updated.queueUpdate,
-    //   updatedRequest: updated.requestUpdate,
-    //   windowId: windowId,
-    // });
+    io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+      queueId: queueId,
+      requestId: updated.requestUpdate.requestId,
+      requestStatus: updated.requestUpdate.requestStatus,
+      updatedRequest: updated.requestUpdate,
+      updatedBy: sasStaffId,
+    });
 
-    // ✅ Add this before responding
-    // sendDashboardUpdate({
-    //   message: `Request ${requestStatus}`,
-    //   queueId: updated.queueUpdate.queueId,
-    //   requestId: requestId,
-    // });
-
-    // sendLiveDisplayUpdate({
-    //   message: `Request ${requestStatus}`,
-    //   queueId: updated.queueUpdate.queueId,
-    //   requestId: requestId,
-    // });
-
-    // ✅ Respond to the calling client
     return res.status(200).json({
       success: true,
-      message: `Request ${requestId} set to ${requestStatus}`,
-      data: updated,
+      status: updated.requestUpdate.requestStatus,
+      message: `Request ${requestId} updated successfully.`,
+      data: updated.requestUpdate,
     });
   } catch (error) {
-    console.error("❌ Error setting request status:", error);
+    console.error("Error setting request status:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -641,6 +870,55 @@ export const setRequestStatus = async (req, res) => {
     });
   }
 };
+
+async function createTransactionHistorySafe(tx, data) {
+  // Find existing transaction for this specific queueId + requestId combination
+  const existingTransaction = await tx.transactionHistory.findFirst({
+    where: {
+      queueId: data.queueId,
+      requestId: data.requestId || null,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  if (existingTransaction) {
+    //UPDATE existing transaction
+    console.log("Updating existing transaction:", {
+      id: existingTransaction.transactionHistoryId,
+      queueId: data.queueId,
+      requestId: data.requestId,
+      oldStatus: existingTransaction.transactionStatus,
+      newStatus: data.transactionStatus,
+    });
+
+    const updated = await tx.transactionHistory.update({
+      where: {
+        transactionHistoryId: existingTransaction.transactionHistoryId,
+      },
+      data: {
+        transactionStatus: data.transactionStatus,
+        performedById: data.performedById,
+        performedByRole: data.performedByRole,
+        createdAt: data.createdAt,
+      },
+    });
+
+    return updated;
+  }
+
+  // CREATE new transaction
+  console.log("Creating new transaction:", {
+    queueId: data.queueId,
+    requestId: data.requestId,
+    status: data.transactionStatus,
+  });
+
+  const created = await tx.transactionHistory.create({ data });
+
+  return created;
+}
 
 export const setDeferredRequestStatus = async (req, res) => {
   try {
@@ -654,7 +932,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       requestStatus,
     } = req.params;
 
-    // Validate integer params
     if (
       !isIntegerParam(queueIdStr) ||
       !isIntegerParam(requestIdStr) ||
@@ -671,11 +948,10 @@ export const setDeferredRequestStatus = async (req, res) => {
     const requestId = Number(requestIdStr);
     const windowId = Number(windowIdStr);
 
-    // Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
-        message: "Unauthorized access — invalid role.",
+        message: "Unauthorized access – invalid role.",
       });
     }
 
@@ -686,7 +962,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // Only allow supported statuses
     if (
       ![
         Status.STALLED,
@@ -701,7 +976,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // Verify window owns this queue
     const queueCheck = await prisma.queue.findUnique({
       where: { queueId },
       select: { windowId: true, queueStatus: true },
@@ -732,7 +1006,6 @@ export const setDeferredRequestStatus = async (req, res) => {
       });
     }
 
-    // ✅ Transaction: update request AND get updated queue data
     const updated = await prisma.$transaction(async (tx) => {
       const newStatus = mapToStatus(requestStatus);
 
@@ -748,31 +1021,39 @@ export const setDeferredRequestStatus = async (req, res) => {
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
         },
         include: {
-          requestType: true, // Include related data if needed
+          requestType: true,
         },
+      });
+
+      //UPSERT transaction history
+      await createTransactionHistorySafe(tx, {
+        queueId: queueId,
+        requestId: requestId,
+        performedById: sasStaffId,
+        performedByRole: role,
+        transactionStatus: newStatus,
+        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
       });
 
       return { requestUpdate };
     });
 
-    // ✅ Broadcast ONLY the specific request update to ALL windows
     io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
       queueId: queueId,
       requestId: updated.requestUpdate.requestId,
       requestStatus: updated.requestUpdate.requestStatus,
-      updatedRequest: updated.requestUpdate, // Only the updated request, not the whole queue
+      updatedRequest: updated.requestUpdate,
       updatedBy: sasStaffId,
     });
 
-    // ✅ Return success response
     return res.status(200).json({
       success: true,
       status: updated.requestUpdate.requestStatus,
       message: `Deferred request ${requestId} updated successfully.`,
-      data: updated.requestUpdate, // Return only the updated request
+      data: updated.requestUpdate,
     });
   } catch (error) {
-    console.error("❌ Error setting deferred request status:", error);
+    console.error("Error setting deferred request status:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -819,7 +1100,7 @@ export const createQueueSession = async (req, res) => {
 
       return newSession;
     });
-    console.log("✅ New queue session created:", result);
+    console.log("New queue session created:", result);
     return res.status(201).json({
       success: true,
       message:
@@ -827,7 +1108,7 @@ export const createQueueSession = async (req, res) => {
       session: result,
     });
   } catch (error) {
-    console.error("❌ Error creating queue session:", error);
+    console.error("Error creating queue session:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to create queue session",
@@ -842,7 +1123,6 @@ export const markQueueStatus = async (req, res) => {
     const { sasStaffId, role } = req.user;
     const { queueId: queueIdStr, windowId: windowIdStr } = req.params;
 
-    // 🔍 Validate numeric params
     if (!isIntegerParam(queueIdStr) || !isIntegerParam(windowIdStr)) {
       return res.status(400).json({
         success: false,
@@ -854,14 +1134,13 @@ export const markQueueStatus = async (req, res) => {
     const windowId = Number(windowIdStr);
 
     if (isNaN(windowId) || isNaN(queueId)) {
-      return res.sttaus(400).json({
+      return res.status(400).json({
         success: false,
         message:
-          "An error occurred. Expecting a number but recieved a string. (queueId, windowId)",
+          "An error occurred. Expecting a number but received a string. (queueId, windowId)",
       });
     }
 
-    // 🔒 Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
@@ -869,7 +1148,6 @@ export const markQueueStatus = async (req, res) => {
       });
     }
 
-    // 🧩 Fetch queue with its requests
     const existingQueue = await prisma.queue.findUnique({
       where: { queueId },
       include: {
@@ -884,7 +1162,6 @@ export const markQueueStatus = async (req, res) => {
       });
     }
 
-    // 🔒 Verify correct window
     if (existingQueue.windowId !== windowId) {
       return res.status(403).json({
         success: false,
@@ -892,7 +1169,6 @@ export const markQueueStatus = async (req, res) => {
       });
     }
 
-    // 🧠 Determine queue status based on requests
     const requests = existingQueue.requests || [];
 
     if (requests.length === 0) {
@@ -916,25 +1192,22 @@ export const markQueueStatus = async (req, res) => {
     const hasCancelled = requests.some(
       (r) => r.requestStatus === Status.CANCELLED
     );
+
     let finalStatus = Status.IN_SERVICE;
 
-    // ✅ Fixed logic - check for stalled/skipped FIRST
     if (allCompleted) finalStatus = Status.COMPLETED;
     else if (allCancelled) finalStatus = Status.CANCELLED;
     else if (anyStalled || anySkipped) finalStatus = Status.DEFERRED;
     else if (hasCompleted && hasCancelled)
       finalStatus = Status.PARTIALLY_COMPLETE;
 
-    // ✅ Save updates in a transaction
     const updatedQueue = await prisma.$transaction(async (tx) => {
       const queueUpdate = await tx.queue.update({
         where: { queueId },
         data: {
           queueStatus: finalStatus,
           completedAt:
-            finalStatus === Status.COMPLETED
-              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-              : Status.CANCELLED
+            finalStatus === Status.COMPLETED || finalStatus === Status.CANCELLED
               ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
               : null,
           updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
@@ -948,19 +1221,82 @@ export const markQueueStatus = async (req, res) => {
         },
       });
 
-      await tx.transactionHistory.create({
-        data: {
-          queueId,
-          performedById: sasStaffId,
-          performedByRole: role,
-          transactionStatus: finalStatus,
-        },
-      });
+      // CRITICAL FIX: Create transaction history for each request individually
+      // This prevents duplicates and ensures correct request tracking
+      if (finalStatus !== Status.DEFERRED) {
+        console.log(
+          "[---IMPORTANT---]Creating transaction history for all requests..."
+        );
+      }
+
+      for (const request of queueUpdate.requests) {
+        if(!(request.requestStatus === Status.STALLED || request.requestStatus === Status.SKIPPED)  ){
+        const existingTransaction = await tx.transactionHistory.findFirst({
+          where: {
+            queueId,
+            requestId: request.requestId,
+            transactionStatus: request.requestStatus,
+          },
+        });
+
+        if (!existingTransaction) {
+          await tx.transactionHistory.create({
+            data: {
+              queueId,
+              requestId: request.requestId,
+              performedById: sasStaffId,
+              performedByRole: role,
+              transactionStatus: request.requestStatus,
+              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            },
+          });
+          console.log(
+            `Created transaction for request ${request.requestId} with status ${request.requestStatus}`
+          );
+        } else {
+          console.log(
+            `Skipped duplicate transaction for request ${request.requestId}`
+          );
+        }
+        }
+        // Only create transaction for requests that don't have one yet
+
+      }
+
+      // Only create queue-level transaction for PARTIALLY_COMPLETE (if doesn't exist)
+      // const shouldCreateQueueTransaction =
+      //   existingQueue.queueStatus !== finalStatus &&
+      //   finalStatus === Status.PARTIALLY_COMPLETE;
+
+      // if (shouldCreateQueueTransaction) {
+      //   const existingQueueTransaction = await tx.transactionHistory.findFirst({
+      //     where: {
+      //       queueId,
+      //       requestId: null,
+      //       transactionStatus: Status.PARTIALLY_COMPLETE,
+      //     },
+      //   });
+
+      //   if (!existingQueueTransaction) {
+      //     console.log(
+      //       "Creating queue-level transaction for PARTIALLY_COMPLETE"
+      //     );
+      //     await tx.transactionHistory.create({
+      //       data: {
+      //         queueId,
+      //         requestId: null,
+      //         performedById: sasStaffId,
+      //         performedByRole: role,
+      //         transactionStatus: finalStatus,
+      //         createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      //       },
+      //     });
+      //   }
+      // }
 
       return queueUpdate;
     });
 
-    // 🎯 Emit socket signal only to the window room
     const actionMap = {
       [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
       [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
@@ -1013,8 +1349,7 @@ export const markQueueStatus = async (req, res) => {
           },
         })),
     };
-    // io.emit(event, newQueueData);
-    // io.to(`window:${windowId}`).emit(event, newQueueData);
+
     io.emit(event, newQueueData);
 
     console.log(
@@ -1039,7 +1374,7 @@ export const markQueueStatus = async (req, res) => {
       queue: updatedQueue,
     });
   } catch (error) {
-    console.error("❌ Error in markQueueStatus:", error);
+    console.error("Error in markQueueStatus:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1120,7 +1455,6 @@ export const callNextQueue = async (req, res) => {
     const todayUTC = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
 
     const result = await prisma.$transaction(async (tx) => {
-      // 🧠 Step 1: Find the most recent queue served today (if any)
       const lastServed = await tx.queue.findFirst({
         where: {
           servedByStaff: sasStaffId,
@@ -1138,12 +1472,12 @@ export const callNextQueue = async (req, res) => {
         orderBy: { calledAt: "desc" },
       });
 
-      // 🧩 Step 2: Determine next type to serve
+      // Determine next type to serve
       let nextType = Queue_Type.PRIORITY;
       if (lastServed?.queueType === Queue_Type.PRIORITY.toString())
         nextType = Queue_Type.REGULAR;
 
-      // 🧩 Step 3: Try to find next queue of the desired type
+      // Try to find next queue of the desired type
       let nextQueue = await tx.queue.findFirst({
         where: {
           queueStatus: Status.WAITING,
@@ -1158,7 +1492,6 @@ export const callNextQueue = async (req, res) => {
         ],
       });
 
-      // 🧩 Step 4: Fallback — if no queue of that type exists, pick any remaining
       if (!nextQueue) {
         nextQueue = await tx.queue.findFirst({
           where: {
@@ -1177,7 +1510,6 @@ export const callNextQueue = async (req, res) => {
 
       if (!nextQueue) return null;
 
-      // 🧩 Step 5: Lock it in — prevent race condition
       const updated = await tx.queue.updateMany({
         where: {
           queueId: nextQueue.queueId,
@@ -1193,7 +1525,6 @@ export const callNextQueue = async (req, res) => {
 
       if (updated.count === 0) return "TAKEN";
 
-      // 🧩 Step 6: Return the updated record
       return await tx.queue.findUnique({
         where: { queueId: nextQueue.queueId },
         include: { requests: { include: { requestType: true } } },
@@ -1235,7 +1566,7 @@ export const callNextQueue = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ Error in callNextQueue:", error);
+    console.error("Error in callNextQueue:", error);
     res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
@@ -1316,7 +1647,7 @@ export const currentServedQueue = async (req, res) => {
 
     if (isDifferentStaff) {
       console.log(
-        `🔄 Transferring queue ${currentQueue.queueNo} from staff ${currentQueue.servedByStaff} to ${sasStaffId}`
+        `Transferring queue ${currentQueue.queueNo} from staff ${currentQueue.servedByStaff} to ${sasStaffId}`
       );
 
       // Update the queue to be owned by the new staff
@@ -1351,7 +1682,7 @@ export const currentServedQueue = async (req, res) => {
       isInherited: false,
     });
   } catch (error) {
-    console.error("❌ Error fetching current served queue:", error);
+    console.error("Error fetching current served queue:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch current queue",
@@ -1366,8 +1697,6 @@ function mapToStatus(statusString) {
     stalled: Status.STALLED,
     skipped: Status.SKIPPED,
     cancelled: Status.CANCELLED,
-    // Add other status mappings as needed
   };
-
   return statusMap[statusString.toLowerCase()];
 }
