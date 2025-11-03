@@ -322,22 +322,43 @@ export default function Transactions() {
           onClick={() =>
             setOpenDropdown(openDropdown === filterType ? null : filterType)
           }
-          className={`w-full cursor-pointer flex items-center justify-between bg-gray-50 rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors min-h-[42px] ${
-            filters[filterType] ? "pl-10 pr-4" : "px-4"
+          className={`w-full cursor-pointer flex items-center justify-between rounded-lg py-2.5 text-sm text-gray-700 transition-colors min-h-[42px]
+          ${filters[filterType] ? "pl-10 pr-4" : "px-4"}
+          ${
+            openDropdown === filterType || filters[filterType]
+              ? "border border-[#F9AB00]/40 bg-white"
+              : "bg-gray-50 hover:bg-gray-100 border border-transparent"
           }`}
         >
-          <span
-            className={`truncate mr-2 ${
-              filters[filterType] ? "text-gray-900" : "text-gray-500"
-            }`}
-          >
-            {displayFn && filters[filterType]
-              ? displayFn(filters[filterType])
-              : filters[filterType] || label}
+          <span className="truncate mr-2 flex items-center gap-1">
+            {filterType === "course" && filters[filterType] ? (
+              <>
+                <span className="text-[#88898A] font-light">Course</span>
+                <span className="text-[#88898A]">|</span>
+                <span className="text-[#1A73E8] font-normal">
+                  {filters[filterType]}
+                </span>
+              </>
+            ) : (
+              <span
+                className={`${
+                  filters[filterType]
+                    ? "text-[#1A73E8] font-normal"
+                    : "text-gray-500"
+                }`}
+              >
+                {displayFn && filters[filterType]
+                  ? displayFn(filters[filterType])
+                  : filters[label] || label}
+              </span>
+            )}
           </span>
+
           <ChevronDown
-            className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform ${
-              openDropdown === filterType ? "rotate-180" : ""
+            className={`w-4 h-4 flex-shrink-0 transition-transform ${
+              openDropdown === filterType
+                ? "rotate-180 text-yellow-500"
+                : "text-gray-500"
             }`}
           />
         </button>
@@ -348,10 +369,14 @@ export default function Transactions() {
               e.stopPropagation();
               handleFilterChange(filterType, "");
             }}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors"
+            className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors ${
+              filters[filterType]
+                ? "bg-[#88898A] hover:bg-gray-700"
+                : "hover:bg-gray-200"
+            }`}
           >
             <svg
-              className="w-4 h-4 text-gray-500"
+              className="w-3 h-3 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -368,7 +393,7 @@ export default function Transactions() {
       </div>
 
       {openDropdown === filterType && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
+        <div className="absolute z-50 mt-2 w-full bg-white px-1 py-1 rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
           <button
             onClick={() => handleFilterChange(filterType, "")}
             className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
@@ -413,6 +438,19 @@ export default function Transactions() {
               </button>
             );
           })}
+//           {options.map((option) => (
+//             <button
+//               key={option}
+//               onClick={() => handleFilterChange(filterType, option)}
+//               className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
+//                 filters[filterType] === option
+//                   ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+//                   : "border-transparent text-gray-700"
+//               }`}
+//             >
+//               {displayFn ? displayFn(option) : option}
+//             </button>
+//           ))}
         </div>
       )}
 
@@ -469,19 +507,32 @@ export default function Transactions() {
             onClick={() =>
               setOpenDropdown(openDropdown === "date" ? null : "date")
             }
-            className={`w-full flex items-center justify-between bg-gray-50  cursor-pointer rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors ${
-              selectedDate ? "pl-10 pr-4" : "px-4"
-            }`}
+            className={`w-full flex items-center justify-between cursor-pointer rounded-lg py-2.5 text-sm text-gray-700 transition-all min-h-[42px]
+          ${selectedDate ? "pl-10 pr-4" : "px-4"}
+          ${
+            openDropdown === "date" || selectedDate
+              ? "border border-[#F9AB00]/40 bg-white"
+              : "bg-gray-50 hover:bg-gray-100 border border-transparent"
+          }`}
           >
-            <span className={selectedDate ? "text-gray-900" : "text-gray-500"}>
+            <span
+              className={`truncate ${
+                selectedDate ? "text-[#1A73E8] font-normal" : "text-gray-500"
+              }`}
+            >
               {selectedDate ? formatDateDisplay(selectedDate) : "Date"}
             </span>
+
             <ChevronDown
-              className={`w-4 h-4 text-gray-500 transition-transform ${
-                openDropdown === "date" ? "rotate-180" : ""
+              className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                openDropdown === "date"
+                  ? "rotate-180 text-yellow-500"
+                  : "text-gray-500"
               }`}
             />
           </button>
+
+          {/* ❌ Clear Button */}
           {selectedDate && (
             <button
               onClick={(e) => {
@@ -489,10 +540,10 @@ export default function Transactions() {
                 setSelectedDate(null);
                 handleFilterChange("date", "");
               }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-[#88898A] hover:bg-gray-700 transition-colors"
             >
               <svg
-                className="w-4 h-4 text-gray-500"
+                className="w-3 h-3 text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -551,9 +602,9 @@ export default function Transactions() {
                   <button
                     key={index}
                     onClick={() => handleDateSelect(day)}
-                    className={`h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                    className={`h-8 w-8 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
                       isSelected
-                        ? "bg-orange-500 text-white"
+                        ? "bg-[#F9AB00] text-white"
                         : "hover:bg-gray-100 text-gray-900"
                     }`}
                   >

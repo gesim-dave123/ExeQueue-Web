@@ -6,7 +6,7 @@ export default function LayoutDashboard() {
   return (
     <div className='flex h-screen bg-[#F5F5F5] overflow-hidden'>
         {/* Sidebar */}
-      <div className='py-8 pl-8'>
+      <div className='py-8 pl-7 lg:pl-8'>
         <Sidebar/>
 
       </div>

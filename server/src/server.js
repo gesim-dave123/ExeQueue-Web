@@ -19,6 +19,7 @@ import {
   startSkippedRequestMonitor, 
   startStalledRequestFinalizer 
 } from './controllers/queue.controller.js';
+import SessionRoute from './routes/session.route.js';
 // import io from 'io'
 import { initializeScheduledJobs } from './controllers/transaction.controller.js';
 dotenv.config();
@@ -34,7 +35,7 @@ app.use(express.json());
 app.use(
   cors({
     origin:
-      process.env.NODE_ENV === "production"
+      process.env.NODE_ENV === 'production'
         ? process.env.CORS_ORIGIN
         : process.env.CORS_ORIGIN, // React dev server
     credentials: true,
@@ -49,23 +50,23 @@ app.use(helmet());
 app.use('/api/auth', AuthRoute);
 app.use('/api/student', StudentRoute);
 app.use('/api/staff', StaffRoute);
-app.use("/api/staff/queue", StaffQueue);
+app.use('/api/staff/queue', StaffQueue);
 app.use('/api/statistics', StatisticsRoute);
 app.use('/api/staff/transaction', transactionRoutes);
-
+app.use('/api/session', SessionRoute);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin:
-      process.env.NODE_ENV === "production"
+      process.env.NODE_ENV === 'production'
         ? process.env.CORS_ORIGIN
         : process.env.CORS_ORIGIN, // React dev server
-    methods: ["GET", "POST"],
+    methods: ['GET', 'POST'],
     credentials: true,
   },
 });
 
-app.set("io", io);
+app.set('io', io);
 socketAuthentication(io);
 socketHandler(io);
 
@@ -77,7 +78,7 @@ startStalledRequestFinalizer();
 initializeScheduledJobs();
 
 server.listen(PORT, () => {
-  console.log("Server is running on port ", PORT);
+  console.log('Server is running on port ', PORT);
 });
 // app.listen(PORT, '0.0.0.0', () => {
 //   console.log(`Server running on http://0.0.0.0:${PORT}`);

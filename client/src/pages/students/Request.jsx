@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
+
 // import { getCourseData } from "../../api/course.js";
 // import { getRequestType } from "../../api/request.js";
 import {
@@ -14,6 +16,9 @@ import Loading from '../../components/Loading';
 import ConfirmModal from '../../components/modal/ConfirmModal.jsx';
 
 export default function Request() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedQueue, setSelectedQueue] = useState(null);
@@ -175,7 +180,18 @@ export default function Request() {
       icon: 'fa-solid fa-right-left',
     },
   ];
-
+  const [yearSearchTerm, setYearSearchTerm] = useState('');
+  const [isYearOpen, setIsYearOpen] = useState(false);
+  const yearDropdownRef = useRef(null);
+  const yearOptions = [
+    '1st Year',
+    '2nd Year',
+    '3rd Year',
+    '4th Year',
+    '5th Year',
+    '6th Year',
+    'Irregular',
+  ];
   // useEffect(() => {
   //   const fetchCourseData = async () => {
   //     try {
@@ -218,7 +234,8 @@ export default function Request() {
 
   const validateStep2 = () => {
     const newErrors = {};
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.lastName.trim()) 
+      newErrors.lastName = 'Last name is required';
     if (!formData.firstName.trim())
       newErrors.firstName = 'First name is required';
     if (!formData.studentId.trim()) {
@@ -226,7 +243,7 @@ export default function Request() {
     } else if (!/^\d{8}$/.test(formData.studentId)) {
       newErrors.studentId = 'Student ID must be exactly 8 digits';
     }
-    if (!formData.courseId.trim()) newErrors.course = 'Course is required';
+    if (!formData.courseId) newErrors.course = 'Course is required';
     if (!formData.yearLevel.trim())
       newErrors.yearLevel = 'Year level is required';
 
@@ -304,7 +321,50 @@ export default function Request() {
   const handleBackCancel = () => {
     setShowBackConfirmModal(false);
   };
+    // Filter courses based on search
+  const filteredCourses = courseData.filter(course =>
+    course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    course.courseCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+// Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+  useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setIsOpen(false);
+        }
+        if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
+          setIsYearOpen(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+  const handleSelect = (courseId, courseName, courseCode) => {
+    setFormData(prev => ({ ...prev, courseId }));
+    setSearchTerm(`${courseName} - ${courseCode}`);
+    setIsOpen(false);
+  };
 
+  const handleInputChange = (e) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+    if (!e.target.value) {
+      setFormData(prev => ({ ...prev, courseId: '' }));
+    }
+  };
+
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
   // const handleChange = (e) => {
   //   setFormData({ ...formData, [e.target.name]: e.target.value });
   //   // Clear error when user starts typing
@@ -672,7 +732,10 @@ export default function Request() {
               className={`border rounded-xl p-4 md:p-5  cursor-pointer transition-all duration-200 ${
                 selectedQueue === 'Standard'
                   ? 'border-blue-500 bg-blue-50 shadow-sm'
+                  : selectedQueue === 'Priority'
+                  ? 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50' 
                   : 'border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50'
+
               } ${errors.step1 ? 'border-red-300' : ''}`}
               onClick={() => handleQueueSelect('Regular')}
               variants={itemVariants}
@@ -708,7 +771,7 @@ export default function Request() {
                     Regular Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For general inquiries and regular services.
+                    For general inquiries and regular services. Most visitors should select this option
                   </p>
                 </div>
               </div>
@@ -755,7 +818,7 @@ export default function Request() {
                     Priority Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For seniors, pregnant individuals, PWD, or urgent needs.
+                    For seniors, pregnant individuals, people with disabilities, or those with urgent needs.
                   </p>
                 </div>
               </div>
@@ -793,7 +856,7 @@ export default function Request() {
                   onChange={handleChange}
                   placeholder="Last name"
                   className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-300'
+                    errors.lastName ? 'border-red-500' : 'border-[#DDEAFC]'
                   }`}
                 />
                 {errors.lastName && (
@@ -814,7 +877,7 @@ export default function Request() {
                   value={formData.middleName}
                   onChange={handleChange}
                   placeholder="Middle name"
-                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="mt-1 w-full border border-[#DDEAFC] rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </motion.div>
             </div>
@@ -834,7 +897,7 @@ export default function Request() {
                 onChange={handleChange}
                 placeholder="First name"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.firstName ? 'border-red-500' : 'border-gray-300'
+                  errors.firstName ? 'border-red-500' : 'border-[#DDEAFC]'
                 }`}
               />
               {errors.firstName && (
@@ -873,7 +936,7 @@ export default function Request() {
                 inputMode="numeric"
                 maxLength="8"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.studentId ? 'border-red-500' : 'border-gray-300'
+                  errors.studentId ? 'border-red-500' : 'border-[#DDEAFC]'
                 }`}
               />
             </motion.div>
@@ -883,38 +946,72 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Course <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Course<span className="text-red-500">*</span>
               </label>
-              <select
-                name="courseId"
-                value={formData.courseId}
-                onChange={handleChange}
-                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.course ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="" disabled>
-                  Select your course
-                </option>
-                {/* <option value="BSIT">BSIT (Bachelor of Science in Information Technology)</option>
-                <option value="BSCS">BSCS</option>
-                <option value="BSECE">BSECE</option>
-                <option value="BSCE">BSCE</option>
-                <option value="BSEE">BSEE</option> */}
-                {courseData.map((course) => (
-                  <option key={course.courseId} value={course.courseId}>
-                    {course.courseName} - {course.courseCode}
-                  </option>
-                ))}
-                ;
-              </select>
+              
+              <div className="relative" ref={dropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsOpen(true)}
+                    placeholder="Select your course"
+                    className={`w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
+                      isOpen ? 'border-blue-500' : errors.course ? 'border-red-500' : 'border-[#DDEAFC]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleDropdown}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  >
+                    <ChevronDown 
+                      size={20} 
+                      className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </div>
+                
+                {isOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-64 overflow-y-auto custom-scrollbar">
+                    {filteredCourses.length > 0 ? (
+                      filteredCourses.map((course, index) => (
+                        <div
+                          key={course.courseId}
+                          onClick={() => handleSelect(course.courseId, course.courseName, course.courseCode)}
+                          className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
+                            formData.courseId === course.courseId ? 'bg-blue-50' : ''
+                          } ${index === 0 ? 'rounded-t-2xl' : ''} ${
+                            index === filteredCourses.length - 1 ? 'rounded-b-2xl' : ''
+                          }`}
+                        >
+                          <div className="text-sm text-gray-900">
+                            {course.courseName} - {course.courseCode}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-5 py-3 text-gray-500 text-sm">No courses found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+                {/* Hidden input to store the actual courseId value */}
+                <input
+                  type="hidden"
+                  name="courseId"
+                  value={formData.courseId}
+                />
+
               {errors.course && (
                 <p className="mt-1 text-sm text-red-600">{errors.course}</p>
               )}
             </motion.div>
 
-            <motion.div
+              <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
@@ -922,25 +1019,58 @@ export default function Request() {
               <label className="block text-sm font-medium text-gray-700">
                 Year Level <span className="text-red-500">*</span>
               </label>
-              <select
-                name="yearLevel"
-                value={formData.yearLevel}
-                onChange={handleChange}
-                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.yearLevel ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="" disabled>
-                  Select your year level
-                </option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-                <option value="5th Year">5th Year</option>
-                <option value="6th Year">6th Year</option>
-                <option value="Irregular">Irregular</option>
-              </select>
+
+              <div className="relative" ref={yearDropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    value={formData.yearLevel || ''}
+                    onFocus={() => setIsYearOpen(true)}
+                    placeholder="Select your year level"
+                    className={`mt-1 w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
+                      isYearOpen ? 'border-blue-500' : errors.yearLevel ? 'border-red-500' : 'border-[#DDEAFC]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsYearOpen((s) => !s)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  >
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform ${isYearOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </div>
+
+                {isYearOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-44 overflow-y-auto custom-scrollbar">
+                    {yearOptions.map((y, idx, arr) => (
+                      <div
+                        key={y}
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, yearLevel: y }));
+                          setIsYearOpen(false);
+                          if (errors.yearLevel) {
+                            setErrors((prev) => ({ ...prev, yearLevel: '' }));
+                          }
+                        }}
+                        className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
+                          formData.yearLevel === y ? 'bg-blue-50' : ''
+                        } ${idx === 0 ? 'rounded-t-2xl' : ''} ${
+                          idx === arr.length - 1 ? 'rounded-b-2xl' : ''
+                        }`}
+                      >
+                        <div className="text-sm text-gray-900">{y}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* keep hidden input for form semantics */}
+              <input type="hidden" name="yearLevel" value={formData.yearLevel} />
 
               {errors.yearLevel && (
                 <p className="mt-1 text-sm text-red-600">{errors.yearLevel}</p>
@@ -1203,7 +1333,7 @@ export default function Request() {
           showLoading={true}
           showCloseButton={false}
           hideActions={false}
-          loadingText="Submitting your request..."
+          loadingText="Submitting..."
         />
         {/* {showConfirmModal && (
           <motion.div

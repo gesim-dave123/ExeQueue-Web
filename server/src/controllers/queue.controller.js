@@ -3,7 +3,10 @@ import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { QueueActions } from "../services/enums/SocketEvents.js";
-
+import {
+  sendDashboardUpdate,
+  sendLiveDisplayUpdate,
+} from "./statistics.controller.js";
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
@@ -669,7 +672,7 @@ export const getQueueListByStatus = async (req, res) => {
             allowedStatuses.includes(req.requestStatus)
           ),
         }))
-        .filter((queue) => queue.requests.length > 0); //Only include queues with matching requests
+        .filter((queue) => queue.requests.length > 0);
     }
 
     // Response handling
@@ -1352,6 +1355,18 @@ export const markQueueStatus = async (req, res) => {
     console.log(
       `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber} → window:${windowId}`
     );
+    // ✅ Add this line
+    sendDashboardUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
+
+    sendLiveDisplayUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
 
     return res.status(200).json({
       success: true,
@@ -1444,7 +1459,12 @@ export const callNextQueue = async (req, res) => {
         where: {
           servedByStaff: sasStaffId,
           queueStatus: {
-            in: [Status.COMPLETED, Status.CANCELLED, Status.DEFERRED],
+            in: [
+              Status.COMPLETED,
+              Status.PARTIALLY_COMPLETE,
+              Status.CANCELLED,
+              Status.DEFERRED,
+            ],
           },
           session: { isActive: true, isServing: true },
           windowId: windowId,
@@ -1499,7 +1519,7 @@ export const callNextQueue = async (req, res) => {
           queueStatus: Status.IN_SERVICE,
           windowId,
           servedByStaff: sasStaffId,
-          calledAt: new Date(),
+          calledAt: todayUTC,
         },
       });
 
@@ -1530,6 +1550,15 @@ export const callNextQueue = async (req, res) => {
     console.log(
       `📣 Window ${windowId} called next queue ${result.referenceNumber}`
     );
+    // ✅ Add this line
+    sendDashboardUpdate({
+      message: "Queue called - status changed to IN_SERVICE",
+      queueId: result.queueId,
+    });
+    sendLiveDisplayUpdate({
+      message: "Queue called - status changed to IN_SERVICE",
+      queueId: result.queueId,
+    });
 
     res.status(200).json({
       success: true,
