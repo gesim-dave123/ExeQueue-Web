@@ -39,14 +39,22 @@ export default function Home() {
           {/* Proceed as Staff */}
           <Link to="/staff/login">
             <button
-              className="border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
+             className="group border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
               // onClick={() => handleRedirect("/staff/login")}
             >
-              <img
-                src="/assets/User - V1.png"
-                alt="search"
-                className="w-6 h-6"
-              />
+                {/* Default (visible when not hovered) */}
+                <img
+                  src="/assets/User - V1.png"
+                  alt="user"
+                  className="w-6 h-6 block group-hover:hidden"
+                />
+
+                {/* Hovered (visible on hover only) */}
+                <img
+                  src="/assets/userWhite.png"
+                  alt="user white"
+                  className="w-6 h-6 hidden group-hover:block"
+                />
               <span>Proceed as Staff</span>
             </button>
           </Link>

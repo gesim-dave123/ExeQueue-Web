@@ -1,192 +1,37 @@
-import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  getTransactionHistory,
+  getTransactionStats,
+} from "../../api/transaction.api";
 
 export default function Transactions() {
-  const allTransactions = [
-    {
-      id: 1,
-      studentId: "23123457",
-      name: "Jan Lorenz Laroco",
-      course: "BSIT",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 2,
-      studentId: "23123457",
-      name: "Jan Lorenz Laroco",
-      course: "BSIT",
-      request: "Insurance Payment",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 3,
-      studentId: "23123457",
-      name: "Jan Lorenz Laroco",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 4,
-      studentId: "23651094",
-      name: "Lewis Hamilton",
-      course: "BSME",
-      request: "Transmittal Letter",
-      status: "Cancelled",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 5,
-      studentId: "23984217",
-      name: "Alex Albon",
-      course: "BEED",
-      request: "Uniform Exemption",
-      status: "Stalled",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 6,
-      studentId: "23746350",
-      name: "Carlos Sainz",
-      course: "BSA",
-      request: "Transmittal Letter",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 7,
-      studentId: "23479182",
-      name: "Charles Leclerc",
-      course: "BSCS",
-      request: "Transmittal Letter",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 8,
-      studentId: "23043761",
-      name: "Pierre Gaisly",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Completed",
-      date: "Sept. 25, 2025",
-    },
-    {
-      id: 9,
-      studentId: "23124567",
-      name: "Lando Norris",
-      course: "BSME",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 26, 2025",
-    },
-    {
-      id: 11,
-      studentId: "23987654",
-      name: "George Russell",
-      course: "BSCS",
-      request: "Transmittal Letter",
-      status: "Completed",
-      date: "Sept. 26, 2025",
-    },
-    {
-      id: 12,
-      studentId: "23876543",
-      name: "Max Verstappen",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Cancelled",
-      date: "Sept. 26, 2025",
-    },
-    {
-      id: 13,
-      studentId: "23765432",
-      name: "Sergio Perez",
-      course: "BEED",
-      request: "Uniform Exemption",
-      status: "Stalled",
-      date: "Sept. 27, 2025",
-    },
-    {
-      id: 14,
-      studentId: "23654321",
-      name: "Fernando Alonso",
-      course: "BSA",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 27, 2025",
-    },
-    {
-      id: 15,
-      studentId: "23543210",
-      name: "Esteban Ocon",
-      course: "BSME",
-      request: "Insurance Payment",
-      status: "Completed",
-      date: "Sept. 27, 2025",
-    },
-    {
-      id: 17,
-      studentId: "23321098",
-      name: "Nico Hulkenberg",
-      course: "BSIT",
-      request: "Temporary Gate Pass",
-      status: "Completed",
-      date: "Sept. 28, 2025",
-    },
-    {
-      id: 18,
-      studentId: "23210987",
-      name: "Yuki Tsunoda",
-      course: "BEED",
-      request: "Uniform Exemption",
-      status: "Cancelled",
-      date: "Sept. 28, 2025",
-    },
-    {
-      id: 19,
-      studentId: "23109876",
-      name: "Daniel Ricciardo",
-      course: "BSA",
-      request: "Good Moral Certificate",
-      status: "Completed",
-      date: "Sept. 29, 2025",
-    },
-    {
-      id: 20,
-      studentId: "23098765",
-      name: "Valtteri Bottas",
-      course: "BSME",
-      request: "Insurance Payment",
-      status: "Stalled",
-      date: "Sept. 29, 2025",
-    },
-  ];
-
-  const courseFull = {
-    BSIT: "Bachelor of Science in Information Technology",
-    BSCS: "Bachelor of Science in Computer Science",
-    BSME: "Bachelor of Science in Mechanical Engineering",
-    BSA: "Bachelor of Science in Accountancy",
-    BEED: "Bachelor of Elementary Education",
-  };
-
+  const [transactions, setTransactions] = useState([]);
   const [filters, setFilters] = useState({
     course: "",
     request: "",
     status: "",
     date: "",
   });
-
   const [openDropdown, setOpenDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 8,
+  });
+
+  const [filterOptions, setFilterOptions] = useState({
+    courses: [],
+    requests: [],
+    statuses: [],
+  });
+
   const itemsPerPage = 8;
 
   const dropdownRefs = {
@@ -196,9 +41,141 @@ export default function Transactions() {
     date: useRef(null),
   };
 
-  const courses = [...new Set(allTransactions.map((item) => item.course))];
-  const requests = [...new Set(allTransactions.map((item) => item.request))];
-  const statuses = [...new Set(allTransactions.map((item) => item.status))];
+  const formatStatusLabel = (status) => {
+    const statusMap = {
+      COMPLETED: "Completed",
+      CANCELLED: "Cancelled",
+      STALLED: "Stalled",
+      // PARTIALLY_COMPLETE: "Partially Complete",
+    };
+    return statusMap[status] || status;
+  };
+
+  const [gifError, setGifError] = useState(false);
+  const loadingGifPath = "assets/loading_img.jpg";
+  const LoadingIndicator = () => {
+    if (!gifError) {
+      return (
+        <img
+          src={loadingGifPath}
+          alt="Loading..."
+          className="h-12 w-12"
+          onError={() => {
+            console.warn("Loading GIF not found, falling back to spinner");
+            setGifError(true);
+          }}
+        />
+      );
+    }
+
+    // Fallback spinner if GIF fails to load
+    return (
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+    );
+  };
+
+  //REMOVED courseFull mapping - now showing just course codes
+
+  // const fetchAPI = async (url, options = {}) => {
+  //   try {
+  //     const response = await fetch(url, {
+  //       ...options,
+  //       credentials: "include",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         ...options.headers,
+  //       },
+  //     });
+
+  //     const contentType = response.headers.get("content-type");
+  //     if (!contentType || !contentType.includes("application/json")) {
+  //       console.error("Response is not JSON:", await response.text());
+  //       throw new Error(
+  //         "Server returned non-JSON response. Check if API endpoint exists."
+  //       );
+  //     }
+
+  //     const data = await response.json();
+
+  //     if (!response.ok) {
+  //       throw new Error(data.message || `HTTP error ${response.status}`);
+  //     }
+
+  //     return data;
+  //   } catch (error) {
+  //     console.error("API Error:", error);
+  //     throw error;
+  //   }
+  // };
+
+  const fetchFilterOptions = async () => {
+    try {
+      // console.log("🔄 Fetching filter options...");
+      const result = await getTransactionStats();
+
+      // console.log("✅ Filter options received:", result);
+
+      if (!result) {
+        throw new Error("Filter Options was null");
+      }
+      setFilterOptions(result);
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      setFilterOptions({
+        courses: [],
+        requests: [],
+        statuses: [],
+      });
+    }
+  };
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      console.log("Filters: ", filters);
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: itemsPerPage,
+        ...filters,
+        search: searchQuery,
+      });
+
+      Object.keys(filters).forEach((key) => {
+        if (!filters[key]) {
+          params.delete(key);
+        }
+      });
+      if (!searchQuery) {
+        params.delete("search");
+      }
+      const result = await getTransactionHistory(params);
+
+      console.log("✅ Transactions received:", result);
+      if (result) {
+        setTransactions(result.transactions);
+        setPagination(result.pagination);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      setTransactions([]);
+      setPagination({
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        itemsPerPage: 8,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [currentPage, filters, searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -214,33 +191,6 @@ export default function Transactions() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
-
-  const filteredTransactions = allTransactions.filter((transaction) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      transaction.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.course.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.request.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.status.toLowerCase().includes(searchQuery.toLowerCase());
-
-    return (
-      matchesSearch &&
-      (filters.course === "" || transaction.course === filters.course) &&
-      (filters.request === "" || transaction.request === filters.request) &&
-      (filters.status === "" || transaction.status === filters.status) &&
-      (filters.date === "" || transaction.date.includes(filters.date))
-    );
-  });
-
-  const totalItems = filteredTransactions.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentTransactions = filteredTransactions.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
 
   const handleFilterChange = (filterType, value) => {
     setFilters((prev) => ({ ...prev, [filterType]: value }));
@@ -261,13 +211,22 @@ export default function Transactions() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Completed":
+      case "COMPLETED":
         return "text-[#26BA33]";
-
-      case "Stalled":
-        return " text-[#686969]";
-      case "Cancelled":
+      case "STALLED":
+        return "text-[#686969]";
+      case "CANCELLED":
         return "text-[#EA4335]";
+      case "DEFERRED":
+        return "text-[#FFA500]";
+      case "IN_SERVICE":
+        return "text-[#1A73E8]";
+      case "WAITING":
+        return "text-[#686969]";
+      case "SKIPPED":
+        return "text-[#FFA500]";
+      case "PARTIALLY_COMPLETE":
+        return "text-[#FFA500]";
       default:
         return "text-blue-800";
     }
@@ -277,26 +236,26 @@ export default function Transactions() {
     const pageNumbers = [];
     const maxPagesToShow = 5;
 
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+    if (pagination.totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= pagination.totalPages; i++) pageNumbers.push(i);
     } else {
       pageNumbers.push(1);
       let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      let endPage = Math.min(pagination.totalPages - 1, currentPage + 1);
 
       if (currentPage <= 3) {
         startPage = 2;
         endPage = 4;
       }
-      if (currentPage >= totalPages - 2) {
-        startPage = totalPages - 3;
-        endPage = totalPages - 1;
+      if (currentPage >= pagination.totalPages - 2) {
+        startPage = pagination.totalPages - 3;
+        endPage = pagination.totalPages - 1;
       }
 
       if (startPage > 2) pageNumbers.push("...");
       for (let i = startPage; i <= endPage; i++) pageNumbers.push(i);
-      if (endPage < totalPages - 1) pageNumbers.push("...");
-      pageNumbers.push(totalPages);
+      if (endPage < pagination.totalPages - 1) pageNumbers.push("...");
+      pageNumbers.push(pagination.totalPages);
     }
     return pageNumbers;
   };
@@ -340,7 +299,14 @@ export default function Transactions() {
       day
     );
     setSelectedDate(selected);
-    handleFilterChange("date", formatDateDisplay(selected));
+
+    const year = selected.getFullYear();
+    const month = String(selected.getMonth() + 1).padStart(2, "0");
+    const dayStr = String(selected.getDate()).padStart(2, "0");
+    const formattedDate = `${year}-${month}-${dayStr}`;
+
+    // console.log("📅 Date selected:", { day, selected, formattedDate });
+    handleFilterChange("date", formattedDate);
   };
 
   const changeMonth = (offset) => {
@@ -356,35 +322,65 @@ export default function Transactions() {
           onClick={() =>
             setOpenDropdown(openDropdown === filterType ? null : filterType)
           }
-          className={`w-full cursor-pointer flex items-center justify-between bg-gray-50 rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors min-h-[42px] ${
-            filters[filterType] ? "pl-10 pr-4" : "px-4"
+          className={`w-full cursor-pointer flex items-center justify-between rounded-lg py-2.5 text-sm text-gray-700 transition-colors min-h-[42px]
+          ${filters[filterType] ? "pl-10 pr-4" : "px-4"}
+          ${
+            openDropdown === filterType || filters[filterType]
+              ? "border border-[#F9AB00]/40 bg-white"
+              : "bg-gray-50 hover:bg-gray-100 border border-transparent"
           }`}
         >
-          <span
-            className={`truncate mr-2 ${
-              filters[filterType] ? "text-gray-900" : "text-gray-500"
-            }`}
-          >
-            {displayFn && filters[filterType]
-              ? displayFn(filters[filterType])
-              : filters[filterType] || label}
+          <span className="truncate mr-2 flex items-center gap-1">
+            {filterType === "course" && filters[filterType] ? (
+              <>
+                <span className="text-[#88898A] font-light">Course</span>
+                <span className="text-[#88898A]">|</span>
+                <span className="text-[#1A73E8] font-normal">
+                  {
+                    filterOptions.courses.find(
+                      (c) => c.courseId === filters[filterType]
+                    ).courseCode
+                  }
+                </span>
+              </>
+            ) : (
+              <span
+                className={`${
+                  filters[filterType]
+                    ? "text-[#1A73E8] font-normal"
+                    : "text-gray-500"
+                }`}
+              >
+                {displayFn && filters[filterType]
+                  ? displayFn(filters[filterType])
+                  : filters[label] || label}
+              </span>
+            )}
           </span>
+
           <ChevronDown
-            className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform ${
-              openDropdown === filterType ? "rotate-180" : ""
+            className={`w-4 h-4 flex-shrink-0 transition-transform ${
+              openDropdown === filterType
+                ? "rotate-180 text-yellow-500"
+                : "text-gray-500"
             }`}
           />
         </button>
+
         {filters[filterType] && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               handleFilterChange(filterType, "");
             }}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors "
+            className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors ${
+              filters[filterType]
+                ? "bg-[#88898A] hover:bg-gray-700"
+                : "hover:bg-gray-200"
+            }`}
           >
             <svg
-              className="w-4 h-4 text-gray-500"
+              className="w-3 h-3 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -401,30 +397,75 @@ export default function Transactions() {
       </div>
 
       {openDropdown === filterType && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
+        <div className="absolute z-50 mt-2 w-full bg-white px-1 py-1 rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
           <button
             onClick={() => handleFilterChange(filterType, "")}
-            className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
+            className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
               filters[filterType] === ""
-                ? "bg-[#E8F1FD] text-[#1A73E8]  font-medium"
+                ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
                 : "border-transparent text-gray-700"
             }`}
           >
             All
           </button>
-          {options.map((option) => (
-            <button
-              key={option}
-              onClick={() => handleFilterChange(filterType, option)}
-              className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
-                filters[filterType] === option
-                  ? "bg-[#E8F1FD] text-[#1A73E8]  font-medium"
-                  : "border-transparent text-gray-700"
-              }`}
-            >
-              {displayFn ? displayFn(option) : option}
-            </button>
-          ))}
+          {options.map((option) => {
+            const id =
+              option.courseId ??
+              option.requestTypeId ?? // ✅ handles both course + request
+              option;
+
+            let label = option.courseName ?? option.requestName ?? option;
+            if (filterType === "status") {
+              label = formatStatusLabel(option);
+            }
+            return (
+              <button
+                key={option}
+                onClick={() => handleFilterChange(filterType, id)}
+                className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
+                  filters[filterType] === option
+                    ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+                    : "border-transparent text-gray-700"
+                }`}
+              >
+                {/* {displayFn ? displayFn(option) : option} */}
+                {label}
+              </button>
+            );
+          })}
+          {/* {options.map((option) => {
+            const id =
+              option.courseId ??
+              option.requestTypeId ?? // ✅ handles both course + request
+              option;
+
+            const label =
+              option.courseName ??
+              option.requestName ?? 
+              option;
+
+            const hoverCode = option.courseCode ?? null;
+
+            return (
+              <button
+                key={id}
+                onClick={() => handleFilterChange(filterType, id)} // ✅ stores only the ID
+                title={hoverCode || ""}
+                className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
+                  filters[filterType] === id
+                    ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+                    : "border-transparent text-gray-700"
+                }`}
+              >
+                {label}
+                {hoverCode && (
+                  <span className="text-xs text-gray-400 ml-2">
+                    ({hoverCode})
+                  </span>
+                )}
+              </button>
+            );
+          })} */}
         </div>
       )}
 
@@ -481,19 +522,32 @@ export default function Transactions() {
             onClick={() =>
               setOpenDropdown(openDropdown === "date" ? null : "date")
             }
-            className={`w-full flex items-center justify-between bg-gray-50  cursor-pointer rounded-lg py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors ${
-              selectedDate ? "pl-10 pr-4" : "px-4"
-            }`}
+            className={`w-full flex items-center justify-between cursor-pointer rounded-lg py-2.5 text-sm text-gray-700 transition-all min-h-[42px]
+          ${selectedDate ? "pl-10 pr-4" : "px-4"}
+          ${
+            openDropdown === "date" || selectedDate
+              ? "border border-[#F9AB00]/40 bg-white"
+              : "bg-gray-50 hover:bg-gray-100 border border-transparent"
+          }`}
           >
-            <span className={selectedDate ? "text-gray-900" : "text-gray-500"}>
+            <span
+              className={`truncate ${
+                selectedDate ? "text-[#1A73E8] font-normal" : "text-gray-500"
+              }`}
+            >
               {selectedDate ? formatDateDisplay(selectedDate) : "Date"}
             </span>
+
             <ChevronDown
-              className={`w-4 h-4 text-gray-500 transition-transform ${
-                openDropdown === "date" ? "rotate-180" : ""
+              className={`w-4 h-4 flex-shrink-0 transition-transform ${
+                openDropdown === "date"
+                  ? "rotate-180 text-yellow-500"
+                  : "text-gray-500"
               }`}
             />
           </button>
+
+          {/* ❌ Clear Button */}
           {selectedDate && (
             <button
               onClick={(e) => {
@@ -501,10 +555,10 @@ export default function Transactions() {
                 setSelectedDate(null);
                 handleFilterChange("date", "");
               }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-[#88898A] hover:bg-gray-700 transition-colors"
             >
               <svg
-                className="w-4 h-4 text-gray-500"
+                className="w-3 h-3 text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -563,9 +617,9 @@ export default function Transactions() {
                   <button
                     key={index}
                     onClick={() => handleDateSelect(day)}
-                    className={`h-10 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                    className={`h-8 w-8 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
                       isSelected
-                        ? "bg-orange-500 text-white"
+                        ? "bg-[#F9AB00] text-white"
                         : "hover:bg-gray-100 text-gray-900"
                     }`}
                   >
@@ -642,8 +696,13 @@ export default function Transactions() {
                 <CustomDropdown
                   label="Course"
                   filterType="course"
-                  options={courses}
-                  displayFn={(course) => courseFull[course] || course}
+                  options={filterOptions.courses}
+                  displayFn={(id) => {
+                    const course = filterOptions.courses.find(
+                      (c) => c.courseId === id
+                    );
+                    return course ? course.courseName : label;
+                  }}
                 />
               </div>
 
@@ -651,7 +710,13 @@ export default function Transactions() {
                 <CustomDropdown
                   label="Request"
                   filterType="request"
-                  options={requests}
+                  options={filterOptions.requests}
+                  displayFn={(id) => {
+                    const req = filterOptions.requests.find(
+                      (r) => r.requestTypeId === id
+                    );
+                    return req ? req.requestName : label;
+                  }}
                 />
               </div>
 
@@ -659,10 +724,10 @@ export default function Transactions() {
                 <CustomDropdown
                   label="Status"
                   filterType="status"
-                  options={statuses}
+                  options={filterOptions.statuses}
+                  displayFn={formatStatusLabel}
                 />
               </div>
-
               <div className="flex-1 min-w-[150px]">
                 <CalendarPicker />
               </div>
@@ -703,8 +768,19 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentTransactions.length > 0 ? (
-                  currentTransactions.map((transaction) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="px-4 sm:px-6 py-8 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <LoadingIndicator />
+                        <p className="text-sm text-gray-500">
+                          Loading transactions...
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : transactions.length > 0 ? (
+                  transactions.map((transaction) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-32">
                         {transaction.studentId}
@@ -752,18 +828,24 @@ export default function Transactions() {
             <div className="text-center sm:text-left">
               <p className="text-sm text-gray-700">
                 Showing{" "}
-                <span className="font-medium">{indexOfFirstItem + 1}</span> to{" "}
                 <span className="font-medium">
-                  {Math.min(indexOfLastItem, totalItems)}
+                  {transactions.length > 0
+                    ? (currentPage - 1) * itemsPerPage + 1
+                    : 0}
                 </span>{" "}
-                of <span className="font-medium">{totalItems}</span> results
+                to{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * itemsPerPage, pagination.totalItems)}
+                </span>{" "}
+                of <span className="font-medium">{pagination.totalItems}</span>{" "}
+                results
               </p>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`relative inline-flex items-center px-2 sm:px-3 py-2  text-xs sm:text-sm font-medium rounded-md cursor-pointer${
+                className={`relative inline-flex items-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
                   currentPage === 1
                     ? " text-gray-400 cursor-not-allowed"
                     : " text-gray-700 "
@@ -802,9 +884,9 @@ export default function Transactions() {
 
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`relative inline-flex items-center px-2 sm:px-3 py-2  text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
-                  currentPage === totalPages
+                disabled={currentPage === pagination.totalPages}
+                className={`relative inline-flex items-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
+                  currentPage === pagination.totalPages
                     ? " text-[#88898A] cursor-not-allowed"
                     : " text-gray-700 "
                 }`}
@@ -813,10 +895,10 @@ export default function Transactions() {
               </button>
 
               <button
-                onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
-                className={`relative inline-flex items-center px-2 sm:px-3 py-2 -300 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
-                  currentPage === totalPages
+                onClick={() => handlePageChange(pagination.totalPages)}
+                disabled={currentPage === pagination.totalPages}
+                className={`relative inline-flex items-center px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md cursor-pointer ${
+                  currentPage === pagination.totalPages
                     ? " text-[#88898A] cursor-not-allowed"
                     : " text-gray-700 "
                 }`}

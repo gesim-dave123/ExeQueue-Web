@@ -101,7 +101,7 @@ export default function Display_Queue() {
   const totalPriorityWaiting = totals.totalPriorityWaiting || 0;
 
   return (
-    <div className="min-h-screen flex flex-col justify-center   lg:w-[100%]">
+    <div className="min-h-screen flex flex-col justify-start lg:w-[100%]">
       <div
         ref={containerRef}
         className={`flex justify-start flex-col min-h-[90vh] bg-[#F5F5F5] pb-15 xl:pl-9 pr-8 overflow-y-auto
@@ -125,12 +125,14 @@ export default function Display_Queue() {
           </h1>
         </div>
         {/* Header */}
-        <div   
-        className={`mb-6
+        <div
+          className={`mb-6
          ${isFullscreen ? "hidden" : "flex justify-between"}`}
-         >
-          <h1  className={`text-3xl font-semibold text-left text-[#202124]
-          ${isFullscreen ? "hidden" : "flex"}`}>
+        >
+          <h1
+            className={`text-3xl font-semibold text-left text-[#202124]
+          ${isFullscreen ? "hidden" : "flex"}`}
+          >
             Display Queue
           </h1>
           <button
@@ -141,13 +143,13 @@ export default function Display_Queue() {
             <div className="inline-block bg-white ">
               <img src="/assets/display_queue/Full Screen.png" alt="" />
             </div>
-            <span className="font-medium ">
-              {isFullscreen ? "" : "Fullscreen"}
+            <span className="font-medium hidden sm:flex">
+              {isFullscreen ? "" : " Fullscreen"}
             </span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full">
           {/* Left Side - Current Serving */}
           {/* // Left Side - Current Serving */}
           <div className="space-y-6 flex flex-col justify-between">
@@ -212,9 +214,9 @@ export default function Display_Queue() {
             })}
           </div>
           {/* Right Side - Next in Line & Waiting Counts */}
-          <div className="space-y-6 flex  flex-col justify-between">
+          <div className="space-y-6 flex flex-1 flex-col justify-between">
             {/* Next in Line */}
-            <div className="bg-white flex-1 rounded-2xl shadow-xs p-8">
+            <div className="bg-white flex flex-1 flex-col rounded-2xl shadow-xs p-8">
               <h2 className="text-3xl text-left font-bold text-[#202124] mb-6">
                 Next in Line
               </h2>
@@ -240,8 +242,8 @@ export default function Display_Queue() {
             </div>
 
             {/* Waiting Counts */}
-            <div  
-            className={`grid grid-cols-2 gap-4 bg-white p-7 rounded-2xl shadow-xs 
+            <div
+              className={`grid grid-cols-2 gap-4 bg-white p-7 rounded-2xl shadow-xs 
             ${isFullscreen ? "mb-10 xl:mb-0" : ""}`}
             >
               {/* Regular Waiting */}

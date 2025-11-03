@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Mail } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-// import { verifyOTP } from "../../api/auth";
+import { verifyOTP } from "../../../api/auth";
+import { sendOTPtoEmail } from "../../../api/auth";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -9,61 +10,67 @@ export default function VerifyOTP() {
   const inputRefs = [useRef(), useRef(), useRef(), useRef()];
   const navigate = useNavigate();
   const location = useLocation();
-  const email = location.state?.email || "ian****@example.com";
+  const email = location.state?.email;
 
   // Mask email for display
   const maskedEmail = email.replace(/(.{3}).*(@.*)/, "$1****$2");
 
   useEffect(() => {
-    // Focus first input on mount
     inputRefs[0].current?.focus();
   }, []);
 
   const handleChange = (index, value) => {
-    // Only allow numbers
+ 
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-focus next input
+ 
     if (value && index < 3) {
       inputRefs[index + 1].current?.focus();
     }
   };
 
   const handleKeyDown = (index, e) => {
-    // Handle backspace
+
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs[index - 1].current?.focus();
     }
   };
 
-  const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
     const otpCode = otp.join("");
     
     if (otpCode.length !== 4) return;
 
     setLoading(true);
-    const res = await verifyOTP({ email, code: otpCode });
+    const res = await verifyOTP(otpCode, email); 
     
     if (!res?.success) {
       setLoading(false);
-      // Handle error
       return;
     }
-
-    // Navigate to reset password
-    navigate("/reset-password", { state: { email, code: otpCode } });
+    navigate("/staff/reset-password", { state: { resetToken: res.resetToken, email} });
+    console.log(res.resetToken);
     setLoading(false);
   };
 
-  const handleResend = () => {
-    // Trigger resend logic
-    setOtp(["", "", "", ""]);
-    inputRefs[0].current?.focus();
+  const handleResend = async () => {
+    setOtp(["", "", "", ""]); 
+    inputRefs[0].current?.focus(); 
+    try {
+      const res = await sendOTPtoEmail(email); 
+      if (res?.success) {
+        showToast("A new OTP has been sent to your email!", "success");
+      } else {
+        showToast(res?.message || "Failed to resend OTP.", "error");
+      }
+    } catch (error) {
+      showToast("An unexpected error occurred.", "error");
+    }
   };
 
   return (
@@ -109,7 +116,7 @@ export default function VerifyOTP() {
               onClick={handleResend}
               className="text-sm text-[#1A73E8]  font-medium cursor-pointer"
             >
-              Send Code
+              Click to resend
             </button>
           </div>
 

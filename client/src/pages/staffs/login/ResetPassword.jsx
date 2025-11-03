@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-// import { resetPassword } from "../../api/auth";
+import { resetPassword } from "../../../api/auth";
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,39 +19,44 @@ export default function ResetPassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email;
-  const code = location.state?.code;
+  const resetToken = location.state?.resetToken;
 
-  const handleChange = (e) => {
+  useEffect(() => {
+    inputRefs[0].current?.focus();
+  }, [otp]);
+
+  // useEffect(() => {
+  //   if (email === undefined || resetToken === undefined) return; 
+  //   if (!email || !resetToken) {
+  //     navigate("/staff/forgot-password", { replace: true });
+  //   }
+  // }, [email, resetToken, navigate]);
+
+    const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
+    
+    const updatedFormData = {
       ...formData,
       [name]: value,
-    });
+    };
     
-    // Clear errors when typing
-    setErrors({
-      ...errors,
-      [name]: "",
-    });
-
-    // Check if passwords match
-    if (name === "confirmPassword" && formData.newPassword !== value) {
-      setErrors({
-        ...errors,
-        confirmPassword: "Passwords do not match",
-      });
-    } else if (name === "newPassword" && formData.confirmPassword && value !== formData.confirmPassword) {
-      setErrors({
-        ...errors,
-        confirmPassword: "Passwords do not match",
-      });
+    setFormData(updatedFormData);
+    
+    let newErrors = { ...errors, [name]: "" }; 
+    
+    if (updatedFormData.newPassword && updatedFormData.confirmPassword) {
+      if (updatedFormData.newPassword !== updatedFormData.confirmPassword) {
+        newErrors.confirmPassword = "Passwords do not match";
+      } else {
+        newErrors.confirmPassword = "";  
+      }
     }
+
+    setErrors(newErrors);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validation
     if (formData.newPassword !== formData.confirmPassword) {
       setErrors({
         ...errors,
@@ -59,7 +64,6 @@ export default function ResetPassword() {
       });
       return;
     }
-
     if (formData.newPassword.length < 8) {
       setErrors({
         ...errors,
@@ -67,13 +71,13 @@ export default function ResetPassword() {
       });
       return;
     }
+    console.log("Reset Token:", resetToken);
 
     setLoading(true);
-    const res = await resetPassword({ 
-      email, 
-      code, 
-      newPassword: formData.newPassword 
-    });
+    const res = await resetPassword(
+      resetToken,                    
+      formData.newPassword           
+    );
     
     if (!res?.success) {
       setErrors({
@@ -82,12 +86,8 @@ export default function ResetPassword() {
       });
       setLoading(false);
       return;
-    }
-
-    // Navigate back to login
-    navigate("/staff/login", { 
-      state: { message: "Password reset successfully!" } 
-    });
+    }   
+    navigate("/staff/success-reset", { state: { message: "Password reset successfully!" } });
     setLoading(false);
   };
 
@@ -201,7 +201,6 @@ export default function ResetPassword() {
           {/* Reset Button */}
           <button
             type="submit"
-            onClick={() => navigate("/staff/success-reset")} //kani line i remove, for render rani sya
             disabled={loading || !formData.newPassword || !formData.confirmPassword}
             className={`w-full font-semibold py-3 rounded-xl transition-all  ${
               loading || !formData.newPassword || !formData.confirmPassword
