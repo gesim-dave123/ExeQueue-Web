@@ -1,21 +1,17 @@
-import { Link } from "react-router-dom";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
 export default function Home() {
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
   const handleRedirect = (destination) => {
     setLoading(true);
 
-    // simulate a loading process, then navigate
     setTimeout(() => {
       setLoading(false);
       navigate(destination);
     }, 2000);
-    if (destination === "/student") {
-      window.location.href = "/"; // or use your router
-    } else if (destination === "/staff/login") {
-      window.location.href = destination; // or use your router
-    } else if (destination === "/student/view-queue") {
-      console.log("View Queue");
-      window.location.href = destination;
-    }
   };
 
   return (
@@ -26,7 +22,7 @@ export default function Home() {
           <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-extrabold text-gray-900 leading-tight">
             <span className="bg-gradient-to-r from-[#1A73E8] via-[#F9AB00] to-[#1A73E8] bg-clip-text text-transparent bg-size-200 animate-gradient">
               Student
-            </span>{" "}
+            </span>{' '}
             Services, Simplified
           </h1>
         </div>
@@ -43,14 +39,22 @@ export default function Home() {
           {/* Proceed as Staff */}
           <Link to="/staff/login">
             <button
-              className="border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
+             className="group border border-gray-400 hover:bg-[#1A73E8] w-full hover:text-white font-semibold py-5 px-6 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer text-sm sm:text-md"
               // onClick={() => handleRedirect("/staff/login")}
             >
-              <img
-                src="/assets/User - V1.png"
-                alt="search"
-                className="w-6 h-6"
-              />
+                {/* Default (visible when not hovered) */}
+                <img
+                  src="/assets/User - V1.png"
+                  alt="user"
+                  className="w-6 h-6 block group-hover:hidden"
+                />
+
+                {/* Hovered (visible on hover only) */}
+                <img
+                  src="/assets/userWhite.png"
+                  alt="user white"
+                  className="w-6 h-6 hidden group-hover:block"
+                />
               <span>Proceed as Staff</span>
             </button>
           </Link>
@@ -70,12 +74,12 @@ export default function Home() {
 
         <div className="items-center mb-8 text-center text-gray-500 text-sm sm:text-base">
           <p>
-            Already have a queue number?{" "}
+            Already have a queue number?{' '}
             <Link to="/student/queue/search">
               <span>
                 <button
                   className="cursor-pointer underline text-[#1A73E8] hover:text-blue-700 transition-colors"
-                  onClick={() => handleRedirect("/student")} // change later to url destination for view queue
+                  onClick={() => handleRedirect('/student/queue/search')} // change later to url destination for view queue
                 >
                   Search Queue
                 </button>

@@ -4,6 +4,9 @@ import {
   createUser,
   loginUser,
   logoutUser,
+  requestPasswordReset,
+  resetPassword,
+  verifyEmail,
   verifyUser,
 } from "../controllers/auth.controller.js";
 import {
@@ -20,7 +23,10 @@ router.post(
   authorizeRoles(Role.PERSONNEL),
   createUser
 );
-router.post("/verify", authenticateToken, verifyUser);
 router.post("/logout", logoutUser);
+router.post("/getOTP", requestPasswordReset);
+router.post("/verify-email", verifyEmail);
+router.patch("/reset-password", resetPassword);
+router.post("/verify", authenticateToken, verifyUser);
 
 export default router;
