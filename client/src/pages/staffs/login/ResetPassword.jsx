@@ -21,9 +21,9 @@ export default function ResetPassword() {
   const email = location.state?.email;
   const resetToken = location.state?.resetToken;
 
-  useEffect(() => {
-    inputRefs[0].current?.focus();
-  }, [otp]);
+  // useEffect(() => {
+  //   inputRefs[0].current?.focus();
+  // }, [otp]);
 
   // useEffect(() => {
   //   if (email === undefined || resetToken === undefined) return; 
