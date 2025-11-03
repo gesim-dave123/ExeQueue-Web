@@ -17,7 +17,7 @@ export default function LayoutProfile() {
         <div className="">
           <ProfileSidebar></ProfileSidebar>
         </div>
-        <main className="flex-2">
+        <main className="flex-1 xl:pl-90 min-h-screen">
           <Outlet />
         </main>
       </div>

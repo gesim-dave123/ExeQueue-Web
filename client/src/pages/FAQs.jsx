@@ -72,7 +72,7 @@ export default function FAQ() {
   };
 
   return (
-    <div className="w-full  mt-10 flex items-center flex-col xl:flex-row gap-8 lg:gap-16 max-w-[100%] mx-auto">
+    <div className="w-full xl:w-[70%] 2xl:w-[90%] mt-10 flex items-center flex-col xl:flex-row  lg:gap-16 ">
       {/* Left side: Categories */}
       <div className="w-full xl:w-3xl flex flex-col gap-4 mb-8 lg:mb-0 p-7 lg:p-0">
         <h2 className="text-3xl sm:text-4xl lg:text-4xl text-left font-semibold text-gray-900 mb-2">
