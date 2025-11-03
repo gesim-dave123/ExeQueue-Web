@@ -5,8 +5,9 @@ import {
   createQueueSession,
   currentServedQueue,
   determineNextQueue,
+  getQueue,
   getQueueList,
-  getQueueListByStatus,
+  getQueueListByQuery, // Add this import
   markQueueStatus,
   restoreSkippedQueue,
   setDeferredRequestStatus,
@@ -50,7 +51,7 @@ router.get(
   "/list",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  getQueueListByStatus
+  getQueueListByQuery
 );
 
 router.put(
@@ -88,12 +89,17 @@ router.put(
 );
 
 router.get(
-  "/current/:windowId",
+  "/current/window/:windowId",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   currentServedQueue
 );
 
+router.get(
+  "/one/:queueId",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getQueue
 router.post(
   "/test/finalize-stalled",
   authenticateToken,

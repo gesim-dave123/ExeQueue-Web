@@ -15,12 +15,11 @@ export const studentsQueueDetails = async (queueDetails) => {
         withCredentials: true,
       }
     );
-
     if (response.data.success && response.status === 201) {
       return {
         success: true,
         message: "Queue Generated",
-        queueDetails: response.data.queueDetails,
+        queueDetails: response.data.queueData,
       };
     }
   } catch (error) {
@@ -32,11 +31,30 @@ export const studentsQueueDetails = async (queueDetails) => {
     };
   }
 };
-
-export const getQueueListByStatus = async (status) => {
+export const getQueueListByQuery = async (status, options = {}) => {
   try {
+    const {
+      limit = 100,
+      offset = 0,
+      include_total = false,
+      windowId,
+      requestStatus,
+      searchValue,
+    } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      status,
+      limit: limit.toString(),
+      offset: offset.toString(),
+      include_total: include_total.toString(),
+      ...(windowId && { windowId: windowId.toString() }),
+      ...(requestStatus && { requestStatus }),
+      ...(searchValue && { search: searchValue.toString() }),
+    });
+
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}`,
+      `${backendConnection()}/api/staff/queue/list?${params.toString()}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -44,20 +62,35 @@ export const getQueueListByStatus = async (status) => {
         withCredentials: true,
       }
     );
-    
+
+    // Check if response is successful AND has success: true
     if (response.status === 200 && response.data.success) {
-      console.log("Queue List:", response.data.queueList);
-      return response.data.queueList;
+      console.log(
+        "Queues retrieved successfully:",
+        response.data.queues?.length || 0,
+        "items"
+      );
+      return response.data; // Return full response to access queues, pagination, etc.
     } else {
       console.warn("Unexpected response format:", response.data);
-      return [];
+      return {
+        success: false,
+        queues: [],
+        message: response.data?.message || "Unexpected response format",
+      };
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
-    return [];
+    console.error("Error in getQueueListByQuery:", error);
+
+    // Return structured error response
+    return {
+      success: false,
+      queues: [],
+      message: error.response?.data?.message || "Failed to fetch queues",
+      error: error.message,
+    };
   }
 };
-
 export const getCallNextQueue = async (windowId) => {
   try {
     const response = await axios.put(
@@ -196,7 +229,7 @@ export const markQueueStatus = async (queueId, windowId) => {
 export const currentServedQueue = async (windowId) => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/current/${windowId}`,
+      `${backendConnection()}/api/staff/queue/current/window/${windowId}`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -272,5 +305,38 @@ export const getDeferredQueue = async (status) => {
   } catch (error) {
     console.error("Error in getDeferredQueue:", error);
     return [];
+  }
+};
+
+export const getSingleQueue = async (queueId, options = {}) => {
+  try {
+    const { status, windowId, requestStatus, referenceNumber } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      ...(referenceNumber && { referenceNumber: referenceNumber }),
+      ...(status && { status: status }),
+      ...(windowId && { windowId: windowId.toString() }),
+      ...(requestStatus && { requestStatus }),
+    });
+
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/queue/one/${queueId}/?${params.toString()}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (response.status === 200 && response.data.success) {
+      return response.data.queue;
+    } else {
+      console.warn("Unexpected response format:", response.data);
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in getSingleQueue:", error);
+    return null;
   }
 };

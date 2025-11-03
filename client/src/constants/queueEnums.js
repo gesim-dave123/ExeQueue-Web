@@ -8,4 +8,6 @@ export const Status = Object.freeze({
   CALLED: "CALLED",
   COMPLETED: "COMPLETED",
   DEFERRED: "DEFERRED",
+  STALLED: "STALLED",
+  SKIPPED: "SKIPPED",
 });
