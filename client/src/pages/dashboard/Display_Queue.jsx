@@ -105,13 +105,13 @@ export default function Display_Queue() {
       <div
         ref={containerRef}
         className={`flex justify-start flex-col min-h-[90vh] bg-[#F5F5F5] pb-15 xl:pl-9 pr-8 overflow-y-auto
-    ${
-      isFullscreen
-        ? "flex pl-8 lg:pl-7"
-        : "md:pl-15 pt-15 xl:pb-5 lg:pt-15 2xl:pt-18 justify-center "
-    }`}
-      >
-        <div
+            ${
+              isFullscreen
+                ? "flex pl-8 lg:pl-7"
+                : "md:pl-15 pt-15 xl:pb-5 lg:pt-15 2xl:pt-18 justify-center "
+            }`}      >
+
+          <div
           className={`flex items-center justify-center ${
             isFullscreen ? "flex" : "hidden"
           }`}
@@ -221,21 +221,18 @@ export default function Display_Queue() {
                 Next in Line
               </h2>
 
-              <div className="space-y-3">
+              <div className="space-y-3 flex  justify-center flex-col ">
                 {mappedNextInLine.map((item, index) => (
                   <div
                     key={index}
-                    className={`rounded-2xl p-6 text-center  ${
+                    className={`rounded-2xl p-10 xl:flex-1 items-center flex justify-center text-center ${
                       item.type === "Regular" ? "bg-[#B8D4F8]" : "bg-[#FDE5B0]"
                     }`}
                   >
                     <span
                       key={index}
-                      className={`text-3xl font-bold  ${
-                        item.type === "Regular"
-                          ? "text-[#1A73E8]"
-                          : "text-[#F9A825]"
-                      }`}
+                      className={`text-5xl font-bold text-[#1A73E8]
+                    ${isFullscreen ? "text-5xl" : "xl:text-3xl"}`}
                     >
                       {item.number}
                     </span>
