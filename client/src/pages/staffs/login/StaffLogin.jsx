@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import icon from "/assets/icon.svg";
@@ -14,7 +13,7 @@ export default function StaffLogin() {
     username: "",
     password: "",
   });
-  
+
   const navigate = useNavigate();
   const { refreshAuth } = useAuth();
   const { setIsLoading, setProgress, setLoadingText } = useLoading();
@@ -55,8 +54,10 @@ export default function StaffLogin() {
       setIsLoading(false);
       // Set error messages based on response
       setErrors({
-        username: res?.field === "username" ? res?.message || "Invalid username" : "",
-        password: res?.field === "password" ? res?.message || "Invalid password" : "",
+        username:
+          res?.field === "username" ? res?.message || "Invalid username" : "",
+        password:
+          res?.field === "password" ? res?.message || "Invalid password" : "",
       });
       return;
     }
@@ -103,69 +104,79 @@ export default function StaffLogin() {
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           {/* Username Input */}
           <div className="relative">
-            <label
-              htmlFor="username"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.username
-                  ? "-top-2.5 text-xs bg-white px-1"
-                  : "top-3 text-base text-gray-500"
-              } ${
-                errors.username
-                  ? "text-red-500"
-                  : formData.username
-                  ? "text-blue-500"
-                  : "text-gray-500"
-              }`}
-            >
-              Username
-            </label>
             <input
               type="text"
               id="username"
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className={`w-full px-4 py-3 border rounded-2xl focus:outline-none transition-all ${
-                errors.username
-                  ? "border-red-500 focus:ring-2 focus:ring-red-500"
-                  : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              }`}
+              onFocus={(e) => e.target.parentElement.classList.add("focused")}
+              onBlur={(e) => {
+                if (!e.target.value)
+                  e.target.parentElement.classList.remove("focused");
+              }}
+              autoComplete="username"
+              placeholder=" " // Important: keeps spacing but hides placeholder text
+              className={`peer w-full px-4 py-3 border rounded-2xl bg-white 
+      focus:outline-none transition-all 
+      ${
+        errors.username
+          ? "border-red-500 focus:ring-2 focus:ring-red-500"
+          : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      }`}
             />
+
+            <label
+              htmlFor="username"
+              className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-blue-500 -top-2.5 text-xs ${
+                formData.username ? "text-blue-500" : ""
+              }`}
+            >
+              Username
+            </label>
+
             {errors.username && (
-              <p className="text-red-500 text-xs mt-1 ml-1">{errors.username}</p>
+              <p className="text-red-500 text-xs mt-1 ml-1">
+                {errors.username}
+              </p>
             )}
           </div>
 
           {/* Password Input */}
           <div className="relative">
-            <label
-              htmlFor="password"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.password
-                  ? "-top-2.5 text-xs bg-white px-1"
-                  : "top-3 text-base text-gray-500"
-              } ${
-                errors.password
-                  ? "text-red-500"
-                  : formData.password
-                  ? "text-blue-500"
-                  : "text-gray-500"
-              }`}
-            >
-              Password
-            </label>
             <input
               type={showPassword ? "text" : "password"}
               id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className={`w-full px-4 py-3 border border-[#DDEAFC] rounded-2xl focus:outline-none transition-all pr-12 ${
-                errors.password
-                  ? "border-red-500 focus:ring-2 focus:ring-red-500"
-                  : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              }`}
+              onFocus={(e) => e.target.parentElement.classList.add("focused")}
+              onBlur={(e) => {
+                if (!e.target.value)
+                  e.target.parentElement.classList.remove("focused");
+              }}
+              autoComplete="current-password"
+              placeholder=" " // keeps spacing for floating label
+              className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
+      focus:outline-none transition-all
+      ${
+        errors.password
+          ? "border-red-500 focus:ring-2 focus:ring-red-500"
+          : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      }`}
             />
+
+            {/* Floating Label */}
+            <label
+              htmlFor="password"
+              className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-blue-500 -top-2.5 text-xs ${
+                formData.password ? "text-blue-500" : ""
+              }`}
+            >
+              Password
+            </label>
+
+            {/* Show / Hide Button */}
             {formData.password && (
               <button
                 type="button"
@@ -175,8 +186,12 @@ export default function StaffLogin() {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             )}
+
+            {/* Error Message */}
             {errors.password && (
-              <p className="text-red-500 text-xs mt-1 ml-1">{errors.password}</p>
+              <p className="text-red-500 text-xs mt-1 ml-1">
+                {errors.password}
+              </p>
             )}
           </div>
 
@@ -219,4 +234,3 @@ export default function StaffLogin() {
     </div>
   );
 }
-

@@ -1,8 +1,14 @@
-import React from 'react';
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function SuccessReset({ imageSrc, onLogin }) {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const message = location.state?.message;
+
+  useEffect(() => {
+    inputRefs[0].current?.focus();
+  }, [message]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-transparent p-4">
@@ -10,9 +16,9 @@ export default function SuccessReset({ imageSrc, onLogin }) {
         {/* Image */}
         <div className="flex justify-center mb-6">
           {imageSrc ? (
-            <img 
+            <img
               src="/assets/success.png"
-              alt="Password Reset Success" 
+              alt="Password Reset Success"
               className="w-64 h-48 object-contain"
             />
           ) : (
@@ -27,9 +33,7 @@ export default function SuccessReset({ imageSrc, onLogin }) {
           <p className="text-gray-600 text-sm mb-2">
             Your password has been reset
           </p>
-          <h1 className="text-3xl font-semibold text-gray-900">
-            Successfully
-          </h1>
+          <h1 className="text-3xl font-semibold text-gray-900">Successfully</h1>
         </div>
 
         {/* Login Button */}

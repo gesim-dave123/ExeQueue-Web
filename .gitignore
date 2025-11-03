@@ -29,7 +29,7 @@ server/prisma/_old_migrations
 server/prisma/prisma
 server/prisma/prisma/schema.prisma
 
-client/_test_scripts/*.js
+server/_test_scripts/*.js
 # Build outputs
 dist/
 build/
