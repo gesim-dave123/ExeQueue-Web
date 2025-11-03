@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SSE } from "../../api/sseApi";
 import { fetchLiveDataStats } from "../../api/statistics";
+import icon from "/assets/icon.svg";
 
 export default function Display_Queue() {
   const [isFullscreen, setIsFullscreen] = useState(false);
