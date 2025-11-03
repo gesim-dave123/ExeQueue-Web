@@ -110,10 +110,10 @@ export default function Transactions() {
 
   const fetchFilterOptions = async () => {
     try {
-      console.log("🔄 Fetching filter options...");
+      // console.log("🔄 Fetching filter options...");
       const result = await getTransactionStats();
 
-      console.log("✅ Filter options received:", result);
+      // console.log("✅ Filter options received:", result);
 
       if (!result) {
         throw new Error("Filter Options was null");
@@ -305,7 +305,7 @@ export default function Transactions() {
     const dayStr = String(selected.getDate()).padStart(2, "0");
     const formattedDate = `${year}-${month}-${dayStr}`;
 
-    console.log("📅 Date selected:", { day, selected, formattedDate });
+    // console.log("📅 Date selected:", { day, selected, formattedDate });
     handleFilterChange("date", formattedDate);
   };
 
@@ -336,7 +336,11 @@ export default function Transactions() {
                 <span className="text-[#88898A] font-light">Course</span>
                 <span className="text-[#88898A]">|</span>
                 <span className="text-[#1A73E8] font-normal">
-                  {filters[filterType]}
+                  {
+                    filterOptions.courses.find(
+                      (c) => c.courseId === filters[filterType]
+                    ).courseCode
+                  }
                 </span>
               </>
             ) : (
@@ -404,8 +408,32 @@ export default function Transactions() {
           >
             All
           </button>
-
           {options.map((option) => {
+            const id =
+              option.courseId ??
+              option.requestTypeId ?? // ✅ handles both course + request
+              option;
+
+            let label = option.courseName ?? option.requestName ?? option;
+            if (filterType === "status") {
+              label = formatStatusLabel(option);
+            }
+            return (
+              <button
+                key={option}
+                onClick={() => handleFilterChange(filterType, id)}
+                className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
+                  filters[filterType] === option
+                    ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+                    : "border-transparent text-gray-700"
+                }`}
+              >
+                {/* {displayFn ? displayFn(option) : option} */}
+                {label}
+              </button>
+            );
+          })}
+          {/* {options.map((option) => {
             const id =
               option.courseId ??
               option.requestTypeId ?? // ✅ handles both course + request
@@ -413,7 +441,7 @@ export default function Transactions() {
 
             const label =
               option.courseName ??
-              option.requestName ?? // ✅ show name for request/course
+              option.requestName ?? 
               option;
 
             const hoverCode = option.courseCode ?? null;
@@ -437,20 +465,7 @@ export default function Transactions() {
                 )}
               </button>
             );
-          })}
-//           {options.map((option) => (
-//             <button
-//               key={option}
-//               onClick={() => handleFilterChange(filterType, option)}
-//               className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
-//                 filters[filterType] === option
-//                   ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
-//                   : "border-transparent text-gray-700"
-//               }`}
-//             >
-//               {displayFn ? displayFn(option) : option}
-//             </button>
-//           ))}
+          })} */}
         </div>
       )}
 
