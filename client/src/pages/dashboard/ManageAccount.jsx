@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
-import InputModal from '../../components/modal/InputModal';
-import ConfirmModal from '../../components/modal/ConfirmModal';
+import React, { useState, useEffect } from "react";
+import { Search, Plus, Pencil, Trash2 } from "lucide-react";
+import InputModal from "../../components/modal/InputModal";
+import ConfirmModal from "../../components/modal/ConfirmModal";
 import {
   getWorkingScholars,
   createWorkingScholar,
   updateWorkingScholar,
   deleteWorkingScholar,
-} from '../../api/staff';
-import { toast } from 'sonner';
+} from "../../api/staff";
+import { toast } from "sonner";
 export default function ManageAccount() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,11 +27,11 @@ export default function ManageAccount() {
   const fetchAccounts = async () => {
     try {
       setFetchLoading(true);
-      console.log('🔄 Fetching working scholars...');
+      console.log("🔄 Fetching working scholars...");
 
       const result = await getWorkingScholars();
 
-      console.log('✅ Accounts fetched:', result.data);
+      console.log("✅ Accounts fetched:", result.data);
 
       const transformedAccounts = result.data.map((scholar) => ({
         id: scholar.sasStaffId,
@@ -40,14 +40,14 @@ export default function ManageAccount() {
         fullName: scholar.name,
         firstName: scholar.firstName,
         lastName: scholar.lastName,
-        role: 'Working Scholar',
+        role: "Working Scholar",
         email: scholar.email,
       }));
 
       setAccounts(transformedAccounts);
     } catch (error) {
-      console.error('❌ Error fetching accounts:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch accounts');
+      console.error("❌ Error fetching accounts:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch accounts");
     } finally {
       setFetchLoading(false);
     }
@@ -56,9 +56,9 @@ export default function ManageAccount() {
   const capitalizeWords = (string) => {
     if (!string) return string;
     return string
-      .split(' ')
+      .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
+      .join(" ");
   };
 
   const filteredAccounts = accounts.filter(
@@ -81,12 +81,12 @@ export default function ManageAccount() {
 
   const handleAddAccount = () => {
     setSelectedAccount({
-      firstName: '',
-      lastName: '',
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
+      firstName: "",
+      lastName: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
     });
     setIsEditMode(false);
     setIsModalOpen(true);
@@ -95,7 +95,7 @@ export default function ManageAccount() {
   const handleSave = async (formData) => {
     try {
       setLoading(true);
-      console.log('💾 Saving account...', formData);
+      console.log("💾 Saving account...", formData);
 
       if (isEditMode) {
         // Update existing account
@@ -113,7 +113,7 @@ export default function ManageAccount() {
         }
 
         console.log(
-          '📤 Updating account:',
+          "📤 Updating account:",
           selectedAccount.sasStaffId,
           updateData
         );
@@ -123,8 +123,8 @@ export default function ManageAccount() {
           updateData
         );
 
-        console.log('✅ Account updated:', result);
-        toast.success(result.message || 'Account updated successfully');
+        console.log("✅ Account updated:", result);
+        toast.success(result.message || "Account updated successfully");
       } else {
         // Create new account
         const createData = {
@@ -136,12 +136,12 @@ export default function ManageAccount() {
           confirmPassword: formData.confirmPassword,
         };
 
-        console.log('📤 Creating account:', createData);
+        console.log("📤 Creating account:", createData);
 
         const result = await createWorkingScholar(createData);
 
-        console.log('✅ Account created:', result);
-        toast.success(result.message || 'Account created successfully');
+        console.log("✅ Account created:", result);
+        toast.success(result.message || "Account created successfully");
       }
 
       // Refresh accounts list
@@ -151,9 +151,9 @@ export default function ManageAccount() {
       setIsModalOpen(false);
       return true; // Success
     } catch (error) {
-      console.error('❌ Error saving account:', error);
+      console.error("❌ Error saving account:", error);
       const errorMessage =
-        error.response?.data?.message || 'Failed to save account';
+        error.response?.data?.message || "Failed to save account";
       toast.error(errorMessage);
       return false; // Validation failed, keep modal open
     } finally {
@@ -164,18 +164,18 @@ export default function ManageAccount() {
   const handleDelete = async (account) => {
     try {
       setLoading(true);
-      console.log('🗑️ Deleting account:', account.sasStaffId);
+      console.log("🗑️ Deleting account:", account.sasStaffId);
 
       const result = await deleteWorkingScholar(account.sasStaffId);
 
-      console.log('✅ Account deleted:', result);
-      toast.success(result.message || 'Account deleted successfully');
+      console.log("✅ Account deleted:", result);
+      toast.success(result.message || "Account deleted successfully");
 
       // Refresh accounts list
       await fetchAccounts();
     } catch (error) {
-      console.error('❌ Error deleting account:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete account');
+      console.error("❌ Error deleting account:", error);
+      toast.error(error.response?.data?.message || "Failed to delete account");
     } finally {
       setLoading(false);
       setShowBackConfirmModal(false);
@@ -196,9 +196,9 @@ export default function ManageAccount() {
 
   return (
     <div className="min-h-screen py-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full justify-evenly px-9">
+      <div className="flex flex-col min-h-[90vh] w-full justify-between pb-15 xl:pb-0 pr-8 pt-6 xl:pt-9 md:px-8 md:pl-15 xl:pl-9">
         {/* Header */}
-        <div className="flex flex-1 pt-6 items-center justify-between mb-6">
+        <div className="sm:flex flex items-start justify-between mb-7">
           <div>
             <h1 className="text-3xl font-semibold text-left text-[#202124]">
               Manage Accounts
@@ -207,28 +207,34 @@ export default function ManageAccount() {
               Personnel account management
             </p>
           </div>
-          <button
-            onClick={handleAddAccount}
-            disabled={loading}
-            className="flex items-center gap-2 px-5 py-3.5 bg-[#1A73E8] text-white rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="inline-block">
-              <img src="/assets/manage_acc/add.png" alt="" />
-            </div>
-            Add Account
-          </button>
+          <div className="mt-4 sm:mt-0 flex items-center justify-end">
+            <button
+              onClick={handleAddAccount}
+              disabled={loading}
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
+            >
+              <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
+                <img
+                  src="/assets/manage_acc/add.png"
+                  alt=""
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="whitespace-nowrap">Add Account</span>
+            </button>
+          </div>
         </div>
 
         {/* Personnel Accounts Card */}
-        <div className="bg-white rounded-2xl shadow-xs p-6 flex-6 overflow-y-scroll scrollbar-thumb-blue-500 scrollbar-track-gray-200 max-h-[80vh]">
+        <div className="bg-white rounded-2xl shadow-xs p-6 flex-6 overflow-y-scroll scrollbar-thumb-blue-500 scrollbar-custom max-h-[80vh]">
           {/* Card Header */}
-          <div className="flex items-center justify-between mb-6 sticky">
-            <h2 className="text-xl font-medium text-[#202124]">
+          <div className="sm:flex items-center justify-between mb-6 sticky">
+            <h2 className="text-xl text-left font-medium text-[#202124]">
               Personnel Accounts
             </h2>
 
             {/* Search Bar */}
-            <div className="relative w-80">
+            <div className="relative w-80 mt-5">
               <Search
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={20}
@@ -327,14 +333,14 @@ export default function ManageAccount() {
 
         {/* Input Modal */}
         <InputModal
-          title={isEditMode ? 'Update Account' : 'Add Account'}
+          title={isEditMode ? "Update Account" : "Add Account"}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           accountData={selectedAccount}
           onSave={handleSave}
-          submitType={isEditMode ? 'Update Account' : 'Add Account'}
+          submitType={isEditMode ? "Update Account" : "Add Account"}
           details={
-            isEditMode ? 'Edit account details for' : 'Add a new account for'
+            isEditMode ? "Edit account details for" : "Add a new account for"
           }
         />
 
