@@ -166,8 +166,8 @@ export const requestPasswordReset = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { recievedOTP, email } = req.body;
-    if (!recievedOTP) return res.status(400).json({ success: false, message: "Code is Required"});
+    const { receivedOTP, email } = req.body;
+    if (!receivedOTP) return res.status(400).json({ success: false, message: "Code is Required"});
     
     if (!email) return res.status(400).json({success: false, message: "Email is Required"});
 
@@ -180,7 +180,7 @@ export const verifyEmail = async (req, res) => {
       return res.status(400).json({ success: false, message: "OTP has expired. Please request a new code"});
     }
 
-    if (recievedOTP !== OTPcode.code) {
+    if (receivedOTP !== OTPcode.code) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP. Please try again"
@@ -192,9 +192,16 @@ export const verifyEmail = async (req, res) => {
     markOTPAsUsed(email);
     deleteOTP(email);
 
+    const resetToken = jwt.sign(
+      { email, purpose: 'password-reset' },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' } 
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Email verified successfully"
+      message: "Email verified successfully",
+      resetToken
     });
 
   } catch (error) {
@@ -208,23 +215,57 @@ export const verifyEmail = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   try {
-    const { newPassword, confirmPassword, email } = req.body;
+    
+    const { newPassword } = req.body;
+    const authHeader = req.headers.authorization;
 
-    if (!newPassword || !confirmPassword || !email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and passwords are required",
+    console.log("Auth Header:", authHeader);
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "No authorization token provided" 
       });
     }
 
+    const resetToken = authHeader.split(' ')[1];
+    console.log("Token extracted:", resetToken.substring(0, 20) + "...");
 
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Password and Confirm Password do not match",
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Reset token has expired. Please request a new one." 
+        });
+      }
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid reset token" 
       });
     }
 
+    
+    if (decoded.purpose !== 'password-reset') {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid token purpose" 
+      });
+    }
+
+    const { email } = decoded;
+
+    // Validate password
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters",
+      });
+    }
+
+    // Check if user exists
     const user = await prisma.sasStaff.findUnique({
       where: { email },
     });
@@ -232,33 +273,32 @@ export const resetPassword = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Email not found in database",
+        message: "User not found",
       });
     }
-  
+    
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
+ 
     await prisma.sasStaff.update({
-      where: { email },
+      where: { email: email },
       data: {
-        hashedPassword: hashedPassword,
+        hashedPassword: hashedPassword,  
         updatedAt: new Date(),
       },
     });
-
+  
     return res.status(200).json({
       success: true,
-      message: "Password changed successfully",
+      message: "Password reset successfully",
     });
   } catch (error) {
-    console.error("Reset password error:", error);
     return res.status(500).json({
       success: false,
       message: "An error occurred while resetting password",
+      error: error.message  
     });
   }
-};
-
+}
 export const verifyUser = (req, res) => {
   try {
     res.status(200).json({ success: true, user: req.user });
