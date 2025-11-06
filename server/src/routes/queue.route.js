@@ -15,8 +15,6 @@ import {
   setDeferredRequestStatus,
   setRequestStatus,
   viewQueues,
-  manuallyFinalizeStalledRequests,
-  manuallyCancelSkippedRequests,
 } from '../controllers/queue.controller.js';
 import {
   authenticateToken,
