@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthProvider"; // adjust path if needed
 
 export default function Profile() {
@@ -7,28 +7,45 @@ export default function Profile() {
 
   // separated saved vs editable states
   const [savedData, setSavedData] = useState({
-    fullName: "Default Name",
-    username: "defaultUser",
-    email: "default@example.com",
-    password: "*******************",
+    fullName: "",
+    username: "",
+    email: "",
+    password: "",
   });
-  const [formData, setFormData] = useState(savedData);
+  const [formData, setFormData] = useState({
+    fullName: "",
+    username: "",
+    email: "",
+    password: "",
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  const handleFormatSaveData = () => {
+    try {
+      const formattedFullName = user?.middleName
+        ? `${user?.lastName}, ${user?.firstName} ${user?.middleName}`
+        : `${user?.lastName}, ${user?.firstName}`;
+
+      const initData = {
+        fullName: formattedFullName || "Default Name",
+        username: user?.username || "defaultUser",
+        email: user?.email || "default@example.com",
+        password: "*******************",
+      };
+      console.log("Saved DAta from user: ", initData);
+      return initData;
+    } catch (error) {
+      console.error("Error occurred: ", error);
+    }
+  };
   // initialize when user or userFullName changes
   useEffect(() => {
-    const initData = {
-      fullName: userFullName || user?.fullName || user?.name || "Default Name",
-      username: user?.username || user?.userName || "defaultUser",
-      email: user?.email || "default@example.com",
-      password: "*******************",
-    };
-    setSavedData(initData);
-    setFormData(initData);
+    const userData = handleFormatSaveData();
+    setSavedData(userData);
+    setFormData(userData);
     setIsEditing(false);
-  }, [user, userFullName]);
-
+  }, [user]);
   // detect unsaved changes
   useEffect(() => {
     const changed = Object.keys(formData).some(
@@ -129,7 +146,7 @@ export default function Profile() {
             {/* LEFT SIDE: NAME + ROLE */}
             <div className="flex flex-col items-center xl:items-start text-center xl:text-left w-full xl:w-1/3">
               <p className="text-xl sm:text-2xl lg:text-3xl xl:text-5xl font-semibold leading-normal mb-2">
-                {savedData.fullName}
+                {savedData?.fullName}
               </p>
               <span className="text-sm sm:text-base lg:text-lg font-medium text-[#686969]">
                 {isWorkingScholar ? "Working Scholar" : "Personnel"}
