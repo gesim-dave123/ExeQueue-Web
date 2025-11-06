@@ -1,8 +1,35 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import {
+  overrideQueueNumberReset,
+  overrideSessionReset,
+} from "../../api/staff.api";
 import ConfirmModal from "../../components/modal/ConfirmModal";
+import { Queue_Type } from "../../constants/queueEnums";
 
 export default function Reset_Queue() {
   const [modalConfig, setModalConfig] = useState(null);
+  const handleQueueNumberReset = async (queueType) => {
+    try {
+      const result = await overrideQueueNumberReset(queueType);
+      if (!result) {
+        throw new Error(result);
+      }
+      console.log("result: ", result);
+    } catch (error) {
+      console.error("Error in resetting queue: ", error);
+    }
+  };
+  const handleSessionReset = async (queueType) => {
+    try {
+      const result = await overrideSessionReset();
+      if (!result) {
+        throw new Error(result);
+      }
+      console.log("result: ", result);
+    } catch (error) {
+      console.error("Error in resetting session: ", error);
+    }
+  };
 
   // Modal configurations
   const modalConfigs = {
@@ -18,7 +45,8 @@ export default function Reset_Queue() {
           Are you sure you want to continue?
         </>
       ),
-      onConfirm: () => {
+      onConfirm: async () => {
+        await handleQueueNumberReset(Queue_Type.PRIORITY);
         console.log("Confirmed: Reset Priority Queue");
         handleCloseModal();
       },
@@ -35,7 +63,8 @@ export default function Reset_Queue() {
           Are you sure you want to continue?
         </>
       ),
-      onConfirm: () => {
+      onConfirm: async () => {
+        await handleQueueNumberReset(Queue_Type.REGULAR);
         console.log("Confirmed: Reset Regular Queue");
         handleCloseModal();
       },
@@ -52,7 +81,8 @@ export default function Reset_Queue() {
           Are you sure you want to continue?
         </>
       ),
-      onConfirm: () => {
+      onConfirm: async () => {
+        await handleSessionReset();
         console.log("Confirmed: Reset All Queues");
         handleCloseModal();
       },
