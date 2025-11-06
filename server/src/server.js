@@ -53,7 +53,7 @@ app.use('/api/staff', StaffRoute);
 app.use('/api/staff/queue', StaffQueue);
 app.use('/api/statistics', StatisticsRoute);
 app.use('/api/staff/transaction', transactionRoutes);
-app.use('/api/session', SessionRoute);
+app.use('/api/staff/session', SessionRoute);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {

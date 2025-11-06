@@ -30,6 +30,7 @@ server/prisma/prisma
 server/prisma/prisma/schema.prisma
 
 server/_test_scripts/*.js
+client/_test_scripts/*.js
 # Build outputs
 dist/
 build/
