@@ -176,9 +176,36 @@ export const generateQueue = async (req, res) => {
         }
 
         // =================== QUEUE NUMBER & AUTO-WRAP ===================
+        // const counterField =
+        //   QUEUETYPE === Queue_Type.REGULAR ? "regularCount" : "priorityCount";
+
+        // const updatedSession = await tx.queueSession.update({
+        //   where: { sessionId: session.sessionId },
+        //   data: { [counterField]: { increment: 1 } },
+        //   select: { regularCount: true, priorityCount: true, maxQueueNo: true },
+        // });
+
+        // const currentCount =
+        //   QUEUETYPE === Queue_Type.REGULAR
+        //     ? updatedSession.regularCount
+        //     : updatedSession.priorityCount;
+        // const queueNumber =
+        //   ((currentCount - 1) % updatedSession.maxQueueNo) + 1;
+        // const resetIteration = Math.floor(
+        //   (currentCount - 1) / updatedSession.maxQueueNo
+        // );
+
+        // console.log({
+        //   currentCount,
+        //   queueNumber,
+        //   resetIteration
+        // })
+
+        // =================== QUEUE NUMBER & MANUAL/ AUTO-WRAP ===================
         const counterField =
           QUEUETYPE === Queue_Type.REGULAR ? "regularCount" : "priorityCount";
 
+        // Increment normal counter (sequence still grows)
         const updatedSession = await tx.queueSession.update({
           where: { sessionId: session.sessionId },
           data: { [counterField]: { increment: 1 } },
@@ -189,11 +216,46 @@ export const generateQueue = async (req, res) => {
           QUEUETYPE === Queue_Type.REGULAR
             ? updatedSession.regularCount
             : updatedSession.priorityCount;
-        const queueNumber =
-          ((currentCount - 1) % updatedSession.maxQueueNo) + 1;
-        const resetIteration = Math.floor(
-          (currentCount - 1) / updatedSession.maxQueueNo
-        );
+
+        // 🧩 Check if manual reset is active
+        const manualResetInfo = req.app.get("manualResetTriggered") || {};
+        const manualReset = manualResetInfo[QUEUETYPE];
+
+        let queueNumber;
+        let resetIteration;
+
+        // Check if manual reset exists AND has a valid resetAtSequence AND current count is after reset
+        if (
+          manualReset &&
+          manualReset.resetAtSequence !== null &&
+          manualReset.resetAtSequence !== undefined &&
+          currentCount > manualReset.resetAtSequence
+        ) {
+          // We're AFTER a manual reset
+          // Calculate how far we are from the reset point
+          const countSinceReset = currentCount - manualReset.resetAtSequence;
+          queueNumber = ((countSinceReset - 1) % updatedSession.maxQueueNo) + 1;
+          resetIteration =
+            manualReset.iteration +
+            Math.floor((countSinceReset - 1) / updatedSession.maxQueueNo);
+        } else {
+          // Normal behavior: no manual reset active, or we're before the reset point
+          queueNumber = ((currentCount - 1) % updatedSession.maxQueueNo) + 1;
+          resetIteration = Math.floor(
+            (currentCount - 1) / updatedSession.maxQueueNo
+          );
+        }
+
+        console.log({
+          currentCount,
+          queueNumber,
+          resetIteration,
+          manualResetActive: manualReset?.resetAtSequence !== null,
+          resetAtSequence: manualReset?.resetAtSequence,
+          countSinceReset: manualReset?.resetAtSequence
+            ? currentCount - manualReset.resetAtSequence
+            : null,
+        });
 
         // =================== CREATE QUEUE ===================
         const refNumber = generateReferenceNumber(
@@ -821,15 +883,15 @@ export const getQueueDisplay = async (req, res) => {
 
     let whereClause = {
       queueId: queueId,
-      session:{
-        sessionDate: todayUTC 
+      session: {
+        sessionDate: todayUTC,
       },
       isActive: true,
       queueStatus: Status.WAITING,
     };
 
-    if(referenceNumber){
-      whereClause.referenceNumber= referenceNumber;
+    if (referenceNumber) {
+      whereClause.referenceNumber = referenceNumber;
     }
 
     const newQueue = await prisma.queue.findFirst({
