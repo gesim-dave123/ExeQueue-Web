@@ -1,16 +1,31 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { overrideWindowRelease } from "../../api/staff.api.js";
 import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
 
 export default function ReleaseWindow() {
   const [showModal, setShowModal] = useState(false);
   const [selectedWindow, setSelectedWindow] = useState(null);
 
+  const handleWindowRelease = async (windowNum) => {
+    try {
+      const result = await overrideWindowRelease(windowNum);
+      if (!result) {
+        throw new Error(result);
+      }
+      console.log("Result: ", result);
+    } catch (error) {
+      console.error(`Error in releaseing window number ${windowNum}: `, error);
+    }
+  };
+
   const handleRelease = (windowNumber) => {
     setSelectedWindow(windowNumber);
     setShowModal(true);
   };
 
-  const confirmRelease = () => {
+  const confirmRelease = async () => {
+    console.log("Selected Window: ", selectedWindow);
+    await handleWindowRelease(selectedWindow);
     console.log(`Released Window ${selectedWindow}`);
     setShowModal(false);
   };

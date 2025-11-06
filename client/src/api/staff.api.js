@@ -81,7 +81,17 @@ export const releaseServiceWindow = async () => {
         withCredentials: true,
       }
     );
-    return response.data;
+    if (
+      response.status === 200 &&
+      response.data.success &&
+      response.data.wasWindowAssigned
+    ) {
+      return response.data;
+    } else if (!response.data.wasWindowAssigned) {
+      return response.data;
+    } else {
+      return response.data.error;
+    }
   } catch (error) {
     console.error("Error releasing window:", error);
     return {
@@ -110,5 +120,87 @@ export const getMyWindowAssignment = async () => {
       message: error.response?.data?.message || "Failed to get assignment",
       assignment: null,
     };
+  }
+};
+
+export const overrideQueueNumberReset = async (queueType) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/queue/reset/${queueType.toString()}`,
+      {},
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response.status === 200 && response.data.success) {
+      return response.data;
+    } else if (!response.data.activeSessionFound) {
+      return response.data;
+    } else {
+      throw new Error(response.data.error);
+    }
+  } catch (error) {
+    console.error("Error in manual override api: ", error);
+    return null;
+  }
+};
+
+export const overrideSessionReset = async () => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/session/reset`,
+      {},
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response.status === 200 && response.data.success) {
+      return response.data;
+    } else if (!response.data.activeSessionFound) {
+      return response.data;
+    } else {
+      throw new Error(response.data.error);
+    }
+  } catch (error) {
+    console.error("Error in manual session override  api: ", error);
+    return null;
+  }
+};
+
+export const overrideWindowRelease = async (windowNum) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/window/release/${windowNum}`,
+      {},
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (
+      response.status === 200 &&
+      response.data.success &&
+      response.data.wasWindowAssigned
+    ) {
+      return response.data;
+    } else if (!response.data.wasWindowAssigned) {
+      return response.data;
+    } else {
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in manual release window override api: ", error);
+    return null;
   }
 };
