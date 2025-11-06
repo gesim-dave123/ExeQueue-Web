@@ -1,5 +1,6 @@
-import prisma from '../../prisma/prisma.js';
-import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { Role } from "@prisma/client";
+import prisma from "../../prisma/prisma.js";
+import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 export const closeActiveSession = async () => {
   // ✅ Find ALL active sessions (in case there are duplicates)
   const activeSessions = await prisma.queueSession.findMany({
@@ -19,7 +20,7 @@ export const closeActiveSession = async () => {
     });
     console.log(`✅ Closed ${activeSessions.length} active session(s)`);
   } else {
-    console.log('No active session to close.');
+    console.log("No active session to close.");
   }
 };
 
@@ -30,12 +31,12 @@ export const createNewSession = async () => {
 
   const newSession = await prisma.queueSession.create({
     data: {
-      name: `Session ${DateAndTimeFormatter.formatInTimeZone(
-        manilaNow,
-        'yyyy-MM-dd'
-      )}`,
+      // name: `Session ${DateAndTimeFormatter.formatInTimeZone(
+      //   manilaNow,
+      //   "yyyy-MM-dd"
+      // )}`,
       sessionDate: startOfDay, // ✅ ADD THIS - Set the session date
-      startedAt: new Date(),
+      // startedAt: new Date(),
       isActive: true,
       isAcceptingNew: true,
       isServing: true,
@@ -50,8 +51,9 @@ export const createNewSession = async () => {
   console.log(
     `🎉 New session created for ${DateAndTimeFormatter.formatInTimeZone(
       startOfDay,
-      'MMMM dd, yyyy'
+      "MMMM dd, yyyy"
     )}`
   );
   return newSession;
 };
+
