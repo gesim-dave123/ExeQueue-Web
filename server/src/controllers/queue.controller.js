@@ -1473,13 +1473,6 @@ export const markQueueStatus = async (req, res) => {
           referenceNumber: true,
           windowId: true,
         },
-        // include: {
-        //   requests: {
-        //     include: {
-        //       requestType: true,
-        //     },
-        //   },
-        // },
       });
 
       // CRITICAL FIX: Create transaction history for each request individually
@@ -1489,39 +1482,51 @@ export const markQueueStatus = async (req, res) => {
           "[---IMPORTANT---]Creating transaction history for all requests..."
         );
       }
-
-      for (const request of queueUpdate.requests) {
-        if(!(request.requestStatus === Status.STALLED || request.requestStatus === Status.SKIPPED)  ){
-        const existingTransaction = await tx.transactionHistory.findFirst({
-          where: {
-            queueId,
-            requestId: request.requestId,
-            transactionStatus: request.requestStatus,
-          },
-        });
-
-        if (!existingTransaction) {
-          await tx.transactionHistory.create({
-            data: {
+      const updatedRequests = await tx.request.findMany({
+        where: {
+          queueId: queueUpdate.queueId,
+        },
+        select: {
+          requestId: true,
+          requestStatus: true,
+        },
+      });
+      for (const request of updatedRequests) {
+        if (
+          !(
+            request.requestStatus === Status.STALLED ||
+            request.requestStatus === Status.SKIPPED
+          )
+        ) {
+          const existingTransaction = await tx.transactionHistory.findFirst({
+            where: {
               queueId,
               requestId: request.requestId,
-              performedById: sasStaffId,
-              performedByRole: role,
               transactionStatus: request.requestStatus,
-              createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
             },
           });
-          console.log(
-            `Created transaction for request ${request.requestId} with status ${request.requestStatus}`
-          );
-        } else {
-          console.log(
-            `Skipped duplicate transaction for request ${request.requestId}`
-          );
-        }
+
+          if (!existingTransaction) {
+            await tx.transactionHistory.create({
+              data: {
+                queueId,
+                requestId: request.requestId,
+                performedById: sasStaffId,
+                performedByRole: role,
+                transactionStatus: request.requestStatus,
+                createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+              },
+            });
+            console.log(
+              `Created transaction for request ${request.requestId} with status ${request.requestStatus}`
+            );
+          } else {
+            console.log(
+              `Skipped duplicate transaction for request ${request.requestId}`
+            );
+          }
         }
         // Only create transaction for requests that don't have one yet
-
       }
 
       // Only create queue-level transaction for PARTIALLY_COMPLETE (if doesn't exist)
@@ -1565,7 +1570,7 @@ export const markQueueStatus = async (req, res) => {
       [Status.PARTIALLY_COMPLETE]: QueueActions.QUEUE_PARTIALLY_COMPLETE,
     };
     const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
-    
+
     // io.emit(event, newQueueData);
     // io.to(`window:${windowId}`).emit(event, newQueueData);
     console.log("Updated Queue", updatedQueue);

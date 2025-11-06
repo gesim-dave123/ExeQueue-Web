@@ -75,7 +75,7 @@ export const assignServiceWindow = async (req, res) => {
       return assignment;
     });
 
-    io.emit(WindowEvents.WINDOW_ASSIGNED, {
+    io.emit(WindowEvents.ASSIGN_WINDOW, {
       windowId,
       staff: result.staff,
       message: `Window ${windowId} assigned to ${result.staff.firstName}`,
@@ -132,7 +132,11 @@ export const releaseServiceWindow = async (req, res) => {
       });
 
       if (!activeAssignment) {
-        throw new Error("No active window assignment found");
+        return res.status(203).json({
+          success: false,
+          messsage: "There is no active staff assigned to this window",
+          wasWindowAssigned: false,
+        });
       }
 
       const currentQueue = await tx.queue.findFirst({
@@ -141,10 +145,14 @@ export const releaseServiceWindow = async (req, res) => {
           queueStatus: Status.IN_SERVICE,
           // servedAt: null, // Not yet completed
         },
+        select: {
+          queueId: true,
+          queueNumber: true,
+        },
       });
 
       if (currentQueue) {
-        await tx.queue.update({
+        const updatedQueue = await tx.queue.update({
           where: { queueId: currentQueue.queueId },
           data: {
             queueStatus: Status.WAITING,
@@ -154,21 +162,14 @@ export const releaseServiceWindow = async (req, res) => {
           },
           select: {
             queueId: true,
-          },
-        });
-
-        const queue = await tx.queue.findUnique({
-          where: { queueId: currentQueue.queueId },
-          select: {
-            queueId: true,
-            windowId: true,
             referenceNumber: true,
+            windowId: true,
           },
         });
         io.emit(QueueActions.QUEUE_RESET, {
-          queueId: encryptQueueId(queue.queueId),
-          windowId: queue.windowId,
-          referenceNumber: queue.referenceNumber,
+          queueId: encryptQueueId(updatedQueue.queueId),
+          windowId: updatedQueue.windowId,
+          referenceNumber: updatedQueue.referenceNumber,
           previousWindowId: activeAssignment.windowId,
         });
       }
@@ -193,7 +194,7 @@ export const releaseServiceWindow = async (req, res) => {
       resetQueue: result.resetQueue
         ? {
             queueId: result.resetQueue.queueId,
-            queueNo: result.resetQueue.queueNo,
+            queueNo: result.resetQueue.queueNumber,
           }
         : null,
       message: `${result.windowName} was released.`,
@@ -206,7 +207,7 @@ export const releaseServiceWindow = async (req, res) => {
       resetQueue: result.resetQueue
         ? {
             queueId: result.resetQueue.queueId,
-            queueNo: result.resetQueue.queueNo,
+            queueNo: result.resetQueue.queueNumber,
           }
         : null,
       message: `${result.windowName} was released.`,
@@ -220,7 +221,7 @@ export const releaseServiceWindow = async (req, res) => {
       resetQueue: result.resetQueue
         ? {
             queueId: result.resetQueue.queueId,
-            queueNo: result.resetQueue.queueNo,
+            queueNo: result.resetQueue.queueNumber,
           }
         : null,
       message: `${result.windowName} was released.`,
@@ -229,9 +230,10 @@ export const releaseServiceWindow = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: result.resetQueue
-        ? `Window released and queue ${result.resetQueue.queueNo} reset to waiting`
+        ? `Window released and queue ${result.resetQueue.queueNumber} reset to waiting`
         : "Window released successfully",
       resetQueue: result.resetQueue,
+      wasWindowAssigned: true,
     });
   } catch (error) {
     console.error("❌ Error releasing window:", error);
@@ -832,5 +834,477 @@ export const softDeleteWorkingScholar = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+export const manualWindowRelease = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const { windowNum: windowNoStr } = req.params;
+    const io = req.app.get("io");
+    const shift = getShiftTag();
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+    console.log("windowSTr", windowNoStr);
+    if (!isIntegerParam(windowNoStr)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid window number, must be anumerical type!",
+      });
+    }
+    const windowNum = parseInt(windowNoStr);
+
+    if (isNaN(windowNum)) {
+      return res.status(400).json({
+        success: false,
+        message: "An error occurred while parsing window number!",
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const window = await tx.serviceWindow.findFirst({
+        where: {
+          windowNo: windowNum,
+        },
+        select: {
+          windowId: true,
+        },
+      });
+
+      const activeAssignment = await tx.windowAssignment.findFirst({
+        where: {
+          windowId: window.windowId,
+          shiftTag: shift,
+          releasedAt: null,
+        },
+        select: {
+          serviceWindow: {
+            select: {
+              windowName: true,
+            },
+          },
+          assignmentId: true,
+          windowId: true,
+        },
+      });
+
+      if (!activeAssignment) {
+        return res.status(200).json({
+          success: false,
+          messsage: "There is no active staff assigned to this window",
+          wasWindowAssigned: false,
+        });
+      }
+
+      const currentQueue = await tx.queue.findFirst({
+        where: {
+          windowId: activeAssignment.windowId,
+          queueStatus: Status.IN_SERVICE,
+          // servedAt: null, // Not yet completed
+        },
+        select: {
+          queueId: true,
+          queueNumber: true,
+        },
+      });
+
+      if (currentQueue) {
+        const updatedQueue = await tx.queue.update({
+          where: { queueId: currentQueue.queueId },
+          data: {
+            queueStatus: Status.WAITING,
+            windowId: null,
+            servedByStaff: null,
+            calledAt: null,
+          },
+          select: {
+            queueId: true,
+            windowId: true,
+            referenceNumber: true,
+          },
+        });
+
+        io.emit(QueueActions.QUEUE_RESET, {
+          queueId: encryptQueueId(updatedQueue.queueId),
+          windowId: updatedQueue.windowId,
+          referenceNumber: updatedQueue.referenceNumber,
+          previousWindowId: activeAssignment.windowId,
+        });
+      }
+      console.log("Current Queue", currentQueue);
+
+      const released = await tx.windowAssignment.update({
+        where: {
+          assignmentId: activeAssignment.assignmentId,
+        },
+        data: {
+          releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        select: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+          windowId: true,
+          shiftTag: true,
+          assignedAt: true,
+          releasedAt: true,
+        },
+      });
+
+      return {
+        releasedCount: released.count,
+        windowId: activeAssignment.windowId,
+        windowName: activeAssignment.serviceWindow.windowName,
+        resetQueue: currentQueue,
+      };
+    });
+
+    io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, {
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+    sendDashboardUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    sendLiveDisplayUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.resetQueue
+        ? `Window released and queue ${result.resetQueue.queueNumber} reset to waiting`
+        : "Window released successfully",
+      resetQueue: result.resetQueue,
+      wasWindowAssigned: true,
+    });
+  } catch (error) {
+    console.error("Manual window release error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!" || error.message,
+    });
+  }
+};
+
+export const manualResetQueueNumber = async (req, res) => {
+  try {
+    const { queueType } = req.params;
+    const { sasStaffId, role } = req.user;
+    const io = req.app.get("io");
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+
+    const normalizedType = queueType?.toUpperCase();
+    if (!["REGULAR", "PRIORITY"].includes(normalizedType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid queue type. Must be REGULAR or PRIORITY.",
+      });
+    }
+
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    return await prisma.$transaction(async (tx) => {
+      const session = await tx.queueSession.findFirst({
+        where: {
+          sessionDate: todayUTC,
+          isActive: true,
+          isServing: true,
+          isAcceptingNew: true,
+        },
+        orderBy: { sessionNumber: "desc" },
+      });
+
+      if (!session) {
+        return res.status(203).json({
+          success: false,
+          messsage: "There is no active session found!",
+          activeSessionFound: false,
+        });
+      }
+
+      const lastQueue = await tx.queue.findFirst({
+        where: {
+          sessionId: session.sessionId,
+          queueType: normalizedType,
+          isActive: true,
+        },
+        orderBy: { sequenceNumber: "desc" },
+      });
+
+      if (!lastQueue) {
+        throw new Error(`No ${normalizedType} queues found to reset.`);
+      }
+
+      // ===========================================================
+      // 🧠 Store the SEQUENCE NUMBER where reset happened
+      // ===========================================================
+      let resetInfo = req.app.get("manualResetTriggered") || {};
+
+      if (!resetInfo[normalizedType]) {
+        resetInfo[normalizedType] = {
+          resetAtSequence: null, // NEW: track where reset happened
+          iteration: 0,
+          timestamp: null,
+        };
+      }
+
+      const newIteration = resetInfo[normalizedType].iteration + 1;
+
+      // Get current count from session
+      const counterField =
+        normalizedType === "REGULAR" ? "regularCount" : "priorityCount";
+      const currentSequence =
+        normalizedType === "REGULAR"
+          ? session.regularCount
+          : session.priorityCount;
+
+      resetInfo = {
+        ...resetInfo,
+        [normalizedType]: {
+          resetAtSequence: currentSequence, // Remember THIS sequence number
+          iteration: newIteration,
+          timestamp: Date.now(),
+        },
+      };
+
+      req.app.set("manualResetTriggered", resetInfo);
+
+      // ===========================================================
+      // 🔔 Notify all clients via Socket.IO
+      // ===========================================================
+      io.emit("QUEUE_RESET", {
+        queueType: normalizedType,
+        sessionId: session.sessionId,
+        iteration: newIteration,
+        triggeredBy: sasStaffId,
+        resetAtSequence: currentSequence,
+        message: `${normalizedType} queue manually reset (iteration ${newIteration}).`,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `${normalizedType} queue manually reset successfully.`,
+        resetInfo: {
+          queueType: normalizedType,
+          newIteration,
+          nextDisplayNumber: 1,
+          autoWrapLimit: 500,
+          resetAtSequence: currentSequence,
+          triggeredAt: new Date().toISOString(),
+        },
+        activeSessionFound: true,
+      });
+    });
+  } catch (error) {
+    console.error("❌ Manual reset error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to reset queue.",
+    });
+  }
+};
+
+export const manualResetSession = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const io = req.app.get("io");
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    return await prisma.$transaction(async (tx) => {
+      const session = await tx.queueSession.findFirst({
+        where: {
+          sessionDate: todayUTC,
+          isActive: true,
+          isServing: true,
+          isAcceptingNew: true,
+        },
+        orderBy: { sessionNumber: "desc" },
+        select: {
+          sessionId: true,
+          sessionNumber: true,
+        },
+      });
+
+      if (!session) {
+        return res.status(203).json({
+          success: false,
+          messsage: "There is no active session found!",
+          activeSessionFound: false,
+        });
+      }
+      const nextSessionNo = session.sessionNumber + 1;
+      await tx.queueSession.update({
+        where: {
+          sessionId: session.sessionId,
+        },
+        data: {
+          isAcceptingNew: false,
+        },
+      });
+
+      const newSession = await tx.queueSession.create({
+        data: {
+          sessionDate: todayUTC,
+          sessionNumber: nextSessionNo || 1,
+          maxQueueNo: 500,
+          currentQueueCount: 0,
+          regularCount: 0,
+          priorityCount: 0,
+          isAcceptingNew: true,
+          isServing: true,
+          isActive: true,
+        },
+      });
+
+      let dataClause;
+
+      if (newSession) {
+        dataClause = {
+          message: "Queue Session resetted successfully!",
+          session: {
+            sessionId: newSession.sessionId,
+            sessionNumber: newSession.sessionNumber,
+            maxQueueNo: newSession.maxQueueNo,
+            currentQueueCount: newSession.currentQueueCount,
+            regularCount: newSession.regularCount,
+            priorityCount: newSession.priorityCount,
+            isAcceptingNew: newSession.isAcceptingNew,
+            isServing: newSession.isServing,
+            isActive: newSession.isActive,
+          },
+          activeSessionFound: true,
+        };
+      } else {
+        dataClause = {
+          message: "An error occurred while resetting queue session!",
+        };
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: dataClause,
+      });
+    });
+  } catch (error) {
+    console.error("Manual reset error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!" || error.message,
+    });
   }
 };

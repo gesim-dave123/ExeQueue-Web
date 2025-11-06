@@ -7,6 +7,7 @@
     "dev": "copy .env.local .env && nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node prisma/seed.js",
+    "reset": "npx prisma migrate reset && npm run seed",
     "seed:local": "npm run switch:local && npx prisma migrate dev && npm run seed",
     "seed:online": "npm run switch:online && npx prisma migrate dev && npm run seed",
     "switch:local": "copy .env.local .env && echo Switched to LOCAL database",
@@ -14,8 +15,7 @@
     "local": "npm run switch:local && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\"",
     "online": "npm run switch:online && npx prisma migrate dev && concurrently -n \"NODEMON,STUDIO\" -c \"cyan,green\" \"nodemon src/server.js\" \"npx prisma studio\"",
     "generate-data": "node client/_test_scripts/generate-test-data-transactions.js",
-    "transc-wipe": "node client/_test_scripts/cleanup-test-data.js",
-    "queue-data": "node client/_test_scripts/queue-test-script.js"
+    "transc-wipe": "node client/_test_scripts/cleanup-test-data.js"
   },
   "keywords": [],
   "type": "module",
