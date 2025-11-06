@@ -561,125 +561,133 @@ export const getTransactionStats = async (req, res) => {
       return statusMap[status] || status;
     };
 
-    const [courses, requests, statuses] = await Promise.all([
+    const [courses, requests] = await Promise.all([
       // 🧩 1. COURSES (two-step fetch)
       (async () => {
         // Step 1: Get distinct courseCodes from queues
-        const queueCourses = await prisma.queue.findMany({
-          where: {
-            transactionHistories: {
-              some: {
-                transactionStatus: {
-                  in: [
-                    Status.COMPLETED,
-                    Status.CANCELLED,
-                    Status.STALLED,
-                    Status.PARTIALLY_COMPLETE,
-                  ],
-                },
-                requestId: { not: null },
-              },
-            },
-          },
-          select: {
-            courseCode: true,
-          },
-          distinct: ["courseCode"],
-        });
+        // const queueCourses = await prisma.queue.findMany({
+        //   where: {
+        //     transactionHistories: {
+        //       some: {
+        //         transactionStatus: {
+        //           in: [
+        //             Status.COMPLETED,
+        //             Status.CANCELLED,
+        //             Status.STALLED,
+        //             Status.PARTIALLY_COMPLETE,
+        //           ],
+        //         },
+        //         requestId: { not: null },
+        //       },
+        //     },
+        //   },
+        //   select: {
+        //     courseCode: true,
+        //   },
+        //   distinct: ["courseCode"],
+        // });
 
-        // Step 2: Extract valid courseCodes
-        const courseCodes = queueCourses
-          .map((q) => q.courseCode)
-          .filter((code) => code !== null && code !== undefined);
+        // // Step 2: Extract valid courseCodes
+        // const courseCodes = queueCourses
+        //   .map((q) => q.courseCode)
+        //   .filter((code) => code !== null && code !== undefined);
 
-        if (courseCodes.length === 0) return [];
+        // if (courseCodes.length === 0) return [];
 
         // Step 3: Fetch matching courses by courseCode
         const courses = await prisma.course.findMany({
-          where: { courseCode: { in: courseCodes } },
           select: {
             courseId: true,
             courseCode: true,
             courseName: true,
           },
-          orderBy: { courseName: "asc" },
+          orderBy: { courseId: "asc" },
         });
-
         return courses;
       })(),
-      prisma.transactionHistory
-        .findMany({
-          where: {
-            request: { isNot: null },
-            requestId: { not: null },
-            transactionStatus: {
-              in: [
-                Status.COMPLETED,
-                Status.CANCELLED,
-                Status.STALLED,
-                // Status.PARTIALLY_COMPLETE,
-              ],
-            },
-          },
-          distinct: ["requestId"],
+      (async () => {
+        const requestTypes = await prisma.requestType.findMany({
           select: {
-            request: {
-              select: {
-                requestType: {
-                  select: {
-                    requestTypeId: true,
-                    requestName: true,
-                  },
-                },
-              },
-            },
+            requestTypeId: true,
+            requestName: true,
           },
-        })
-        .then((results) => {
-          const uniqueRequestTypesMap = new Map();
-          results.forEach((t) => {
-            const rt = t.request?.requestType;
-            if (rt && !uniqueRequestTypesMap.has(rt.requestTypeId)) {
-              uniqueRequestTypesMap.set(rt.requestTypeId, rt);
-            }
-          });
-          const uniqueRequestTypes = Array.from(
-            uniqueRequestTypesMap.values()
-          ).sort((a, b) => a.requestName.localeCompare(b.requestName));
+          orderBy: { requestTypeId: "asc" },
+        });
+        return requestTypes;
+      })(),
+      // prisma.transactionHistory
+      //   .findMany({
+      //     where: {
+      //       request: { isNot: null },
+      //       requestId: { not: null },
+      //       transactionStatus: {
+      //         in: [
+      //           Status.COMPLETED,
+      //           Status.CANCELLED,
+      //           Status.STALLED,
+      //           // Status.PARTIALLY_COMPLETE,
+      //         ],
+      //       },
+      //     },
+      //     distinct: ["requestId"],
+      //     select: {
+      //       request: {
+      //         select: {
+      //           requestType: {
+      //             select: {
+      //               requestTypeId: true,
+      //               requestName: true,
+      //             },
+      //           },
+      //         },
+      //       },
+      //     },
+      //   })
+      //   .then((results) => {
+      //     const uniqueRequestTypesMap = new Map();
+      //     results.forEach((t) => {
+      //       const rt = t.request?.requestType;
+      //       if (rt && !uniqueRequestTypesMap.has(rt.requestTypeId)) {
+      //         uniqueRequestTypesMap.set(rt.requestTypeId, rt);
+      //       }
+      //     });
+      //     const uniqueRequestTypes = Array.from(
+      //       uniqueRequestTypesMap.values()
+      //     ).sort((a, b) => a.requestName.localeCompare(b.requestName));
 
-          return uniqueRequestTypes;
-        }),
-      prisma.transactionHistory
-        .groupBy({
-          by: ["transactionStatus"],
-          where: {
-            requestId: { not: null },
-            OR: [
-              {
-                transactionStatus: {
-                  in: [
-                    Status.COMPLETED,
-                    Status.CANCELLED,
-                    // Status.PARTIALLY_COMPLETE,
-                  ],
-                },
-              },
-              {
-                transactionStatus: Status.STALLED,
-                createdAt: { lt: todayStart },
-              },
-            ],
-          },
-          _count: { transactionStatus: true },
-        })
-        .then((results) => {
-          return results
-            .map((r) => r.transactionStatus)
-            .filter((status) => status !== "SKIPPED")
-            .sort();
-        }),
+      //     return uniqueRequestTypes;
+      //   }),
+      // prisma.transactionHistory
+      //   .groupBy({
+      //     by: ["transactionStatus"],
+      //     where: {
+      //       requestId: { not: null },
+      //       OR: [
+      //         {
+      //           transactionStatus: {
+      //             in: [
+      //               Status.COMPLETED,
+      //               Status.CANCELLED,
+      //               // Status.PARTIALLY_COMPLETE,
+      //             ],
+      //           },
+      //         },
+      //         {
+      //           transactionStatus: Status.STALLED,
+      //           createdAt: { lt: todayStart },
+      //         },
+      //       ],
+      //     },
+      //     _count: { transactionStatus: true },
+      //   })
+      //   .then((results) => {
+      //     return results
+      //       .map((r) => r.transactionStatus)
+      //       .filter((status) => status !== "SKIPPED")
+      //       .sort();
+      //   }),
     ]);
-
+    const statuses = [Status.COMPLETED, Status.CANCELLED, Status.STALLED];
     return res.status(200).json({
       success: true,
       message: "Transaction stats fetched successfully",
