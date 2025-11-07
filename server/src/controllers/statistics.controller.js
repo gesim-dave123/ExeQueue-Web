@@ -712,15 +712,29 @@ export const getTodayAnalytics = async (req, res) => {
 
     // 🧮 Queue analytics
     const completed = todayQueues.filter(
-      (q) => q.queueStatus === 'COMPLETED' || q.queueStatus === 'CANCELLED'
+      (q) =>
+        q.queueStatus === 'COMPLETED' ||
+        q.queueStatus === 'CANCELLED' ||
+        q.queueStatus === 'PARTIALLY_COMPLETE'
     ).length;
 
     const inProgress = todayQueues.length - completed;
-    const totalRegular = todayQueues.filter(
-      (q) => q.queueType === 'REGULAR'
+
+    // ✅ Count COMPLETED regular and priority queues only (matching Dashboard)
+    const completedRegular = todayQueues.filter(
+      (q) =>
+        q.queueType === 'REGULAR' &&
+        (q.queueStatus === 'COMPLETED' ||
+          q.queueStatus === 'CANCELLED' ||
+          q.queueStatus === 'PARTIALLY_COMPLETE')
     ).length;
-    const totalPriority = todayQueues.filter(
-      (q) => q.queueType === 'PRIORITY'
+
+    const completedPriority = todayQueues.filter(
+      (q) =>
+        q.queueType === 'PRIORITY' &&
+        (q.queueStatus === 'COMPLETED' ||
+          q.queueStatus === 'CANCELLED' ||
+          q.queueStatus === 'PARTIALLY_COMPLETE')
     ).length;
 
     // 🧩 Request breakdown by type
@@ -748,8 +762,8 @@ export const getTodayAnalytics = async (req, res) => {
     const analytics = {
       completed,
       inProgress,
-      totalRegular,
-      totalPriority,
+      completedRegular,
+      completedPriority,
       totalQueues: todayQueues.length,
       requestBreakdown,
     };
