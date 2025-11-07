@@ -5,7 +5,7 @@ import Navbar from './Navbar';
 
 export default function Layout() {
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen bg-transparent relative  ">
       {/* Animated background elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
         <div className="absolute top-10 left-30 w-96 h-96 bg-[#1A73E8] rounded-full mix-blend-multiply filter blur-3xl opacity-10  animate-blob"></div>
