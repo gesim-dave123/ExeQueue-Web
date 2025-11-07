@@ -285,7 +285,7 @@ export default function Sidebar() {
         >
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="p-2 transform -translate-x-[40%] bg-white rounded-full shadow-md"
+            className="p-2 transform -translate-x-[40%] bg-white rounded-md shadow-md"
           >
             <img
               src="/assets/dashboard/minimize.png"
@@ -611,13 +611,15 @@ export default function Sidebar() {
                         <span className="text-sm font-medium">
                           System Settings
                         </span>
-                        <img
-                          src="/assets/dashboard/system_settings_arrow.png"
-                          alt="arrow"
-                          className={`w-5 h-5 ml-auto transition-transform duration-300 ${
-                            isSystemSettingsOpen ? "rotate-180" : ""
-                          }`}
-                        />
+                      <img
+                      src="/assets/dashboard/system_settings_arrow.png"
+                      alt="arrow"
+                      className={`w-5 h-5 ml-auto transition-transform duration-300 ${
+                        isSystemSettingsOpen 
+                          ? "rotate-90 sm:rotate-180"    
+                          : "-rotate-90 sm:rotate-0" 
+                      }`}
+                      />
                       </div>
                     </>
                   )}
@@ -632,7 +634,7 @@ export default function Sidebar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-50 top-[-40px] left-full -ml-4"
+                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-50 top-[-140px] left-[145px] sm:top-[-40px] sm:left-full -ml-4"
                       >
                         {/* PERSONNEL: Show all options */}
                         {user?.role === "PERSONNEL" && (

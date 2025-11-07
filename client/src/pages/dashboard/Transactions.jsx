@@ -351,7 +351,7 @@ export default function Transactions() {
                     : "text-gray-500"
                 }`}
               >
-                {displayFn && filters[filterType]
+                {displayFn && filters[label]
                   ? displayFn(filters[filterType])
                   : filters[label] || label}
               </span>
@@ -638,8 +638,8 @@ export default function Transactions() {
 
   return (
     <div className="bg-transparent min-h-screen flex flex-col">
-      <div className="flex flex-col flex-1 bg-transparent w-full xl:justify-between pr-8 sm:px-6 md:pl-15 xl:px-9">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center pt-17 justify-between  lg:pr-9 gap-4">
+      <div className="flex flex-col bg-transparent w-full xl:justify-between pr-8 sm:px-6 md:pl-15 xl:px-9">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center pt-15 lg:pt-11 xl:pt-14 justify-between  lg:pr-9 gap-4">
           <div>
             <h1 className="text-3xl sm:text-3xl font-semibold text-left text-[#202124]">
               Transactions
