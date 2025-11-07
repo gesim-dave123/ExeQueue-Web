@@ -643,13 +643,13 @@ export default function Request() {
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div
-        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col mt- p-10"
+        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col p-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <div className="mb-6 md:mb-8 px-15">
+        <div className="mb-6 md:mb-8  sm:px-15">
           {currentStep === 1 && (
             <>
               <h1 className="text-2xl md:text-3xl text-left font-bold text-blue-600 mb-2 md:mb-4">
@@ -697,11 +697,11 @@ export default function Request() {
         </div>
 
         {/* Step Indicator */}
-        <div className="mb-8 md:mb-10">
-          <p className="text-sm text-left text-gray-500 mb-2 px-15">
+        <div className="mb-8 md:mb-10 ">
+          <p className="text-sm text-left text-gray-500 mb-2  sm:px-15">
             Step {currentStep} of 4
           </p>
-          <div className="flex space-x-2 px-15">
+          <div className="flex space-x-2  sm:px-15">
             {[1, 2, 3, 4].map((step) => (
               <div
                 key={step}
@@ -832,7 +832,7 @@ export default function Request() {
         {/* Step 2: Your Information */}
         {currentStep === 2 && (
           <motion.form
-            className="space-y-4 mb-8 bg-white shadow-sm p-10 rounded-2xl md:mb-10 text-left"
+            className="space-y-4 mb-8 bg-white shadow-sm p-6 sm:p-10 rounded-2xl md:mb-10 text-left"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
@@ -1091,7 +1091,7 @@ export default function Request() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {/* [
               { label: "Good Moral Certificate", icon: "fa-solid fa-file" },
               { label: "Insurance Payment", icon: "fa-solid fa-shield-halved" },
