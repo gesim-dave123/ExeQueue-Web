@@ -196,8 +196,8 @@ export default function Analytics() {
   const doughnutTotals = todayData
     ? {
         totalQueueToday: todayData.totalQueues || 0,
-        totalRegularWaiting: todayData.totalRegular || 0,
-        totalPriorityWaiting: todayData.totalPriority || 0,
+        completedRegular: todayData.completedRegular || 0,
+        completedPriority: todayData.completedPriority || 0,
         inProgress: todayData.inProgress || 0,
       }
     : null;
@@ -255,37 +255,36 @@ export default function Analytics() {
             </div>
           </div>
           <div className="flex flex-col md:flex-row flex-2  gap-5 mt-7 sm:mt-7 md:mt-7 lg:mt-0 ">
-        {/* Card 2 - Total Regular */}
-                  <div className="bg-white flex-1 rounded-xl shadow-xs   p-5 flex flex-col justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#F5F5F5] p-2 rounded-xl">
-                        <img src="/assets/person icon.png" alt="" />
-                      </div>
-                      <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                        Total Regular
-                      </h3>
-                    </div>
-                    <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
-                      {todayData?.totalRegular || 0}
-                    </p>
-                  </div>
+            {/* Card 2 - Total Regular */}
+            <div className="bg-white flex-1 rounded-xl shadow-xs   p-5 flex flex-col justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#F5F5F5] p-2 rounded-xl">
+                  <img src="/assets/person icon.png" alt="" />
+                </div>
+                <h3 className="text-base md:text-lg font-medium text-[#202124]">
+                  Total Regular
+                </h3>
+              </div>
+              <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
+                {todayData?.completedRegular || 0}
+              </p>
+            </div>
 
-                  {/* Card 3 - Total Priority */}
-                  <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#F5F5F5] p-2 rounded-xl">
-                        <img src="/assets/star icon.png" alt="" />
-                      </div>
-                      <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                        Total Priority
-                      </h3>
-                    </div>
-                    <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
-                      {todayData?.totalPriority || 0}
-                    </p>
-                  </div>
+            {/* Card 3 - Total Priority */}
+            <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#F5F5F5] p-2 rounded-xl">
+                  <img src="/assets/star icon.png" alt="" />
+                </div>
+                <h3 className="text-base md:text-lg font-medium text-[#202124]">
+                  Total Priority
+                </h3>
+              </div>
+              <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
+                {todayData?.completedPriority || 0}
+              </p>
+            </div>
           </div>
-          
         </div>
 
         {/* View Toggle Buttons */}
@@ -342,7 +341,7 @@ export default function Analytics() {
                         <span className="font-semibold">
                           {doughnutTotals?.totalQueueToday > 0
                             ? (
-                                (doughnutTotals.totalPriorityWaiting /
+                                (doughnutTotals.completedPriority /
                                   doughnutTotals.totalQueueToday) *
                                 100
                               ).toFixed(1)
@@ -358,7 +357,7 @@ export default function Analytics() {
                         <span className="font-semibold">
                           {doughnutTotals?.totalQueueToday > 0
                             ? (
-                                (doughnutTotals.totalRegularWaiting /
+                                (doughnutTotals.completedRegular /
                                   doughnutTotals.totalQueueToday) *
                                 100
                               ).toFixed(1)
