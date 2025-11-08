@@ -7,7 +7,7 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   assignServiceWindow,
@@ -55,7 +55,8 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
-  const [statusFilter, setStatusFilter] = useState(null);
+  const [statusFilter, setStatusFilter] = useState([]);
+  const [tooltipData, setTooltipData] = useState(null);
 
   // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -69,6 +70,15 @@ export default function Manage_Queue() {
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedDeferredSearchTerm = useDebounce(deferredSearchTerm, 500);
   const isNumeric = (val) => /^\d+$/.test(val);
+
+  // Status filter toggle handler
+  const toggleStatusFilter = (status) => {
+    setStatusFilter(prev =>
+      prev.includes(status)
+        ? prev.filter(s => s !== status)   // remove if already selected
+        : [...prev, status]                // add if not selected
+    );
+  };
 
   const DEFAULT_QUEUE = {
     queueNo: "R000",
@@ -759,6 +769,22 @@ export default function Manage_Queue() {
       loadMoreWaitingQueues();
     }
   };
+  
+  // const filteredDeferredQueue = useMemo(() => {
+  // if (statusFilter.length === 0) {
+  //   return deferredQueue; // No filters = show all
+  // }
+  
+  // return deferredQueue.filter(queue => {
+  //   // Check if any request in this queue matches any selected status
+  //   return queue.requests?.some(request => 
+  //     statusFilter.some(filter => 
+  //       request.status?.toLowerCase() === filter.toLowerCase()
+  //     )
+  //   );
+  // });
+  // }, [deferredQueue, statusFilter]);
+
   const deferredVirtualizer = useVirtualizer({
     count: deferredQueue.length,
     getScrollElement: () => deferredParentRef.current,
@@ -1116,7 +1142,7 @@ export default function Manage_Queue() {
                 {deferredOpen && (
                   <div className="p-4">
                     {/* Search bar and filter buttons */}
-                    <div className="mb-4 flex justify-between items-center gap-4">
+                    <div className="mb-4 flex justify-end items-center gap-4">
                       <div className="relative flex-1 max-w-sm">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                           <svg
@@ -1145,31 +1171,25 @@ export default function Manage_Queue() {
                       </div>
                       
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => setStatusFilter('stalled')}
-                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                            statusFilter === 'stalled'
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          Stalled
-                        </button>
-                        <button
-                          onClick={() => setStatusFilter('skipped')}
-                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                            statusFilter === 'skipped'
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          Skipped
-                        </button>
+                        {['stalled', 'skipped'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => toggleStatusFilter(status)}
+                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer ${
+                              statusFilter.includes(status)
+                                ? 'bg-gray-900 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </button>
+                        ))}
                       </div>
+
                     </div>
 
                     {/* Virtualized Table */}
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="border border-gray-200 rounded-lg overflow-hidden relative">
                       <div
                         ref={deferredParentRef}
                         onScroll={handleDeferredScroll}
@@ -1177,7 +1197,7 @@ export default function Manage_Queue() {
                       >
                         <table className="text-sm  w-full text-gray-900 table-fixed">
                           <thead className="sticky top-0 bg-white z-10">
-                            <tr className="border-b border-[#E2E3E4]">
+                            <tr className="border-b  border-[#E2E3E4]">
                               <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
                                 Student ID
                               </th>
@@ -1250,20 +1270,28 @@ export default function Manage_Queue() {
                                               <>
                                                 <span
                                                   className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                  onMouseEnter={() =>
-                                                    setHoveredRow(
-                                                      `deferred-${virtualRow.index}`
-                                                    )
-                                                  }
-                                                  onMouseLeave={() =>
+                                                   onMouseEnter={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setTooltipData({
+                                                      id: `deferred-${virtualRow.index}`,
+                                                      requests: item.requests.slice(1),
+                                                      position: {
+                                                        top: rect.top - 10,
+                                                        left: rect.left
+                                                      }
+                                                    });
+                                                  }}
+                                                  onMouseLeave={() =>{
                                                     setHoveredRow(null)
+                                                    setTooltipData(null)
+                                                  }
                                                   }
                                                 >
                                                   +{item.requests.length - 1}
                                                 </span>
                                                 {hoveredRow ===
                                                   `deferred-${virtualRow.index}` && (
-                                                  <div className="absolute bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-10 min-w-[200px] max-w-[300px]">
+                                                  <div className="absolute   bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-20 min-w-[200px] max-w-[300px]">
                                                     {item.requests
                                                       .slice(1)
                                                       .map((req) => (
@@ -1328,6 +1356,26 @@ export default function Manage_Queue() {
                           </tbody>
                         </table>
                       </div>
+                       {/* Render tooltip outside the table */}
+                        {tooltipData && (
+                          <div 
+                            className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
+                            style={{
+                              top: `${tooltipData.position.top}px`,
+                              left: `${tooltipData.position.left}px`,
+                              transform: 'translateY(-100%)'
+                            }}
+                          >
+                            {tooltipData.requests.map((req) => (
+                              <div
+                                key={req.id}
+                                className="text-xs text-left break-words"
+                              >
+                                {req.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                     </div>
 
                     {/* Empty state */}
@@ -1499,14 +1547,23 @@ export default function Manage_Queue() {
                                             <>
                                               <span
                                                 className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                onMouseEnter={() =>
-                                                  setHoveredRow(
-                                                    virtualRow.index
-                                                  )
-                                                }
-                                                onMouseLeave={() =>
-                                                  setHoveredRow(null)
-                                                }
+                                                 onMouseEnter={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setTooltipData({
+                                                      id: `deferred-${virtualRow.index}`,
+                                                      requests: item.requests.slice(1),
+                                                      position: {
+                                                        top: rect.top - 10,
+                                                        left: rect.left
+                                                      }
+                                                    });
+                                                  }}
+                                                  onMouseLeave={() =>{
+                                                    setHoveredRow(null)
+                                                    setTooltipData(null)
+                                                  }
+                                                  }
+                                             
                                               >
                                                 +{item.requests.length - 1}
                                               </span>
@@ -1562,6 +1619,25 @@ export default function Manage_Queue() {
                           </tbody>
                         </table>
                       </div>
+                      {tooltipData && (
+                        <div 
+                          className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
+                          style={{
+                            top: `${tooltipData.position.top}px`,
+                            left: `${tooltipData.position.left}px`,
+                            transform: 'translateY(-100%)'
+                          }}
+                        >
+                          {tooltipData.requests.map((req) => (
+                            <div
+                              key={req.id}
+                              className="text-xs text-left break-words"
+                            >
+                              {req.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {/* Empty State */}
                     {globalQueueList.length === 0 && !isLoading && (

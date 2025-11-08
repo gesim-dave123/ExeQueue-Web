@@ -31,6 +31,8 @@ html {
   display: none;
 }
 .custom-scrollbar {
+    scroll-behavior: smooth;
+
   scrollbar-width:thick;
   scrollbar-color: #1A73E8 #F3F4F6;
 }
