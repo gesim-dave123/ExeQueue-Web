@@ -1687,7 +1687,7 @@ export const callNextQueue = async (req, res) => {
               Status.DEFERRED,
             ],
           },
-          session: { isActive: true, isServing: true },
+          session: { sessionDate: todayUTC, isActive: true, isServing: true },
           windowId: windowId,
         },
         orderBy: { calledAt: "desc" },
@@ -1700,7 +1700,7 @@ export const callNextQueue = async (req, res) => {
         where: {
           queueStatus: Status.WAITING,
           queueType: nextType,
-          session: { isActive: true, isServing: true },
+          session: { sessionDate: todayUTC, isActive: true, isServing: true },
         },
         orderBy: [
           {
@@ -1713,7 +1713,7 @@ export const callNextQueue = async (req, res) => {
         nextQueue = await tx.queue.findFirst({
           where: {
             queueStatus: Status.WAITING,
-            session: { isActive: true, isServing: true },
+            session: { sessionDate: todayUTC, isActive: true, isServing: true },
           },
           orderBy: [
             { queueType: "desc" },
