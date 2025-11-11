@@ -289,13 +289,14 @@ export default function Manage_Queue() {
       }
 
       const response = await getCallNextQueue(activeWindow.id);
-      console.log("Call Next Response:", response);
+      // console.log("Call Next Response:", response);
 
       if (response.status === 404 || !response.success) {
         if (response?.message?.includes("No queues left")) {
           showToast("🎉 No more queues left for today!", "info");
           setCurrentQueue(getDefaultQueue());
           setWasQueueEmpty(true);
+          setHasCurrentServedQueue(false);
           return;
         }
 
@@ -565,6 +566,7 @@ export default function Manage_Queue() {
             } else {
               console.log("ℹ️ No active queue found");
               setCurrentQueue(getDefaultQueue());
+              setHasCurrentServedQueue(false);
               showToast(`${restoredWindow.name} has no active queue`, "info");
             }
           } catch (queueError) {
@@ -624,6 +626,7 @@ export default function Manage_Queue() {
             setCurrentQueue(restoredQueue);
             console.log("✅ Restored current queue:", restoredQueue.queueNo);
           } else {
+            setHasCurrentServedQueue(false);
             setCurrentQueue(getDefaultQueue());
             console.log("🎯 Window is empty - no current queue");
           }
@@ -658,7 +661,13 @@ export default function Manage_Queue() {
       setWasQueueEmpty(true);
     }
   }, [isLoading, globalQueueList.length, selectedWindow, currentQueue]);
-
+  console.log({
+    globalList: globalQueueList.length,
+    window: selectedWindow,
+    default: isDefaultQueue(currentQueue),
+    hasCurrent: hasCurrentServedQueue === false,
+    autoCall: !autoCallInProgressRef.current,
+  });
   useEffect(() => {
     if (
       globalQueueList.length > 0 &&
@@ -1119,7 +1128,7 @@ export default function Manage_Queue() {
                 </div>
               )}
 
-             <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
+              <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
                 <button
                   onClick={() => setDeferredOpen(!deferredOpen)}
                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
@@ -1169,7 +1178,7 @@ export default function Manage_Queue() {
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-                      
+
                       <div className="flex gap-2">
                         {['stalled', 'skipped'].map((status) => (
                           <button
@@ -1201,16 +1210,28 @@ export default function Manage_Queue() {
                               <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
                                 Student ID
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "200px" }}
+                              >
                                 Name
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '250px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "250px" }}
+                              >
                                 Request
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '120px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "120px" }}
+                              >
                                 Status
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '120px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "120px" }}
+                              >
                                 Action
                               </th>
                             </tr>
@@ -1242,11 +1263,17 @@ export default function Manage_Queue() {
                                       tableLayout: "fixed",
                                     }}
                                   >
-                                    <td className="text-left py-3 px-4" style={{width: '150px'}}>
+                                    <td
+                                      className="text-left py-3 px-4"
+                                      style={{ width: "150px" }}
+                                    >
                                       {item.studentId}
                                     </td>
 
-                                    <td className="text-left py-3 px-4" style={{width: '200px'}}>
+                                    <td
+                                      className="text-left py-3 px-4"
+                                      style={{ width: "200px" }}
+                                    >
                                       <span
                                         className="truncate block"
                                         title={item.name}
@@ -1255,7 +1282,10 @@ export default function Manage_Queue() {
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-3 px-4" style={{width: '250px'}}>
+                                    <td
+                                      className="text-left py-3 px-4"
+                                      style={{ width: "250px" }}
+                                    >
                                       <div className="relative">
                                         {item.requests &&
                                         item.requests.length > 0 ? (
@@ -1315,13 +1345,19 @@ export default function Manage_Queue() {
                                       </div>
                                     </td>
 
-                                    <td className="text-left py-3 px-4" style={{width: '120px'}}>
+                                    <td
+                                      className="text-left py-3 px-4"
+                                      style={{ width: "120px" }}
+                                    >
                                       <span className="text-gray-600">
-                                        {item.status || 'Stalled'}
+                                        {item.status || "Stalled"}
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-3 px-4" style={{width: '120px'}}>
+                                    <td
+                                      className="text-left py-3 px-4"
+                                      style={{ width: "120px" }}
+                                    >
                                       <button
                                         onClick={() => openActionPanel(item)}
                                         className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
@@ -1411,7 +1447,7 @@ export default function Manage_Queue() {
                   )}
                 </button>
 
-               {/* Content */}
+                {/* Content */}
                 {nextInLineOpen && (
                   <div className="p-4">
                     {/* Search Bar */}
@@ -1462,25 +1498,39 @@ export default function Manage_Queue() {
                         <table className="text-sm w-full text-gray-900 table-fixed">
                           <thead className="sticky top-0 bg-white z-10">
                             <tr className="border-b border-[#E2E3E4]">
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "150px" }}
+                              >
                                 Queue No.
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "200px" }}
+                              >
                                 Student ID
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "200px" }}
+                              >
                                 Name
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '200px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "200px" }}
+                              >
                                 Request
                               </th>
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '120px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "120px" }}
+                              >
                                 Time
                               </th>
                             </tr>
                           </thead>
-                        
-                        
+
                           <tbody
                             style={{
                               height: `${rowVirtualizer.getTotalSize()}px`,
@@ -1494,11 +1544,10 @@ export default function Manage_Queue() {
                                 if (!item) return null;
 
                                 return (
-                                  
                                   <tr
                                     key={item.queueId || virtualRow.index}
                                     className="border-b  border-[#E2E3E4] hover:bg-gray-50 transition"
-                                       style={{
+                                    style={{
                                       position: "absolute",
                                       top: 0,
                                       left: 0,
@@ -1508,7 +1557,10 @@ export default function Manage_Queue() {
                                       tableLayout: "fixed",
                                     }}
                                   >
-                                    <td className="text-left py-4 px-4 font-semibold" style={{width: '150px'}}>
+                                    <td
+                                      className="text-left py-4 px-4 font-semibold"
+                                      style={{ width: "150px" }}
+                                    >
                                       <span
                                         className={
                                           item.type === "Priority"
@@ -1520,11 +1572,17 @@ export default function Manage_Queue() {
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-4 px-4" style={{width: '200px'}}>
+                                    <td
+                                      className="text-left py-4 px-4"
+                                      style={{ width: "200px" }}
+                                    >
                                       {item.studentId}
                                     </td>
 
-                                    <td className="text-left py-4 px-4" style={{width: '200px'}}>
+                                    <td
+                                      className="text-left py-4 px-4"
+                                      style={{ width: "200px" }}
+                                    >
                                       <span
                                         className="truncate block"
                                         title={item.name}
@@ -1533,7 +1591,10 @@ export default function Manage_Queue() {
                                       </span>
                                     </td>
 
-                                    <td className="text-left py-4 px-4" style={{width: '200px'}}>
+                                    <td
+                                      className="text-left py-4 px-4"
+                                      style={{ width: "200px" }}
+                                    >
                                       {item.requests &&
                                       item.requests.length > 0 ? (
                                         <div className="relative flex items-center">
@@ -1592,7 +1653,10 @@ export default function Manage_Queue() {
                                       )}
                                     </td>
 
-                                    <td className="py-4 px-4 text-left" style={{width: '120px'}}>
+                                    <td
+                                      className="py-4 px-4 text-left"
+                                      style={{ width: "120px" }}
+                                    >
                                       {item.time}
                                     </td>
                                   </tr>
