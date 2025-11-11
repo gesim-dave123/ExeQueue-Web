@@ -167,7 +167,6 @@ export default function Analytics() {
     setView('today');
     setChartType('donut');
     setSelectedDay(null);
-
   };
 
   const handleWeek = () => {
@@ -197,9 +196,9 @@ export default function Analytics() {
 
     const fullDayName = dayMap[day];
     setSelectedDay(day);
-    
+
     console.log('Day clicked:', day, '| Full name:', fullDayName);
-    
+
     // TODO: Replace with actual API call to get specific day's data
     // Example: fetchDayAnalytics(fullDayName);
   };
@@ -232,9 +231,9 @@ export default function Analytics() {
     setSelectedDay(day);
   };
 
-
   // Get request breakdown based on view
   const getRequests = () => {
+    // TODAY VIEW: Show today's request breakdown
     if (view === 'today' && todayData?.requestBreakdown) {
       return todayData.requestBreakdown.map((req) => ({
         icon: (
@@ -249,40 +248,29 @@ export default function Analytics() {
       }));
     }
 
-    // if (view === 'week' && weekData?.weeklyRequestBreakdown) {
-    //   return weekData.weeklyRequestBreakdown.map((req) => ({
-    //     icon: (
-    //       <img
-    //         src={iconMap[req.requestType] || '/assets/analytics/goodmoral.png'}
-    //         alt=""
-    //       />
-    //     ),
-    //     label: req.requestType,
-    //     count: req.total,
-    //   }));
-    // }
-
-    // return [];
-     if (view === 'week') {
+    // WEEK VIEW: Show weekly total or specific day breakdown
+    if (view === 'week') {
       // If a day is selected, show that day's breakdown
-      if (selectedDay) {
+      if (selectedDay && weekData?.everydayRequestBreakdown) {
         const dayMap = {
-        MON: 'Monday',
-        TUE: 'Tuesday',
-        WED: 'Wednesday',
-        THU: 'Thursday',
-        FRI: 'Friday',
-        SAT: 'Saturday',
-      };
+          MON: 'Monday',
+          TUE: 'Tuesday',
+          WED: 'Wednesday',
+          THU: 'Thursday',
+          FRI: 'Friday',
+          SAT: 'Saturday',
+        };
 
-       const fullDayName = dayMap[selectedDay];
-        const dayBreakdown = dummyDailyBreakdown[fullDayName] || [];
+        const fullDayName = dayMap[selectedDay];
+        const dayBreakdown =
+          weekData.everydayRequestBreakdown[fullDayName] || [];
 
-        
         return dayBreakdown.map((req) => ({
           icon: (
             <img
-              src={iconMap[req.requestType] || '/assets/analytics/goodmoral.png'}
+              src={
+                iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
+              }
               alt=""
               className="w-6 h-6"
             />
@@ -291,13 +279,15 @@ export default function Analytics() {
           count: req.total,
         }));
       }
-      
-      // Otherwise show weekly total
+
+      // No day selected: show weekly total breakdown
       if (weekData?.weeklyRequestBreakdown) {
         return weekData.weeklyRequestBreakdown.map((req) => ({
           icon: (
             <img
-              src={iconMap[req.requestType] || '/assets/analytics/goodmoral.png'}
+              src={
+                iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
+              }
               alt=""
               className="w-6 h-6"
             />
@@ -309,7 +299,6 @@ export default function Analytics() {
     }
 
     return [];
-
   };
 
   const requests = getRequests();
@@ -461,10 +450,10 @@ export default function Analytics() {
               </div>
 
               {chartType === 'bar' ? (
-                <BarGraph 
-                chartData={chartData}
-                onDayClick={handleDayClick}
-                selectedDay={selectedDay}
+                <BarGraph
+                  chartData={chartData}
+                  onDayClick={handleDayClick}
+                  selectedDay={selectedDay}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-[350px]">
@@ -534,12 +523,11 @@ export default function Analytics() {
                   Request Breakdown
                 </h3>
               </div>
-               <p className="text-sm text-gray-500 mb-6">
+              <p className="text-sm text-gray-500 mb-6">
                 {selectedDay && view === 'week'
                   ? `Number of Completed Requests on ${selectedDay}`
                   : 'Number of Completed Requests'}
               </p>
-
 
               <div className="space-y-4">
                 {requests.length > 0 ? (
