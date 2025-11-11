@@ -7,7 +7,7 @@ import {
   SkipForward,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   assignServiceWindow,
@@ -55,7 +55,8 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
-  const [statusFilter, setStatusFilter] = useState(null);
+  const [statusFilter, setStatusFilter] = useState([]);
+  const [tooltipData, setTooltipData] = useState(null);
 
   // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -69,6 +70,15 @@ export default function Manage_Queue() {
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedDeferredSearchTerm = useDebounce(deferredSearchTerm, 500);
   const isNumeric = (val) => /^\d+$/.test(val);
+
+  // Status filter toggle handler
+  const toggleStatusFilter = (status) => {
+    setStatusFilter(prev =>
+      prev.includes(status)
+        ? prev.filter(s => s !== status)   // remove if already selected
+        : [...prev, status]                // add if not selected
+    );
+  };
 
   const DEFAULT_QUEUE = {
     queueNo: "R000",
@@ -768,6 +778,22 @@ export default function Manage_Queue() {
       loadMoreWaitingQueues();
     }
   };
+  
+  // const filteredDeferredQueue = useMemo(() => {
+  // if (statusFilter.length === 0) {
+  //   return deferredQueue; // No filters = show all
+  // }
+  
+  // return deferredQueue.filter(queue => {
+  //   // Check if any request in this queue matches any selected status
+  //   return queue.requests?.some(request => 
+  //     statusFilter.some(filter => 
+  //       request.status?.toLowerCase() === filter.toLowerCase()
+  //     )
+  //   );
+  // });
+  // }, [deferredQueue, statusFilter]);
+
   const deferredVirtualizer = useVirtualizer({
     count: deferredQueue.length,
     getScrollElement: () => deferredParentRef.current,
@@ -816,9 +842,9 @@ export default function Manage_Queue() {
         />
       ) : (
         currentQueue && (
-          <div className="min-h-screen bg-transparent w-full p-4 md:p-10">
+          <div className="min-h-screen bg-transparent w-full pr-7 pt-9  lg:pl-15 xl:pl-9 xl:pt-12 xl:pr-8 pb-9">
             <div className="max-w-full mx-auto">
-              <h1 className="text-2xl md:text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
+              <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
                 Manage Queue
               </h1>
               {/* Current Queue Display - Updated */}
@@ -837,9 +863,9 @@ export default function Manage_Queue() {
                     </div>
 
                     {/* container */}
-                    <div className="flex  items-center justify-between gap-6 h-full">
+                    <div className="flex md:flex-row flex-col  items-center justify-between gap-6 h-full">
                       {/* left side */}
-                      <div className="border-2 flex-1  border-[#E2E3E4] rounded-lg p-6 h-full">
+                      <div className="border w-full md:w-auto flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
                         <div className=" text-left mb-4 ">
                           <div
                             className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
@@ -894,7 +920,7 @@ export default function Manage_Queue() {
                       </div>
 
                       {/* right side */}
-                      <div className="flex flex-col flex-5 justify-between">
+                      <div className="w-full flex flex-col flex-5 justify-between">
                         <div className="flex-1">
                           <div className="space-y-3">
                             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1034,7 +1060,7 @@ export default function Manage_Queue() {
                           </div>
                         </div>
 
-                        <div className="flex gap-3 mt-15 justify-end">
+                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-15 justify-end">
                           <button
                             onClick={() =>
                               handleButtonClick(
@@ -1051,7 +1077,7 @@ export default function Manage_Queue() {
                                 (request) => request.status === "In Progress"
                               )
                             }
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-lg transition-colors w-full sm:w-auto ${
                               disabledForSeconds ||
                               currentQueue.requests.some(
                                 (request) => request.status === "In Progress"
@@ -1063,8 +1089,9 @@ export default function Manage_Queue() {
                             <img
                               src="/assets/manage_queue/Announcement-1.png"
                               alt="Edit"
+                              className="w-5 h-5 sm:w-6 sm:h-6"
                             />
-                            Call Next
+                            <span className="text-sm sm:text-base">Call Next</span>
                           </button>
                           <button
                             onClick={() =>
@@ -1073,7 +1100,7 @@ export default function Manage_Queue() {
                                   AnnounceQueue(
                                     currentQueue.queueNo,
                                     selectedWindow?.name
-                                  ), //Announce the current queue
+                                  ),
                                 disabledForSeconds,
                                 lastAnnounceTime,
                                 setDisabledForSeconds,
@@ -1081,7 +1108,7 @@ export default function Manage_Queue() {
                               )
                             }
                             disabled={shouldDisableAnnounce()}
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-lg transition-colors w-full sm:w-auto ${
                               shouldDisableAnnounce()
                                 ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
                                 : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
@@ -1090,8 +1117,9 @@ export default function Manage_Queue() {
                             <img
                               src="/assets/manage_queue/Announcement.png"
                               alt="Announce"
+                              className="w-5 h-5 sm:w-6 sm:h-6"
                             />
-                            Announce
+                            <span className="text-sm sm:text-base">Announce</span>
                           </button>
                         </div>
                       </div>
@@ -1123,7 +1151,7 @@ export default function Manage_Queue() {
                 {deferredOpen && (
                   <div className="p-4">
                     {/* Search bar and filter buttons */}
-                    <div className="mb-4 flex justify-between items-center gap-4">
+                    <div className="mb-4 flex justify-end items-center gap-4">
                       <div className="relative flex-1 max-w-sm">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                           <svg
@@ -1152,31 +1180,25 @@ export default function Manage_Queue() {
                       </div>
 
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => setStatusFilter("stalled")}
-                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                            statusFilter === "stalled"
-                              ? "bg-gray-900 text-white"
-                              : "bg-white text-gray-700 hover:bg-gray-100"
-                          }`}
-                        >
-                          Stalled
-                        </button>
-                        <button
-                          onClick={() => setStatusFilter("skipped")}
-                          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                            statusFilter === "skipped"
-                              ? "bg-gray-900 text-white"
-                              : "bg-white text-gray-700 hover:bg-gray-100"
-                          }`}
-                        >
-                          Skipped
-                        </button>
+                        {['stalled', 'skipped'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => toggleStatusFilter(status)}
+                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer ${
+                              statusFilter.includes(status)
+                                ? 'bg-gray-900 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </button>
+                        ))}
                       </div>
+
                     </div>
 
                     {/* Virtualized Table */}
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="border border-gray-200 rounded-lg overflow-hidden relative">
                       <div
                         ref={deferredParentRef}
                         onScroll={handleDeferredScroll}
@@ -1184,11 +1206,8 @@ export default function Manage_Queue() {
                       >
                         <table className="text-sm  w-full text-gray-900 table-fixed">
                           <thead className="sticky top-0 bg-white z-10">
-                            <tr className="border-b border-[#E2E3E4]">
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "150px" }}
-                              >
+                            <tr className="border-b  border-[#E2E3E4]">
+                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
                                 Student ID
                               </th>
                               <th
@@ -1281,20 +1300,28 @@ export default function Manage_Queue() {
                                               <>
                                                 <span
                                                   className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                  onMouseEnter={() =>
-                                                    setHoveredRow(
-                                                      `deferred-${virtualRow.index}`
-                                                    )
-                                                  }
-                                                  onMouseLeave={() =>
+                                                   onMouseEnter={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setTooltipData({
+                                                      id: `deferred-${virtualRow.index}`,
+                                                      requests: item.requests.slice(1),
+                                                      position: {
+                                                        top: rect.top - 10,
+                                                        left: rect.left
+                                                      }
+                                                    });
+                                                  }}
+                                                  onMouseLeave={() =>{
                                                     setHoveredRow(null)
+                                                    setTooltipData(null)
+                                                  }
                                                   }
                                                 >
                                                   +{item.requests.length - 1}
                                                 </span>
                                                 {hoveredRow ===
                                                   `deferred-${virtualRow.index}` && (
-                                                  <div className="absolute bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-10 min-w-[200px] max-w-[300px]">
+                                                  <div className="absolute   bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-20 min-w-[200px] max-w-[300px]">
                                                     {item.requests
                                                       .slice(1)
                                                       .map((req) => (
@@ -1365,6 +1392,26 @@ export default function Manage_Queue() {
                           </tbody>
                         </table>
                       </div>
+                       {/* Render tooltip outside the table */}
+                        {tooltipData && (
+                          <div 
+                            className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
+                            style={{
+                              top: `${tooltipData.position.top}px`,
+                              left: `${tooltipData.position.left}px`,
+                              transform: 'translateY(-100%)'
+                            }}
+                          >
+                            {tooltipData.requests.map((req) => (
+                              <div
+                                key={req.id}
+                                className="text-xs text-left break-words"
+                              >
+                                {req.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                     </div>
 
                     {/* Empty state */}
@@ -1561,14 +1608,23 @@ export default function Manage_Queue() {
                                             <>
                                               <span
                                                 className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                onMouseEnter={() =>
-                                                  setHoveredRow(
-                                                    virtualRow.index
-                                                  )
-                                                }
-                                                onMouseLeave={() =>
-                                                  setHoveredRow(null)
-                                                }
+                                                 onMouseEnter={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setTooltipData({
+                                                      id: `deferred-${virtualRow.index}`,
+                                                      requests: item.requests.slice(1),
+                                                      position: {
+                                                        top: rect.top - 10,
+                                                        left: rect.left
+                                                      }
+                                                    });
+                                                  }}
+                                                  onMouseLeave={() =>{
+                                                    setHoveredRow(null)
+                                                    setTooltipData(null)
+                                                  }
+                                                  }
+                                             
                                               >
                                                 +{item.requests.length - 1}
                                               </span>
@@ -1627,6 +1683,25 @@ export default function Manage_Queue() {
                           </tbody>
                         </table>
                       </div>
+                      {tooltipData && (
+                        <div 
+                          className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
+                          style={{
+                            top: `${tooltipData.position.top}px`,
+                            left: `${tooltipData.position.left}px`,
+                            transform: 'translateY(-100%)'
+                          }}
+                        >
+                          {tooltipData.requests.map((req) => (
+                            <div
+                              key={req.id}
+                              className="text-xs text-left break-words"
+                            >
+                              {req.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {/* Empty State */}
                     {globalQueueList.length === 0 && !isLoading && (
@@ -1658,9 +1733,9 @@ export default function Manage_Queue() {
                   </div>
 
                   <div className="p-6">
-                    <div className="flex items-center justify-between gap-6 h-full">
+                    <div className="w-full flex flex-col lg:flex-row items-center justify-between gap-6">
                       {/* left side */}
-                      <div className="border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
+                      <div className="w-full lg:w-auto border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
                         <div className="text-left mb-4">
                           <div className="text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold text-blue-600 mb-2">
                             {selectedQueue.queueNo}
@@ -1701,7 +1776,7 @@ export default function Manage_Queue() {
                       </div>
 
                       {/* right side */}
-                      <div className="flex flex-col flex-5 justify-between h-full">
+                      <div className="w-full flex flex-col flex-5 justify-between ">
                         <div className="flex-1">
                           <div className="space-y-3">
                             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1846,7 +1921,7 @@ export default function Manage_Queue() {
                                   request.status === "Skipped"
                               )
                             }
-                            className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                            className={`flex items-center justify-center gap-2 px-6 py-3 w-full lg:w-auto rounded-lg transition-colors ${
                               selectedQueue.requests.every(
                                 (request) =>
                                   request.status === "Completed" ||
