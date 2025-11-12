@@ -22,7 +22,7 @@ node_modules
 src/generated/prisma
 server/prisma/seed.js
 seed.js
-
+server/utils/runner.js
 server/prisma/seed.js
 
 server/prisma/_old_migrations
