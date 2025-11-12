@@ -342,161 +342,7 @@ async function getCachedCount(whereClause) {
 }
 
 // ... rest of your existing functions (scheduleDeferredFinalization, etc.)
-export const scheduleDeferredFinalization = () => {
-  cron.schedule(
-    "0 22 * * *",
-    async () => {
-      console.log("[10 PM] Running deferred queue finalization...");
 
-      try {
-        const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
-          new Date(),
-          "Asia/Manila"
-        );
-
-        const deferredQueues = await prisma.queue.findMany({
-          where: {
-            queueStatus: Status.DEFERRED,
-            session: {
-              sessionDate: todayUTC,
-              isActive: true,
-            },
-          },
-          include: {
-            requests: {
-              where: { isActive: true },
-            },
-          },
-        });
-
-        console.log(
-          `Found ${deferredQueues.length} deferred queues to finalize`
-        );
-
-        for (const queue of deferredQueues) {
-          const requests = queue.requests;
-
-          const allCompleted = requests.every(
-            (r) => r.requestStatus === Status.COMPLETED
-          );
-          const allCancelled = requests.every(
-            (r) => r.requestStatus === Status.CANCELLED
-          );
-          const hasStalled = requests.some(
-            (r) => r.requestStatus === Status.STALLED
-          );
-          const hasSkipped = requests.some(
-            (r) => r.requestStatus === Status.SKIPPED
-          );
-          const hasCompleted = requests.some(
-            (r) => r.requestStatus === Status.COMPLETED
-          );
-          const hasCancelled = requests.some(
-            (r) => r.requestStatus === Status.CANCELLED
-          );
-
-          let finalStatus = Status.DEFERRED;
-
-          if (allCompleted) {
-            finalStatus = Status.COMPLETED;
-          } else if (allCancelled) {
-            finalStatus = Status.CANCELLED;
-          } else if (hasStalled || hasSkipped) {
-            finalStatus = Status.DEFERRED;
-          } else if (hasCompleted && hasCancelled) {
-            finalStatus = Status.PARTIALLY_COMPLETE;
-          }
-
-          await prisma.queue.update({
-            where: { queueId: queue.queueId },
-            data: {
-              queueStatus: finalStatus,
-              completedAt:
-                finalStatus === Status.COMPLETED ||
-                finalStatus === Status.CANCELLED
-                  ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-                  : null,
-              updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-            },
-          });
-
-          await prisma.transactionHistory.create({
-            data: {
-              queueId: queue.queueId,
-              performedById: queue.servedByStaff || "system",
-              performedByRole: "PERSONNEL",
-              transactionStatus: finalStatus,
-            },
-          });
-
-          console.log(
-            `Finalized queue ${queue.referenceNumber} → ${finalStatus}`
-          );
-        }
-
-        console.log("Deferred finalization completed");
-      } catch (error) {
-        console.error("Error in deferred finalization:", error);
-      }
-    },
-    {
-      timezone: "Asia/Manila",
-    }
-  );
-};
-
-export const scheduleSkippedToCancelled = () => {
-  cron.schedule("*/5 * * * *", async () => {
-    console.log("Checking for expired skipped requests...");
-
-    try {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-      const expiredRequests = await prisma.request.findMany({
-        where: {
-          requestStatus: Status.SKIPPED,
-          updatedAt: {
-            lt: oneHourAgo,
-          },
-          isActive: true,
-        },
-        include: {
-          queue: true,
-        },
-      });
-
-      console.log(`Found ${expiredRequests.length} expired skipped requests`);
-
-      for (const request of expiredRequests) {
-        await prisma.request.update({
-          where: { requestId: request.requestId },
-          data: {
-            requestStatus: Status.CANCELLED,
-            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-          },
-        });
-
-        await prisma.transactionHistory.create({
-          data: {
-            queueId: request.queueId,
-            requestId: request.requestId,
-            performedById: request.processedBy || "system",
-            performedByRole: "PERSONNEL",
-            transactionStatus: Status.CANCELLED,
-          },
-        });
-
-        console.log(
-          `Auto-cancelled skipped request ${request.requestId} after 1 hour`
-        );
-      }
-
-      console.log("Skipped request check completed");
-    } catch (error) {
-      console.error("Error in skipped-to-cancelled check:", error);
-    }
-  });
-};
 
 export const updateTransactionStatus = async (req, res) => {
   try {
@@ -763,9 +609,9 @@ export const getTransactionSummary = async (req, res) => {
   }
 };
 
-export const initializeScheduledJobs = () => {
-  console.log("Initializing scheduled jobs...");
-  scheduleDeferredFinalization();
-  scheduleSkippedToCancelled();
-  console.log("Scheduled jobs initialized successfully");
-};
+// export const initializeScheduledJobs = async () => {
+//   console.log("Initializing scheduled jobs...");
+//   await scheduleDeferredFinalization();
+//   await scheduleSkippedToCancelled();
+//   console.log("Scheduled jobs initialized successfully");
+// };
