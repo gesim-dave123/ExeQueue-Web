@@ -491,7 +491,7 @@ export const getAnalyticsData = async (req, res) => {
 
     console.log('📅 Week Range (Manila):', mondayManila, 'to', saturdayManila);
 
-    // ✅ CHANGED: Query queue table directly instead of queueSession
+    // ✅ Query ALL queues for bar graph (regardless of status)
     const allQueues = await prisma.queue.findMany({
       where: {
         createdAt: {
@@ -528,7 +528,7 @@ export const getAnalyticsData = async (req, res) => {
       return dayName;
     };
 
-    // ✅ Group queues by day
+    // ✅ Group ALL queues by day (for bar graph)
     const queuesByDay = allQueues.reduce((acc, queue) => {
       const day = getDayName(queue.createdAt);
 
@@ -569,7 +569,7 @@ export const getAnalyticsData = async (req, res) => {
 
     console.log('Queue Summary:', queueSummary);
 
-    // --- FETCH REQUESTS OF THE WEEK ---
+    // --- FETCH COMPLETED REQUESTS OF THE WEEK ---
     const allRequestOfTheWeek = await prisma.request.findMany({
       where: {
         createdAt: {
@@ -610,7 +610,7 @@ export const getAnalyticsData = async (req, res) => {
       })
     );
 
-    console.log('Weekly Request Breakdown:', weeklyRequestBreakdown);
+    // console.log('Weekly Request Breakdown:', weeklyRequestBreakdown);
 
     // --- GROUP REQUESTS BY DAY AND REQUEST TYPE ---
     const dayRequestMap = {};
@@ -629,19 +629,22 @@ export const getAnalyticsData = async (req, res) => {
       dayRequestMap[day][typeName] += 1;
     });
 
-    // Convert to array format
-    const everydayRequestBreakdown = [];
+    // Convert to array format grouped by day
+    const everydayRequestBreakdown = {};
+    DAYS_OF_WEEK.forEach((day) => {
+      everydayRequestBreakdown[day] = [];
+    });
+
     Object.entries(dayRequestMap).forEach(([day, requests]) => {
       Object.entries(requests).forEach(([requestType, requestTotal]) => {
-        everydayRequestBreakdown.push({
-          day,
+        everydayRequestBreakdown[day].push({
           requestType,
-          requestTotal,
+          total: requestTotal,
         });
       });
     });
 
-    console.log('Everyday Request Breakdown:', everydayRequestBreakdown);
+    // console.log('Everyday Request Breakdown:', everydayRequestBreakdown);
 
     return res.status(200).json({
       success: true,

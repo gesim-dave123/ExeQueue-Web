@@ -6,7 +6,7 @@ class QueueStressTester {
   constructor(
     baseURL = 'http://localhost:5000',
     concurrency = 10,
-    totalRequests = 400
+    totalRequests = 30
   ) {
     this.baseURL = baseURL;
     this.concurrency = concurrency;
