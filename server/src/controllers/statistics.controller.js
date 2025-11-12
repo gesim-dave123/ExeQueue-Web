@@ -671,20 +671,50 @@ export const getAnalyticsData = async (req, res) => {
 
 export const getTodayAnalytics = async (req, res) => {
   try {
-    // 🕒 Date boundaries for today (Asia/Manila)
-    const today = DateAndTimeFormatter.startOfDayInTimeZone(
+    // ✅ Get current date in Asia/Manila timezone
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
       'Asia/Manila'
     );
-    const now = new Date();
 
-    console.log('📅 Fetching today analytics:', today, 'to', now);
+    console.log('📅 Fetching today analytics for date:', todayUTC);
 
-    // ⚡ Fetch queues + requests in parallel for better performance
-    const [todayQueues, todayRequests, requestTypes] = await Promise.all([
+    // ✅ Find the CURRENT ACTIVE SESSION (isServing: true)
+    const activeSession = await prisma.queueSession.findFirst({
+      where: {
+        sessionDate: todayUTC,
+        isServing: true,
+        isActive: true,
+      },
+      select: { sessionId: true },
+      orderBy: { sessionNumber: 'desc' }, // Get the latest session if multiple
+    });
+
+    // If no active session, return empty data
+    if (!activeSession) {
+      console.log('⚠️ No active session found');
+      return res.status(200).json({
+        success: true,
+        message: 'No active session found. All data is 0.',
+        data: {
+          completed: 0,
+          inProgress: 0,
+          completedRegular: 0,
+          completedPriority: 0,
+          totalQueues: 0,
+          requestBreakdown: [],
+        },
+      });
+    }
+
+    const sessionId = activeSession.sessionId;
+    // console.log('✅ Active session ID:', sessionId);
+
+    // ⚡ Fetch queues + requests from CURRENT SESSION ONLY
+    const [sessionQueues, sessionRequests, requestTypes] = await Promise.all([
       prisma.queue.findMany({
         where: {
-          createdAt: { gte: today, lte: now },
+          sessionId: sessionId, // ✅ Only from active session
           isActive: true,
         },
         select: {
@@ -695,7 +725,9 @@ export const getTodayAnalytics = async (req, res) => {
 
       prisma.request.findMany({
         where: {
-          createdAt: { gte: today, lte: now },
+          queue: {
+            sessionId: sessionId, // ✅ Only requests from active session
+          },
           isActive: true,
         },
         select: {
@@ -713,18 +745,21 @@ export const getTodayAnalytics = async (req, res) => {
       }),
     ]);
 
+    // console.log('📊 Found queues in active session:', sessionQueues.length);
+    // console.log('📊 Found requests in active session:', sessionRequests.length);
+
     // 🧮 Queue analytics
-    const completed = todayQueues.filter(
+    const completed = sessionQueues.filter(
       (q) =>
         q.queueStatus === 'COMPLETED' ||
         q.queueStatus === 'CANCELLED' ||
         q.queueStatus === 'PARTIALLY_COMPLETE'
     ).length;
 
-    const inProgress = todayQueues.length - completed;
+    const inProgress = sessionQueues.length - completed;
 
-    // ✅ Count COMPLETED regular and priority queues only (matching Dashboard)
-    const completedRegular = todayQueues.filter(
+    // ✅ Count COMPLETED regular and priority queues only
+    const completedRegular = sessionQueues.filter(
       (q) =>
         q.queueType === 'REGULAR' &&
         (q.queueStatus === 'COMPLETED' ||
@@ -732,7 +767,7 @@ export const getTodayAnalytics = async (req, res) => {
           q.queueStatus === 'PARTIALLY_COMPLETE')
     ).length;
 
-    const completedPriority = todayQueues.filter(
+    const completedPriority = sessionQueues.filter(
       (q) =>
         q.queueType === 'PRIORITY' &&
         (q.queueStatus === 'COMPLETED' ||
@@ -742,7 +777,7 @@ export const getTodayAnalytics = async (req, res) => {
 
     // 🧩 Request breakdown by type
     const requestTypeMap = new Map();
-    todayRequests
+    sessionRequests
       .filter((r) => r.requestStatus === 'COMPLETED')
       .forEach((r) => {
         requestTypeMap.set(
@@ -767,11 +802,11 @@ export const getTodayAnalytics = async (req, res) => {
       inProgress,
       completedRegular,
       completedPriority,
-      totalQueues: todayQueues.length,
+      totalQueues: sessionQueues.length,
       requestBreakdown,
     };
 
-    console.log('✅ Today analytics:', analytics);
+    // console.log('✅ Today analytics (session-based):', analytics);
 
     return res.status(200).json({
       success: true,
