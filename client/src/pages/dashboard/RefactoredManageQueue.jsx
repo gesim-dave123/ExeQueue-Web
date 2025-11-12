@@ -1179,15 +1179,15 @@ export default function Manage_Queue() {
                         />
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex rounded-2xl bg-[#F4F8FE] px-3 py-2 gap-2">
                         {['stalled', 'skipped'].map((status) => (
                           <button
                             key={status}
                             onClick={() => toggleStatusFilter(status)}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer ${
+                            className={`px-4 py-2 rounded-xl font-medium text-sm transition-colors cursor-pointer ${
                               statusFilter.includes(status)
                                 ? 'bg-gray-900 text-white'
-                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                                : ' text-gray-700 hover:bg-gray-100'
                             }`}
                           >
                             {status.charAt(0).toUpperCase() + status.slice(1)}
