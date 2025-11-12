@@ -17,12 +17,65 @@ import DoughnutChart from '../../components/graphs/DoughnutChart';
 import BarGraph from '../../components/graphs/BarGraph';
 import backendConnection from '../../api/backendConnection';
 import { getTodayAnalytics, getWeeklyAnalytics } from '../../api/statistics';
+// Dummy data for daily request breakdown
+const dummyDailyBreakdown = {
+  Monday: [
+    { requestType: 'Good Moral Certificate', total: 15 },
+    { requestType: 'Insurance Payment', total: 8 },
+    { requestType: 'Transmittal Letter', total: 12 },
+    { requestType: 'Temporary Gate Pass', total: 6 },
+    { requestType: 'Uniform Exemption', total: 4 },
+    { requestType: 'Enrollment/Transfer', total: 10 },
+  ],
+  Tuesday: [
+    { requestType: 'Good Moral Certificate', total: 18 },
+    { requestType: 'Insurance Payment', total: 10 },
+    { requestType: 'Transmittal Letter', total: 9 },
+    { requestType: 'Temporary Gate Pass', total: 7 },
+    { requestType: 'Uniform Exemption', total: 5 },
+    { requestType: 'Enrollment/Transfer', total: 12 },
+  ],
+  Wednesday: [
+    { requestType: 'Good Moral Certificate', total: 20 },
+    { requestType: 'Insurance Payment', total: 12 },
+    { requestType: 'Transmittal Letter', total: 15 },
+    { requestType: 'Temporary Gate Pass', total: 8 },
+    { requestType: 'Uniform Exemption', total: 6 },
+    { requestType: 'Enrollment/Transfer', total: 14 },
+  ],
+  Thursday: [
+    { requestType: 'Good Moral Certificate', total: 16 },
+    { requestType: 'Insurance Payment', total: 9 },
+    { requestType: 'Transmittal Letter', total: 11 },
+    { requestType: 'Temporary Gate Pass', total: 5 },
+    { requestType: 'Uniform Exemption', total: 7 },
+    { requestType: 'Enrollment/Transfer', total: 13 },
+  ],
+  Friday: [
+    { requestType: 'Good Moral Certificate', total: 22 },
+    { requestType: 'Insurance Payment', total: 14 },
+    { requestType: 'Transmittal Letter', total: 18 },
+    { requestType: 'Temporary Gate Pass', total: 10 },
+    { requestType: 'Uniform Exemption', total: 8 },
+    { requestType: 'Enrollment/Transfer', total: 16 },
+  ],
+  Saturday: [
+    { requestType: 'Good Moral Certificate', total: 10 },
+    { requestType: 'Insurance Payment', total: 5 },
+    { requestType: 'Transmittal Letter', total: 7 },
+    { requestType: 'Temporary Gate Pass', total: 4 },
+    { requestType: 'Uniform Exemption', total: 3 },
+    { requestType: 'Enrollment/Transfer', total: 6 },
+  ],
+};
+
 export default function Analytics() {
   const [view, setView] = useState('week');
   const [chartType, setChartType] = useState('bar');
   const [todayData, setTodayData] = useState(null);
   const [weekData, setWeekData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState(null);
 
   const viewRef = useRef(view);
 
@@ -113,14 +166,41 @@ export default function Analytics() {
   const handleToday = () => {
     setView('today');
     setChartType('donut');
+    setSelectedDay(null);
   };
 
   const handleWeek = () => {
     setView('week');
     setChartType('bar');
+    setSelectedDay(null);
 
     // ✅ Refetch weekly data when switching to week view
     fetchWeeklyData();
+  };
+
+  const handleDayClick = (day) => {
+    if (day === null) {
+      setSelectedDay(null);
+      return;
+    }
+
+    // Map abbreviation to full day name
+    const dayMap = {
+      MON: 'Monday',
+      TUE: 'Tuesday',
+      WED: 'Wednesday',
+      THU: 'Thursday',
+      FRI: 'Friday',
+      SAT: 'Saturday',
+    };
+
+    const fullDayName = dayMap[day];
+    setSelectedDay(day);
+
+    console.log('Day clicked:', day, '| Full name:', fullDayName);
+
+    // TODO: Replace with actual API call to get specific day's data
+    // Example: fetchDayAnalytics(fullDayName);
   };
 
   // Transform weekly data for bar chart
@@ -147,8 +227,13 @@ export default function Analytics() {
   // Get chart data based on view
   const chartData = view === 'week' ? transformWeekData() : [];
 
+  const onDayClick = (day) => {
+    setSelectedDay(day);
+  };
+
   // Get request breakdown based on view
   const getRequests = () => {
+    // TODAY VIEW: Show today's request breakdown
     if (view === 'today' && todayData?.requestBreakdown) {
       return todayData.requestBreakdown.map((req) => ({
         icon: (
@@ -163,17 +248,54 @@ export default function Analytics() {
       }));
     }
 
-    if (view === 'week' && weekData?.weeklyRequestBreakdown) {
-      return weekData.weeklyRequestBreakdown.map((req) => ({
-        icon: (
-          <img
-            src={iconMap[req.requestType] || '/assets/analytics/goodmoral.png'}
-            alt=""
-          />
-        ),
-        label: req.requestType,
-        count: req.total,
-      }));
+    // WEEK VIEW: Show weekly total or specific day breakdown
+    if (view === 'week') {
+      // If a day is selected, show that day's breakdown
+      if (selectedDay && weekData?.everydayRequestBreakdown) {
+        const dayMap = {
+          MON: 'Monday',
+          TUE: 'Tuesday',
+          WED: 'Wednesday',
+          THU: 'Thursday',
+          FRI: 'Friday',
+          SAT: 'Saturday',
+        };
+
+        const fullDayName = dayMap[selectedDay];
+        const dayBreakdown =
+          weekData.everydayRequestBreakdown[fullDayName] || [];
+
+        return dayBreakdown.map((req) => ({
+          icon: (
+            <img
+              src={
+                iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
+              }
+              alt=""
+              className="w-6 h-6"
+            />
+          ),
+          label: req.requestType,
+          count: req.total,
+        }));
+      }
+
+      // No day selected: show weekly total breakdown
+      if (weekData?.weeklyRequestBreakdown) {
+        return weekData.weeklyRequestBreakdown.map((req) => ({
+          icon: (
+            <img
+              src={
+                iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
+              }
+              alt=""
+              className="w-6 h-6"
+            />
+          ),
+          label: req.requestType,
+          count: req.total,
+        }));
+      }
     }
 
     return [];
@@ -196,8 +318,8 @@ export default function Analytics() {
   const doughnutTotals = todayData
     ? {
         totalQueueToday: todayData.totalQueues || 0,
-        totalRegularWaiting: todayData.totalRegular || 0,
-        totalPriorityWaiting: todayData.totalPriority || 0,
+        completedRegular: todayData.completedRegular || 0,
+        completedPriority: todayData.completedPriority || 0,
         inProgress: todayData.inProgress || 0,
       }
     : null;
@@ -255,37 +377,36 @@ export default function Analytics() {
             </div>
           </div>
           <div className="flex flex-col md:flex-row flex-2  gap-5 mt-7 sm:mt-7 md:mt-7 lg:mt-0 ">
-        {/* Card 2 - Total Regular */}
-                  <div className="bg-white flex-1 rounded-xl shadow-xs   p-5 flex flex-col justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#F5F5F5] p-2 rounded-xl">
-                        <img src="/assets/person icon.png" alt="" />
-                      </div>
-                      <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                        Total Regular
-                      </h3>
-                    </div>
-                    <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
-                      {todayData?.totalRegular || 0}
-                    </p>
-                  </div>
+            {/* Card 2 - Total Regular */}
+            <div className="bg-white flex-1 rounded-xl shadow-xs   p-5 flex flex-col justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#F5F5F5] p-2 rounded-xl">
+                  <img src="/assets/person icon.png" alt="" />
+                </div>
+                <h3 className="text-base md:text-lg font-medium text-[#202124]">
+                  Total Regular
+                </h3>
+              </div>
+              <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
+                {todayData?.completedRegular || 0}
+              </p>
+            </div>
 
-                  {/* Card 3 - Total Priority */}
-                  <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#F5F5F5] p-2 rounded-xl">
-                        <img src="/assets/star icon.png" alt="" />
-                      </div>
-                      <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                        Total Priority
-                      </h3>
-                    </div>
-                    <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
-                      {todayData?.totalPriority || 0}
-                    </p>
-                  </div>
+            {/* Card 3 - Total Priority */}
+            <div className="bg-white flex-1 rounded-xl shadow-xs p-5 flex flex-col justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#F5F5F5] p-2 rounded-xl">
+                  <img src="/assets/star icon.png" alt="" />
+                </div>
+                <h3 className="text-base md:text-lg font-medium text-[#202124]">
+                  Total Priority
+                </h3>
+              </div>
+              <p className="text-4xl pt-7 md:text-6xl font-semibold text-[#202124] lg:text-start">
+                {todayData?.completedPriority || 0}
+              </p>
+            </div>
           </div>
-          
         </div>
 
         {/* View Toggle Buttons */}
@@ -329,7 +450,11 @@ export default function Analytics() {
               </div>
 
               {chartType === 'bar' ? (
-                <BarGraph chartData={chartData} />
+                <BarGraph
+                  chartData={chartData}
+                  onDayClick={handleDayClick}
+                  selectedDay={selectedDay}
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center h-[350px]">
                   {doughnutTotals && <DoughnutChart totals={doughnutTotals} />}
@@ -342,7 +467,7 @@ export default function Analytics() {
                         <span className="font-semibold">
                           {doughnutTotals?.totalQueueToday > 0
                             ? (
-                                (doughnutTotals.totalPriorityWaiting /
+                                (doughnutTotals.completedPriority /
                                   doughnutTotals.totalQueueToday) *
                                 100
                               ).toFixed(1)
@@ -358,7 +483,7 @@ export default function Analytics() {
                         <span className="font-semibold">
                           {doughnutTotals?.totalQueueToday > 0
                             ? (
-                                (doughnutTotals.totalRegularWaiting /
+                                (doughnutTotals.completedRegular /
                                   doughnutTotals.totalQueueToday) *
                                 100
                               ).toFixed(1)
@@ -399,7 +524,9 @@ export default function Analytics() {
                 </h3>
               </div>
               <p className="text-sm text-gray-500 mb-6">
-                Number of Completed Requests
+                {selectedDay && view === 'week'
+                  ? `Number of Completed Requests on ${selectedDay}`
+                  : 'Number of Completed Requests'}
               </p>
 
               <div className="space-y-4">
