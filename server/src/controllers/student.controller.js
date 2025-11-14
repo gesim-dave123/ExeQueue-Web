@@ -1,6 +1,7 @@
 import { Queue_Type, Status } from '@prisma/client';
 import prisma from '../../prisma/prisma.js';
 import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { capitalizeFullName } from '../../utils/nameFormatter.js';
 import { decryptQueueId, encryptQueueId } from '../../utils/encryptId.js';
 import { SocketEvents } from '../services/enums/SocketEvents.js';
 import generateReferenceNumber from '../services/queue/generateReferenceNumber.js';
@@ -39,6 +40,8 @@ export const generateQueue = async (req, res) => {
         .status(400)
         .json({ success: false, message: 'Missing required fields' });
     }
+
+    const capitalizedFullName = capitalizeFullName(fullName);
 
     // Student ID format (8 digits)
     const regexId = /^\d{8}$/;
@@ -269,7 +272,7 @@ export const generateQueue = async (req, res) => {
           data: {
             sessionId: session.sessionId,
             studentId,
-            studentFullName: fullName,
+            studentFullName: capitalizedFullName,
             courseCode: course.courseCode,
             courseName: course.courseName,
             yearLevel: normalizedYearLevel,
