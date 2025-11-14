@@ -125,21 +125,17 @@ export default function InputModal({
         errors.newPassword = 'Password cannot be empty';
         errors.confirmPassword = 'Password cannot be empty';
       } else if (formData.newPassword.length < 8) {
-        errors.newPassword =
-          'Your password must be at least 8 characters long.';
+        errors.newPassword = 'Your password must be 8 characters long.';
       } else if (formData.newPassword !== formData.confirmPassword) {
         errors.newPassword = 'Passwords do not match';
         errors.confirmPassword = 'Passwords do not match';
       }
     }
 
-    // ✅ Password validation for EDIT mode (only if passwords are provided)
     if (isEditMode && (formData.newPassword || formData.confirmPassword)) {
       if (formData.newPassword.length < 8) {
-        errors.newPassword =
-          'Your password must be at least 8 characters long.';
-      }
-      if (formData.newPassword !== formData.confirmPassword) {
+        errors.newPassword = 'Your password must be 8 characters long.';
+      } else if (formData.newPassword !== formData.confirmPassword) {
         errors.newPassword = 'Passwords do not match';
         errors.confirmPassword = 'Passwords do not match';
       }
