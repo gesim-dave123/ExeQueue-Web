@@ -15,6 +15,7 @@ export default function ResetPassword() {
     newPassword: '',
     confirmPassword: '',
   });
+  const [focusedField, setFocusedField] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -119,9 +120,11 @@ export default function ResetPassword() {
             <label
               htmlFor="newPassword"
               className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.newPassword
-                  ? '-top-2.5 text-xs bg-white px-1'
-                  : 'top-3 text-base text-gray-500'
+                focusedField === 'newPassword' || !formData.newPassword
+                  ? formData.newPassword
+                    ? '-top-2.5 text-xs bg-white px-1'
+                    : 'top-3 text-base text-gray-500'
+                  : 'opacity-0'
               } ${
                 errors.newPassword
                   ? 'text-red-500'
@@ -138,17 +141,25 @@ export default function ResetPassword() {
               name="newPassword"
               value={formData.newPassword}
               onChange={handleChange}
+              onFocus={() => setFocusedField('newPassword')}
+              onBlur={() => {
+                setFocusedField(null);
+                setShowPassword(false);
+              }}
               className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
                 errors.newPassword
                   ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                   : 'border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              } ${
+                focusedField === 'newPassword' ? 'text-black' : 'text-gray-400'
               }`}
             />
-            {formData.newPassword && (
+            {formData.newPassword && focusedField === 'newPassword' && (
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                className="absolute right-4 top-3.5 text-black hover:text-gray-700 focus:outline-none cursor-pointer"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -165,9 +176,11 @@ export default function ResetPassword() {
             <label
               htmlFor="confirmPassword"
               className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.confirmPassword
-                  ? '-top-2.5 text-xs bg-white px-1'
-                  : 'top-3 text-base text-gray-500'
+                focusedField === 'confirmPassword' || !formData.confirmPassword
+                  ? formData.confirmPassword
+                    ? '-top-2.5 text-xs bg-white px-1'
+                    : 'top-3 text-base text-gray-500'
+                  : 'opacity-0'
               } ${
                 errors.confirmPassword
                   ? 'text-red-500'
@@ -184,17 +197,27 @@ export default function ResetPassword() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
+              onFocus={() => setFocusedField('confirmPassword')}
+              onBlur={() => {
+                setFocusedField(null);
+                setShowConfirmPassword(false);
+              }}
               className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
                 errors.confirmPassword
                   ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                   : 'border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              } ${
+                focusedField === 'confirmPassword'
+                  ? 'text-black'
+                  : 'text-gray-400'
               }`}
             />
-            {formData.confirmPassword && (
+            {formData.confirmPassword && focusedField === 'confirmPassword' && (
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-3.5  text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                className="absolute right-4 top-3.5 text-black hover:text-gray-700 focus:outline-none cursor-pointer"
               >
                 {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
