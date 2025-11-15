@@ -11,6 +11,7 @@ const ManageQueueHook = ({
   isConnected,
   showWindowModal,
   setShowWindowModal,
+  stopHeartbeat,
   // sortByPriorityPattern,
   loadWindows,
   showToast,
@@ -870,6 +871,7 @@ const ManageQueueHook = ({
           setSelectedWindow(null);
           setCurrentQueue(null);
           setIsLoading(true);
+          if (stopHeartbeat) stopHeartbeat();
           localStorage.removeItem("selectedWindow");
 
           showToast("Your window has been released", "info");
@@ -899,7 +901,11 @@ const ManageQueueHook = ({
 
   // ✅ Simplified useEffect
   useEffect(() => {
-    if (!socket || !isConnected || !selectedWindow?.id) return;
+    if (!socket || !isConnected || !selectedWindow?.id) {
+      // console.log("Stopping heartbeat update...");
+      // stopHeartbeat?.();
+      return;
+    }
     socket.on(QueueActions.QUEUE_RESET, handleQueueReset);
     socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
     socket.on(
@@ -914,7 +920,12 @@ const ManageQueueHook = ({
     socket.on(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
     socket.on(WindowEvents.RELEASE_WINDOW, handleWindowRelease);
     socket.on("error", handleError);
-
+    // socket.on("disconnect", (reason) => {
+    //   console.log("WINDOW DISCONNECTED:", reason);
+    //   console.log("BOBO KABA?>");
+    //   stopHeartbeat?.(); // <- Call your cleanup function here
+    //   showToast("Disconnected from server", "error");
+    // });
     return () => {
       socket.off(QueueActions.QUEUE_RESET, handleQueueReset);
       socket.off(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
@@ -933,6 +944,7 @@ const ManageQueueHook = ({
       socket.off(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
       socket.off(WindowEvents.RELEASE_WINDOW, handleWindowRelease);
       socket.off("error", handleError);
+      // socket.off("disconnect");
     };
   }, [
     socket,
