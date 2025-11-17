@@ -12,6 +12,7 @@ import {
   manualWindowRelease,
   releaseServiceWindow,
   softDeleteWorkingScholar,
+  updateWindowHeartbeat,
   updateWorkingScholar,
 } from "../controllers/staff.controller.js";
 import {
@@ -26,6 +27,13 @@ router.post(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   assignServiceWindow
+);
+
+router.put(
+  "/window/update/heartbeat",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  updateWindowHeartbeat
 );
 
 /* --Manage Accounts - (Personnel only)--*/

@@ -5,7 +5,8 @@ import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
 import { getShiftTag } from '../../utils/shiftTag.js';
 import { QueueActions, WindowEvents } from '../services/enums/SocketEvents.js';
 // import { sendDashboardUpdate } from "./sse.controllers.js";
-import { encryptQueueId } from '../../utils/encryptId.js';
+import { encryptQueueId } from "../../utils/encryptId.js";
+import { scheduleAssignmentTimer } from "../services/Window/windowAssignment.service.js";
 import {
   sendDashboardUpdate,
   sendLiveDisplayUpdate,
@@ -74,7 +75,10 @@ export const assignServiceWindow = async (req, res) => {
 
       return assignment;
     });
-
+    scheduleAssignmentTimer(
+      result.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+    );
     io.emit(WindowEvents.ASSIGN_WINDOW, {
       windowId,
       staff: result.staff,
@@ -315,7 +319,6 @@ export const checkAvailableWindow = async (req, res) => {
     }
 
     const shift = getShiftTag(); // returns "MORNING", "AFTERNOON", "EVENING"
-    console.log(shift);
     const assignedWindows = await prisma.windowAssignment.findMany({
       where: {
         windowId: { in: windowIds },
@@ -329,7 +332,6 @@ export const checkAvailableWindow = async (req, res) => {
     });
 
     const assignedIds = assignedWindows.map((a) => a.windowId);
-    console.log(assignedIds);
     const availableWindows = windowIds.filter(
       (id) => !assignedIds.includes(id)
     );
@@ -354,7 +356,15 @@ export const updateWindowHeartbeat = async (req, res) => {
     const { windowId } = req.body;
     const io = req.app.get('io');
     const shift = getShiftTag();
-    const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+    const HEARTBEAT_INTERVAL = 2 * 60 *  1000;
+
+    // Validate windowId
+    if (!windowId) {
+      return res.status(400).json({
+        success: false,
+        message: "windowId is required",
+      });
+    }
 
     const assignment = await prisma.windowAssignment.findFirst({
       where: {
@@ -363,7 +373,10 @@ export const updateWindowHeartbeat = async (req, res) => {
         shiftTag: shift,
         releasedAt: null,
       },
-      select: { lastHeartbeat: true },
+      select: {
+        assignmentId: true,
+        lastHeartbeat: true,
+      },
     });
 
     if (!assignment) {
@@ -373,53 +386,63 @@ export const updateWindowHeartbeat = async (req, res) => {
       });
     }
 
-    const now = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
-    const timeSinceLastHeartbeat =
-      now.getTime() - new Date(assignment.lastHeartbeat).getTime();
+    const now = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
 
-    // Only update if heartbeat is older than interval
-    if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
-      return res.status(200).json({
-        success: true,
-        message: 'Heartbeat still fresh, skipped update',
-        skipped: true,
-      });
+    // Check if heartbeat needs updating
+    if (assignment.lastHeartbeat) {
+      const timeSinceLastHeartbeat =
+        now.getTime() - new Date(assignment.lastHeartbeat).getTime();
+
+      // Only update if heartbeat is older than interval
+      if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
+        return res.status(200).json({
+          success: true,
+          message: "Heartbeat still fresh, skipped update",
+          skipped: true,
+          lastHeartbeat: assignment.lastHeartbeat,
+        });
+      }
     }
 
-    // Update only if needed
-    await prisma.windowAssignment.updateMany({
+    // Update heartbeat using the specific assignmentId
+    const updatedAssignment = await prisma.windowAssignment.update({
       where: {
-        sasStaffId,
-        windowId,
-        shiftTag: shift,
-        releasedAt: null,
+        assignmentId: assignment.assignmentId,
       },
       data: {
         lastHeartbeat: now,
       },
+      select: {
+        assignmentId: true,
+      },
     });
-
-    // Only emit socket event when actually updating
-    io.emit(WindowEvents.HEARTBEAT_UPDATE, {
-      windowId,
-      sasStaffId,
-      timestamp: now,
-    });
+    scheduleAssignmentTimer(
+      updatedAssignment.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+    );
+    // Emit socket event for monitoring/debugging (optional)
+    if (io) {
+      io.emit(WindowEvents.HEARTBEAT_UPDATE, {
+        windowId,
+        sasStaffId,
+        timestamp: now,
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Heartbeat updated',
       updated: true,
+      lastHeartbeat: now,
     });
   } catch (error) {
-    console.error('❌ Error updating heartbeat:', error);
+    console.error("Error updating heartbeat:", error);
     return res.status(500).json({
       success: false,
       message: 'Internal Server Error!',
     });
   }
 };
-
 export const checkAndReleaseStaleAssignments = async (req, res) => {
   try {
     const io = req.app.get('io');
@@ -882,7 +905,6 @@ export const manualWindowRelease = async (req, res) => {
         message: 'Unauthorized Operation! Database Role is not of PERSONNEL!',
       });
     }
-    console.log('windowSTr', windowNoStr);
     if (!isIntegerParam(windowNoStr)) {
       return res.status(400).json({
         success: false,
@@ -968,8 +990,6 @@ export const manualWindowRelease = async (req, res) => {
           previousWindowId: activeAssignment.windowId,
         });
       }
-      console.log('Current Queue', currentQueue);
-
       const released = await tx.windowAssignment.update({
         where: {
           assignmentId: activeAssignment.assignmentId,

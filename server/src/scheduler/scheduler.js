@@ -1,10 +1,12 @@
 import {
-  scheduleDeferredToCancelledQueue,
+  scheduleInactiveWindowFailsafe,
   scheduleSessionClose,
   scheduleSessionCreate,
+  startEndOfDayQueueCleanup,
   startSkippedRequestMonitor,
   startStalledRequestFinalizer,
 } from "../controllers/scheduler.controller.js"; // or whatever file structure you use
+import { restoreTimersOnStartup } from "../services/Window/windowAssignment.service.js";
 
 function safeSchedule(label, fn) {
   try {
@@ -16,10 +18,18 @@ function safeSchedule(label, fn) {
 }
 
 export const START_SCHEDULERS = async () => {
-  safeSchedule("Deferred→Cancelled Queue", scheduleDeferredToCancelledQueue);
-  safeSchedule("Stalled Request Finalizer", startStalledRequestFinalizer);
+  // safeSchedule("Waiting Queues Cleanup", startWaitingQueueCleanUp);
+  // safeSchedule("Deferred Queues Cleanup", startDeferredQueueCleanUp);
+  safeSchedule("End-of-Day Queue Cleanup", startEndOfDayQueueCleanup);
+  safeSchedule("Stalled Requests Finalizer", startStalledRequestFinalizer);
   safeSchedule("Skipped Request Monitor", startSkippedRequestMonitor);
   // safeSchedule("Skipped→Cancelled Request", scheduleSkippedToCancelledRequest);
   safeSchedule("Session Close", scheduleSessionClose);
   safeSchedule("Session Create", scheduleSessionCreate);
+  // safeSchedule("Inactive Window Heartbeat Monitor", scheduleInactiveWindow);
+  safeSchedule(
+    "Inactive Window Heartbeat Monitor (Fall back)",
+    scheduleInactiveWindowFailsafe
+  );
+  await restoreTimersOnStartup();
 };
