@@ -620,6 +620,7 @@ export const getQueueListByQuery = async (req, res) => {
       search: searchStr,
     } = req.query;
 
+    // [All your validation code stays the same]
     // Validate status
     if (
       ![
@@ -636,7 +637,6 @@ export const getQueueListByQuery = async (req, res) => {
       });
     }
 
-    // Validate numeric parameters
     const limitNum = parseInt(limit, 10);
     const offsetNum = parseInt(offset, 10);
 
@@ -665,7 +665,6 @@ export const getQueueListByQuery = async (req, res) => {
       queueStatus: status,
     };
 
-    // Add window filter if provided
     if (windowIdStr) {
       if (!isIntegerParam(windowIdStr)) {
         return res.status(400).json({
@@ -673,20 +672,9 @@ export const getQueueListByQuery = async (req, res) => {
           message: "Invalid param. 'windowId' must be an integer.",
         });
       }
-
       const windowId = Number(windowIdStr);
       whereClause.windowId = windowId;
     }
-
-    // Build requests filter (if requestStatus provided)
-    const requestWhere =
-      requestStatus && requestStatus.length > 0
-        ? {
-            requestStatus: {
-              in: requestStatus.split(","),
-            },
-          }
-        : { isActive: true };
 
     if (searchStr) {
       const normalizedSearch = searchStr.trim();
@@ -730,85 +718,145 @@ export const getQueueListByQuery = async (req, res) => {
       }
     }
 
-    const queues = await prisma.queue.findMany({
-      where: whereClause,
-      select: {
-        queueId: true,
-        studentId: true,
-        studentFullName: true,
-        courseCode: true,
-        yearLevel: true,
-        queueNumber: true,
-        queueType: true,
-        queueStatus: true,
-        referenceNumber: true,
-        isActive: true,
-        windowId: true,
-        createdAt: true,
-        requests: {
-          where: requestWhere,
-          select: {
-            requestId: true,
-            requestStatus: true,
-            requestType: {
-              select: {
-                requestName: true,
-              },
+    const requestStatuses = requestStatus ? requestStatus.split(",") : null;
+    const shouldFilterByMajority = requestStatuses && requestStatuses.length === 1;
+
+    console.log("Request Statuses:", requestStatuses);
+    console.log("Should Filter By Majority:", shouldFilterByMajority);
+
+    // Common select fields
+    const selectFields = {
+      queueId: true,
+      studentId: true,
+      studentFullName: true,
+      courseCode: true,
+      courseName: true,
+      yearLevel: true,
+      queueNumber: true,
+      queueType: true,
+      queueStatus: true,
+      referenceNumber: true,
+      isActive: true,
+      windowId: true,
+      createdAt: true,
+      requests: {
+        where: { isActive: true },
+        select: {
+          requestId: true,
+          requestStatus: true,
+          requestType: {
+            select: {
+              requestName: true,
             },
           },
         },
       },
-      skip: offsetNum,
-      take: limitNum,
-      orderBy: [
-        { session: { sessionNumber: "asc" } },
-        { sequenceNumber: "asc" },
-      ],
-    });
-    let filteredQueues = queues;
+    };
+
+    let queues;
+    let totalCount = 0;
+
     if (requestStatus) {
-      filteredQueues = queues.filter((queue) => queue.requests.length > 0);
+      // Get ALL queues with requests for filtering
+      const allQueues = await prisma.queue.findMany({
+        where: whereClause,
+        select: selectFields,
+        orderBy: [
+          { session: { sessionNumber: "asc" } },
+          { sequenceNumber: "asc" },
+        ],
+      });
+
+      // Filter queues based on request status criteria
+      const filteredQueues = allQueues.filter((queue) => {
+        if (queue.requests.length === 0) return false;
+
+        if (shouldFilterByMajority) {
+          const targetStatus = requestStatuses[0];
+          const statusCounts = queue.requests.reduce((acc, request) => {
+            acc[request.requestStatus] = (acc[request.requestStatus] || 0) + 1;
+            return acc;
+          }, {});
+
+          const stalledCount = statusCounts[Status.STALLED] || 0;
+          const skippedCount = statusCounts[Status.SKIPPED] || 0;
+          const majorityStatus = stalledCount >= skippedCount ? Status.STALLED : Status.SKIPPED;
+
+          return majorityStatus === targetStatus;
+        } else {
+          return queue.requests.some(request => 
+            requestStatuses.includes(request.requestStatus)
+          );
+        }
+      });
+
+      totalCount = filteredQueues.length;
+      console.log("filtered Queues: ", filteredQueues);
+      // Apply pagination
+      console.log("Filtered Queues Length:", filteredQueues.length);
+      console.log("Offset:", offsetNum);
+      console.log("Limit:", limitNum);
+      console.log("Slicing from", offsetNum, "to", offsetNum + limitNum);
+
+      // Apply pagination
+      queues = filteredQueues.slice(offsetNum, offsetNum + limitNum);
+
+      console.log("Paginated Queues Length:", queues.length);
+      console.log("Paginated Queues:", queues);
+
+    } else {
+      // No request status filtering - use direct Prisma query with pagination
+      queues = await prisma.queue.findMany({
+        where: whereClause,
+        select: selectFields,
+        skip: offsetNum,
+        take: limitNum,
+        orderBy: [
+          { session: { sessionNumber: "asc" } },
+          { sequenceNumber: "asc" },
+        ],
+      });
+
+      // Get total count if requested
+      if (include_total === "true") {
+        totalCount = await prisma.queue.count({ where: whereClause });
+      }
     }
 
+    // Build response
     const response = {
       success: true,
       message: windowIdStr
         ? `${status} queues for window ${windowIdStr}`
         : `Current Queue List that are ${status}`,
-      queues: filteredQueues,
+      queues: queues,
       pagination: {
         limit: limitNum,
         offset: offsetNum,
-        returned: filteredQueues.length,
+        returned: queues.length,
+        ...(totalCount > 0 && { total: totalCount }),
       },
     };
 
-    // Add total count if requested
-    if (include_total === "true") {
-      const total = await prisma.queue.count({ where: whereClause });
-      response.pagination.total = total;
-    }
-
     // Handle empty results
-    if (filteredQueues.length === 0) {
+    if (queues.length === 0) {
       return res.status(200).json({
         success: true,
         message: windowIdStr
           ? `No ${status} queues for window ${windowIdStr}`
           : `There are no current ${status} queues!`,
         queues: [],
-        ...(include_total === "true" && {
-          pagination: {
-            total: 0,
-            limit: limitNum,
-            offset: offsetNum,
-            returned: 0,
-          },
-        }),
+        pagination: {
+          limit: limitNum,
+          offset: offsetNum,
+          returned: 0,
+          ...(totalCount > 0 && { total: totalCount }),
+        },
       });
     }
 
     return res.status(200).json(response);
+
   } catch (error) {
     console.error("An error occurred in getQueueListByQuery:", error);
     return res.status(500).json({

@@ -57,7 +57,6 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
-  const [statusFilter, setStatusFilter] = useState([]);
   const [tooltipData, setTooltipData] = useState(null);
 
   // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
@@ -79,14 +78,7 @@ export default function Manage_Queue() {
   const { socket, isConnected } = useSocket(onDisconnectOrCleanUp);
 
   // Status filter toggle handler
-  const toggleStatusFilter = (status) => {
-    setStatusFilter(
-      (prev) =>
-        prev.includes(status)
-          ? prev.filter((s) => s !== status) // remove if already selected
-          : [...prev, status] // add if not selected
-    );
-  };
+
 
   const DEFAULT_QUEUE = {
     queueNo: "R000",
@@ -228,7 +220,8 @@ export default function Manage_Queue() {
     // Load more functions (automatically use correct function based on search mode)
     loadMoreWaitingQueues, // Loads more waiting OR search results
     loadMoreDeferredQueues, // Loads more deferred OR search results
-
+    statusFilter,
+    toggleStatusFilter,
     fetchQueueList, // Manual refresh
 
     // 🆕 Search functions
@@ -277,6 +270,21 @@ export default function Manage_Queue() {
     return queue && queue.queueNo === "R000" && queue.studentId === "N/A";
   };
   const nextInLine = (globalQueueList || []).slice(0);
+
+  const getMajorityStatus = (requests) => {
+      if (!requests || requests.length === 0) return "Stalled";
+      
+      const statusCounts = requests.reduce((acc, request) => {
+        const status = request.status;
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const stalledCount = statusCounts['Stalled'] || 0;
+      const skippedCount = statusCounts['Skipped'] || 0;
+      
+      return stalledCount >= skippedCount ? "Stalled" : "Skipped";
+  };
   const handleCallNext = async (overrideWindow) => {
     const activeWindow = overrideWindow || selectedWindow;
     setCallingNext(true);
@@ -1394,8 +1402,8 @@ export default function Manage_Queue() {
                                       className="text-left py-3 px-4"
                                       style={{ width: "120px" }}
                                     >
-                                      <span className="text-gray-600">
-                                        {item.status || "Stalled"}
+                                      <span className = {`text-${getMajorityStatus(item.requests) === "Stalled" ? "gray-600" : "[#F9AB00]" }`}>
+                                        {getMajorityStatus(item.requests)}
                                       </span>
                                     </td>
 
