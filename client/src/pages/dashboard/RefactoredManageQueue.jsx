@@ -842,7 +842,7 @@ export default function Manage_Queue() {
         />
       ) : (
         currentQueue && (
-          <div className="min-h-screen bg-transparent w-full pr-7 pt-9  lg:pl-15 xl:pl-9 xl:pt-12 xl:pr-8 pb-9">
+          <div className="min-h-screen bg-transparent w-full pr-7 pt-9 md:pl-15 xl:pl-9 xl:pt-12 xl:pr-8 pb-9">
             <div className="max-w-full mx-auto">
               <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
                 Manage Queue
@@ -863,12 +863,12 @@ export default function Manage_Queue() {
                     </div>
 
                     {/* container */}
-                    <div className="flex md:flex-row flex-col  items-center justify-between gap-6 h-full">
+                    <div className="flex lg:flex-row flex-col  items-center justify-between gap-6 h-full">
                       {/* left side */}
-                      <div className="border w-full md:w-auto flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
+                      <div className="border w-full md:flex-1 flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
                         <div className=" text-left mb-4 ">
                           <div
-                            className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
+                            className={`text-7xl text-center ring-1 rounded-xl py-4 px-1 font-bold mb-2 text-[#1A73E8] ${
                               currentQueue.type === "Priority"
                                 ? "text-[#F9AB00] border-[#F9AB00]"
                                 : "text-[#1A73E8] border-[#1A73E8]"
@@ -1060,7 +1060,7 @@ export default function Manage_Queue() {
                           </div>
                         </div>
 
-                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-15 justify-end">
+                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-8 md:mt-14 justify-end">
                           <button
                             onClick={() =>
                               handleButtonClick(
@@ -1077,7 +1077,7 @@ export default function Manage_Queue() {
                                 (request) => request.status === "In Progress"
                               )
                             }
-                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-lg transition-colors w-full sm:w-auto ${
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-4 rounded-2xl transition-colors w-full sm:w-auto ${
                               disabledForSeconds ||
                               currentQueue.requests.some(
                                 (request) => request.status === "In Progress"
@@ -1108,7 +1108,7 @@ export default function Manage_Queue() {
                               )
                             }
                             disabled={shouldDisableAnnounce()}
-                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-lg transition-colors w-full sm:w-auto ${
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-4 rounded-2xl transition-colors w-full sm:w-auto ${
                               shouldDisableAnnounce()
                                 ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
                                 : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
@@ -1179,15 +1179,15 @@ export default function Manage_Queue() {
                         />
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex rounded-2xl bg-[#F4F8FE] px-3 py-2 gap-2">
                         {['stalled', 'skipped'].map((status) => (
                           <button
                             key={status}
                             onClick={() => toggleStatusFilter(status)}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer ${
+                            className={`px-4 py-2 rounded-xl font-medium text-sm transition-colors cursor-pointer ${
                               statusFilter.includes(status)
                                 ? 'bg-gray-900 text-white'
-                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                                : ' text-gray-700 hover:bg-gray-100'
                             }`}
                           >
                             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1568,6 +1568,8 @@ export default function Manage_Queue() {
                                             : "text-[#1A73E8]"
                                         }
                                       >
+
+                                      
                                         {item.queueNo}
                                       </span>
                                     </td>
@@ -1732,15 +1734,23 @@ export default function Manage_Queue() {
                     </button>
                   </div>
 
-                  <div className="p-6">
-                    <div className="w-full flex flex-col lg:flex-row items-center justify-between gap-6">
+                  <div className="px-6 md:pb-6 pb-4 pt-2 xl:pt-0">
+                    <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
                       {/* left side */}
-                      <div className="w-full lg:w-auto border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
+                      <div className="w-full lg:w-auto border-1 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
                         <div className="text-left mb-4">
-                          <div className="text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold text-blue-600 mb-2">
+                          <div className={`text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold mb-2 ${
+                              selectedQueue.type === "Priority"
+                                ? "text-[#F9AB00] border-[#F9AB00]"
+                                : "text-[#1A73E8] border-[#1A73E8]"
+                            }`}>
                             {selectedQueue.queueNo}
                           </div>
-                          <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full">
+                          <span className={`text-sm px-3 py-1 rounded-full ${
+                              selectedQueue.type === "Priority"
+                                ? "bg-[#FEF2D9] text-[#F9AB00]"
+                                : "bg-[#DDEAFC] text-[#1A73E8]"
+                            }`}>
                             {selectedQueue.type}
                           </span>
                         </div>
@@ -1776,7 +1786,7 @@ export default function Manage_Queue() {
                       </div>
 
                       {/* right side */}
-                      <div className="w-full flex flex-col flex-5 justify-between ">
+                      <div className="w-full flex flex-col  flex-4 justify-between ">
                         <div className="flex-1">
                           <div className="space-y-3">
                             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1854,7 +1864,10 @@ export default function Manage_Queue() {
                                                 }
                                                 className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors cursor-pointer"
                                               >
-                                                <Pause className="w-4 h-4" />
+                                                <img
+                                                  src="/assets/manage_queue/pause.png"
+                                                  alt="Edit"
+                                                />
                                               </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Stall
@@ -1873,7 +1886,10 @@ export default function Manage_Queue() {
                                                 }
                                                 className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors cursor-pointer"
                                               >
-                                                <SkipForward className="w-4 h-4" />
+                                                 <img
+                                                  src="/assets/manage_queue/forward.png"
+                                                  alt="Edit"
+                                                />
                                               </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Skip
@@ -1910,7 +1926,7 @@ export default function Manage_Queue() {
                           </div>
                         </div>
 
-                        <div className="flex gap-3 mt-8 justify-end">
+                        <div className="flex gap-4 mt-6 md:mt-12 justify-end">
                           <button
                             onClick={handleDonePanel}
                             disabled={
@@ -1921,7 +1937,7 @@ export default function Manage_Queue() {
                                   request.status === "Skipped"
                               )
                             }
-                            className={`flex items-center justify-center gap-2 px-6 py-3 w-full lg:w-auto rounded-lg transition-colors ${
+                            className={`flex items-center justify-center text-md gap-2 px-3 py-3 sm:px-4 sm:py-4 w-full md:w-auto rounded-xl transition-colors ${
                               selectedQueue.requests.every(
                                 (request) =>
                                   request.status === "Completed" ||
@@ -1932,7 +1948,6 @@ export default function Manage_Queue() {
                                 : "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
                             }`}
                           >
-                            <Check className="w-4 h-4" />
                             Done
                           </button>
                         </div>
