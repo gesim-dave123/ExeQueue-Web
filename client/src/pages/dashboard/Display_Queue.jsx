@@ -186,7 +186,7 @@ export default function Display_Queue() {
                           ? "text-[#F9A825]"
                           : windowData?.type === "Regular"
                           ? "text-[#1A73E8]"
-                          : "text-[#686969]"
+                          : "text-transparent"
                       }`}
                     >
                       {hasNumber
@@ -202,11 +202,11 @@ export default function Display_Queue() {
                     <span
                       className={`inline-block px-6 py-2 rounded-full text-sm font-medium ${
                         isVacant
-                          ? "text-[#686969] bg-[#E2E3E4]" // Greyed out for vacant
+                          ? "text-[#686969] bg-transparent" // Greyed out for vacant
                           : "bg-[#26BA33] text-[#F5F5F5]" // Normal style
                       }`}
                     >
-                      {isVacant ? "Vacant" : "Currently Serving"}
+                      {isVacant ? "" : "Currently Serving"}
                     </span>
                   </div>
                 </div>
