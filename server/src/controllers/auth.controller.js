@@ -134,18 +134,14 @@ export const requestPasswordReset = async (req, res) => {
       .json({ success: false, message: 'Email is required' });
 
   if (!correctEmail(email))
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: 'Invalid email format. Must be a Gmail address',
-      });
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email format. Must be a Gmail address',
+    });
 
   try {
     const user = await prisma.sasStaff.findUnique({
-      where: {
-        email: email,
-      },
+      where: { email: email },
     });
 
     if (!user)
@@ -155,22 +151,23 @@ export const requestPasswordReset = async (req, res) => {
 
     const OTPcode = generateCode();
     storeOTP(email, OTPcode);
-    const adminEmail = await prisma.sasStaff.findUnique({
-      where: {
-        username: 'admin2',
-      },
-      select: {
-        email: true,
-      },
-    });
 
-    const emailSent = await sendCodeToEmail(email, adminEmail, OTPcode);
+    // ✅ Send email asynchronously (no admin email query needed)
+    sendCodeToEmail(email, OTPcode)
+      .then((success) => {
+        if (success) {
+          console.log(`✅ OTP sent to ${email}`);
+        } else {
+          console.error(`❌ Failed to send OTP to ${email}`);
+          deleteOTP(email); // Clean up if email fails
+        }
+      })
+      .catch((error) => {
+        console.error(`❌ Error sending OTP to ${email}:`, error);
+        deleteOTP(email);
+      });
 
-    if (!emailSent)
-      return res
-        .status(500)
-        .json({ success: false, message: 'Failed to send verification email' });
-
+    // ✅ Respond immediately to user
     return res.status(200).json({
       success: true,
       message: 'Verification code sent successfully',
@@ -200,21 +197,17 @@ export const verifyEmail = async (req, res) => {
     const OTPcode = getOTP(email);
 
     if (!OTPcode)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: 'OTP not found or has expired. Please try again',
-        });
+      return res.status(404).json({
+        success: false,
+        message: 'OTP not found or has expired. Please try again',
+      });
 
     if (Date.now() > OTPcode.expires_at) {
       deleteOTP(email);
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: 'OTP has expired. Please request a new code',
-        });
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new code',
+      });
     }
 
     if (receivedOTP !== OTPcode.code) {
