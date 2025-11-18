@@ -1,5 +1,4 @@
 import { Queue_Type, Role, Status } from "@prisma/client";
-import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { QueueActions } from "../services/enums/SocketEvents.js";
@@ -8,12 +7,7 @@ import {
   sendLiveDisplayUpdate,
 } from "./statistics.controller.js";
 
-const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
-  new Date(),
-  "Asia/Manila"
-);
 const isIntegerParam = (val) => /^\d+$/.test(val);
-
 
 export const manuallyFinalizeStalledRequests = async (req, res) => {
   try {
@@ -142,7 +136,6 @@ export const manuallyCancelSkippedRequests = async (req, res) => {
     });
   }
 };
-
 
 export const viewQueues = async (req, res) => {
   try {
@@ -654,6 +647,10 @@ export const getQueueListByQuery = async (req, res) => {
       });
     }
 
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
     // Build where clause
     const whereClause = {
       isActive: true,
@@ -719,7 +716,8 @@ export const getQueueListByQuery = async (req, res) => {
     }
 
     const requestStatuses = requestStatus ? requestStatus.split(",") : null;
-    const shouldFilterByMajority = requestStatuses && requestStatuses.length === 1;
+    const shouldFilterByMajority =
+      requestStatuses && requestStatuses.length === 1;
 
     console.log("Request Statuses:", requestStatuses);
     console.log("Should Filter By Majority:", shouldFilterByMajority);
@@ -780,11 +778,12 @@ export const getQueueListByQuery = async (req, res) => {
 
           const stalledCount = statusCounts[Status.STALLED] || 0;
           const skippedCount = statusCounts[Status.SKIPPED] || 0;
-          const majorityStatus = stalledCount >= skippedCount ? Status.STALLED : Status.SKIPPED;
+          const majorityStatus =
+            stalledCount >= skippedCount ? Status.STALLED : Status.SKIPPED;
 
           return majorityStatus === targetStatus;
         } else {
-          return queue.requests.some(request => 
+          return queue.requests.some((request) =>
             requestStatuses.includes(request.requestStatus)
           );
         }
@@ -803,7 +802,6 @@ export const getQueueListByQuery = async (req, res) => {
 
       console.log("Paginated Queues Length:", queues.length);
       console.log("Paginated Queues:", queues);
-
     } else {
       // No request status filtering - use direct Prisma query with pagination
       queues = await prisma.queue.findMany({
@@ -856,7 +854,6 @@ export const getQueueListByQuery = async (req, res) => {
     }
 
     return res.status(200).json(response);
-
   } catch (error) {
     console.error("An error occurred in getQueueListByQuery:", error);
     return res.status(500).json({
@@ -1445,40 +1442,7 @@ export const markQueueStatus = async (req, res) => {
             );
           }
         }
-        // Only create transaction for requests that don't have one yet
       }
-
-      // Only create queue-level transaction for PARTIALLY_COMPLETE (if doesn't exist)
-      // const shouldCreateQueueTransaction =
-      //   existingQueue.queueStatus !== finalStatus &&
-      //   finalStatus === Status.PARTIALLY_COMPLETE;
-
-      // if (shouldCreateQueueTransaction) {
-      //   const existingQueueTransaction = await tx.transactionHistory.findFirst({
-      //     where: {
-      //       queueId,
-      //       requestId: null,
-      //       transactionStatus: Status.PARTIALLY_COMPLETE,
-      //     },
-      //   });
-
-      //   if (!existingQueueTransaction) {
-      //     console.log(
-      //       "Creating queue-level transaction for PARTIALLY_COMPLETE"
-      //     );
-      //     await tx.transactionHistory.create({
-      //       data: {
-      //         queueId,
-      //         requestId: null,
-      //         performedById: sasStaffId,
-      //         performedByRole: role,
-      //         transactionStatus: finalStatus,
-      //         createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-      //       },
-      //     });
-      //   }
-      // }
-
       return queueUpdate;
     });
 
@@ -1594,6 +1558,10 @@ export const callNextQueue = async (req, res) => {
         message: "Invalid windowId parameter",
       });
     }
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
     const result = await prisma.$transaction(async (tx) => {
       const lastServed = await tx.queue.findFirst({
         where: {
