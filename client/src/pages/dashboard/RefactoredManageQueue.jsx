@@ -1,12 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Pause,
-  SkipForward,
-  X,
-} from "lucide-react";
+import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -78,7 +71,6 @@ export default function Manage_Queue() {
   const { socket, isConnected } = useSocket(onDisconnectOrCleanUp);
 
   // Status filter toggle handler
-
 
   const DEFAULT_QUEUE = {
     queueNo: "R000",
@@ -223,6 +215,7 @@ export default function Manage_Queue() {
     statusFilter,
     toggleStatusFilter,
     fetchQueueList, // Manual refresh
+    updateQueueInMaps,
 
     // 🆕 Search functions
     handleWaitingSearch, // NEW: Trigger waiting queue search
@@ -272,18 +265,18 @@ export default function Manage_Queue() {
   const nextInLine = (globalQueueList || []).slice(0);
 
   const getMajorityStatus = (requests) => {
-      if (!requests || requests.length === 0) return "Stalled";
-      
-      const statusCounts = requests.reduce((acc, request) => {
-        const status = request.status;
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-      }, {});
-      
-      const stalledCount = statusCounts['Stalled'] || 0;
-      const skippedCount = statusCounts['Skipped'] || 0;
-      
-      return stalledCount >= skippedCount ? "Stalled" : "Skipped";
+    if (!requests || requests.length === 0) return "Stalled";
+
+    const statusCounts = requests.reduce((acc, request) => {
+      const status = request.status;
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const stalledCount = statusCounts["Stalled"] || 0;
+    const skippedCount = statusCounts["Skipped"] || 0;
+
+    return stalledCount >= skippedCount ? "Stalled" : "Skipped";
   };
   const handleCallNext = async (overrideWindow) => {
     const activeWindow = overrideWindow || selectedWindow;
@@ -513,7 +506,8 @@ export default function Manage_Queue() {
 
   const handleDonePanel = async () => {
     if (!selectedQueue) {
-      closeActionPanel();
+      setShowActionPanel(false);
+      setSelectedQueue(null);
       return;
     }
 
@@ -539,22 +533,24 @@ export default function Manage_Queue() {
           );
         }
 
-        showToast(
-          `Queue ${selectedQueue.queueNo} has been finalized and removed.`,
-          "success"
-        );
+        // showToast(
+        //   `Queue ${selectedQueue.queueNo} has been finalized and removed.`,
+        //   "success"
+        // );
       } else {
-        showToast(
-          `Queue ${selectedQueue.queueNo} cannot be finalized - has unresolved requests.`,
-          "warning"
-        );
+        updateQueueInMaps(selectedQueue);
+        // showToast(
+        //   `Queue ${selectedQueue.queueNo} cannot be finalized - has unresolved requests.`,
+        //   "warning"
+        // );
       }
     } catch (error) {
       console.error("Error finalizing queue status:", error);
       setSelectedQueue(snapshot.selectedQueue);
       showToast(error.message || "Error finalizing queue status", "error");
     } finally {
-      closeActionPanel();
+      setShowActionPanel(false);
+      setSelectedQueue(null);
     }
   };
 
@@ -707,13 +703,6 @@ export default function Manage_Queue() {
       setWasQueueEmpty(true);
     }
   }, [isLoading, globalQueueList.length, selectedWindow, currentQueue]);
-  // console.log({
-  //   globalList: globalQueueList.length,
-  //   window: selectedWindow,
-  //   default: isDefaultQueue(currentQueue),
-  //   hasCurrent: hasCurrentServedQueue === false,
-  //   autoCall: !autoCallInProgressRef.current,
-  // });
   useEffect(() => {
     if (
       globalQueueList.length > 0 &&
@@ -763,9 +752,30 @@ export default function Manage_Queue() {
     setShowActionPanel(true);
   };
 
-  const closeActionPanel = () => {
-    setShowActionPanel(false);
-    setSelectedQueue(null);
+  const closeActionPanel = async () => {
+    try {
+      // Check if there's a selected queue and if it has at least one terminal request
+      if (selectedQueue && selectedQueue.requests.length > 0) {
+        const hasTerminalRequest = selectedQueue.requests.some(
+          (req) => req.status === "Completed" || req.status === "Cancelled"
+        );
+
+        if (hasTerminalRequest) {
+          // Trigger the done handler if at least one request is completed/cancelled
+          await handleDonePanel();
+          return; // handleDonePanel will close the panel
+        }
+      }
+
+      // Otherwise, just close normally
+      setShowActionPanel(false);
+      setSelectedQueue(null);
+    } catch (error) {
+      console.warn(
+        "Warning, there is an unprecedented error in closing the deferred modal!",
+        error
+      );
+    }
   };
 
   const shouldDisableAnnounce = () => {
@@ -1106,7 +1116,7 @@ export default function Manage_Queue() {
                           </div>
                         </div>
 
-                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-8 md:mt-14 justify-end">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-8 md:mt-14 justify-end">
                           <button
                             onClick={() =>
                               handleButtonClick(
@@ -1230,14 +1240,14 @@ export default function Manage_Queue() {
                       </div>
 
                       <div className="flex rounded-2xl bg-[#F4F8FE] px-3 py-2 gap-2">
-                        {['stalled', 'skipped'].map((status) => (
+                        {["stalled", "skipped"].map((status) => (
                           <button
                             key={status}
                             onClick={() => toggleStatusFilter(status)}
                             className={`px-4 py-2 rounded-xl font-medium text-sm transition-colors cursor-pointer ${
                               statusFilter.includes(status)
-                                ? 'bg-gray-900 text-white'
-                                : ' text-gray-700 hover:bg-gray-100'
+                                ? "bg-gray-900 text-white"
+                                : " text-gray-700 hover:bg-gray-100"
                             }`}
                           >
                             {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1402,7 +1412,14 @@ export default function Manage_Queue() {
                                       className="text-left py-3 px-4"
                                       style={{ width: "120px" }}
                                     >
-                                      <span className = {`text-${getMajorityStatus(item.requests) === "Stalled" ? "gray-600" : "[#F9AB00]" }`}>
+                                      <span
+                                        className={`text-${
+                                          getMajorityStatus(item.requests) ===
+                                          "Stalled"
+                                            ? "gray-600"
+                                            : "[#F9AB00]"
+                                        }`}
+                                      >
                                         {getMajorityStatus(item.requests)}
                                       </span>
                                     </td>
@@ -1621,8 +1638,6 @@ export default function Manage_Queue() {
                                             : "text-[#1A73E8]"
                                         }
                                       >
-
-                                      
                                         {item.queueNo}
                                       </span>
                                     </td>
@@ -1792,18 +1807,22 @@ export default function Manage_Queue() {
                       {/* left side */}
                       <div className="w-full lg:w-auto border-1 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
                         <div className="text-left mb-4">
-                          <div className={`text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold mb-2 ${
+                          <div
+                            className={`text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold mb-2 ${
                               selectedQueue.type === "Priority"
                                 ? "text-[#F9AB00] border-[#F9AB00]"
                                 : "text-[#1A73E8] border-[#1A73E8]"
-                            }`}>
+                            }`}
+                          >
                             {selectedQueue.queueNo}
                           </div>
-                          <span className={`text-sm px-3 py-1 rounded-full ${
+                          <span
+                            className={`text-sm px-3 py-1 rounded-full ${
                               selectedQueue.type === "Priority"
                                 ? "bg-[#FEF2D9] text-[#F9AB00]"
                                 : "bg-[#DDEAFC] text-[#1A73E8]"
-                            }`}>
+                            }`}
+                          >
                             {selectedQueue.type}
                           </span>
                         </div>
@@ -1939,7 +1958,7 @@ export default function Manage_Queue() {
                                                 }
                                                 className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors cursor-pointer"
                                               >
-                                                 <img
+                                                <img
                                                   src="/assets/manage_queue/forward.png"
                                                   alt="Edit"
                                                 />
