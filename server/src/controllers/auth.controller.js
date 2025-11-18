@@ -157,7 +157,7 @@ export const requestPasswordReset = async (req, res) => {
     storeOTP(email, OTPcode);
     const adminEmail = await prisma.sasStaff.findUnique({
       where: {
-        username: 'admin2',
+        username: 'admin',
       },
       select: {
         email: true,
