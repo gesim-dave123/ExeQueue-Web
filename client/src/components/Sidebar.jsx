@@ -22,6 +22,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const { logoutOperation } = useAuth();
   const location = useLocation();
+  const [isHeightSmall, setIsHeightSmall] = useState(false);
 
   const handleCloseModal = () => {
     setShowLogoutModal(false);
@@ -123,6 +124,17 @@ export default function Sidebar() {
       setIsSystemSettingsOpen(false);
     }
   };
+
+  useEffect(() => {
+  const checkHeight = () => {
+    setIsHeightSmall(window.innerHeight < 600); // Adjust threshold as needed
+  };
+  
+  checkHeight();
+  window.addEventListener('resize', checkHeight);
+  return () => window.removeEventListener('resize', checkHeight);
+}, []);
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -317,12 +329,13 @@ export default function Sidebar() {
         initial={false}
         animate={{ width: isOpen ? 260 : 64 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className={`
-          fixed top-0 left-0 h-full bg-white shadow-xs z-40 flex flex-col
-          rounded-r-3xl xl:rounded-3xl 
-          ${isMobileView && !isOpen ? "-translate-x-full" : "translate-x-0"}
-          md:translate-x-0 xl:static
-        `}
+       className={`
+  fixed top-0 left-0 h-full bg-white shadow-xs z-40 flex flex-col
+  rounded-r-3xl xl:rounded-3xl 
+  ${isMobileView && !isOpen ? "-translate-x-full" : "translate-x-0"}
+  md:translate-x-0 xl:static
+  ${isHeightSmall ? 'overflow-y-auto' : ''} /* Add scroll when height is small */
+`}
       >
         {!isMobileView && isSidebarOpen && (
           <button
@@ -501,15 +514,15 @@ export default function Sidebar() {
           {/* Profile Button */}
           <div
             onClick={() => handleItemClick("profile")}
-            className={`flex items-center justify-start gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
-              isOpen ? "" : "ml-3 mr-3"
+            className={`flex items-center justify-start pl-2 gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
+              isOpen ? "py-1.5" : "ml-3 mr-3 py-2.5"
             } ${
               activeItem === "profile"
                 ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
                 : "text-black hover:bg-blue-50"
             }`}
           >
-            <div className="w-10 h-14 rounded-full flex items-center justify-center  flex-shrink-0">
+            <div className="w-6 h-7 rounded-full flex items-center justify-center  flex-shrink-0">
               <img src="/assets/dashboard/personnel.png" alt="User" />
             </div>
             <motion.div
@@ -634,7 +647,7 @@ export default function Sidebar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-50 top-[-140px] left-[145px] sm:top-[-40px] sm:left-full -ml-4"
+                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-100 top-[-140px] left-[145px] sm:top-[-40px] sm:left-full -ml-4"
                       >
                         {/* PERSONNEL: Show all options */}
                         {user?.role === "PERSONNEL" && (

@@ -71,7 +71,7 @@ export default function Contact() {
 
       {/* Bottom Note */}
       <div className="mt-10 flex items-center justify-center text-xs text-gray-400  lg:w-8xl">
-        © 2025 ExeQueue v1.0.1 | All Rights Reserved.
+        <span>© 2025 Team Alpha - ExeQueue v1.0.1 <span className="ml-2"></span> All Rights Reserved.</span>
       </div>
     </footer>
   );

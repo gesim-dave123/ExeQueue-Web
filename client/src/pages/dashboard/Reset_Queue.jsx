@@ -39,7 +39,7 @@ export default function Reset_Queue() {
         <>
           Resetting the Priority Queue will set the queue <br />
           number sequence back to one. This action <br />
-          cannot be undone
+          cannot be undone.
           <br />
           <br />
           Are you sure you want to continue?
@@ -57,7 +57,7 @@ export default function Reset_Queue() {
         <>
           Resetting the Regular Queue will set the queue <br />
           number sequence back to one. This action <br />
-          cannot be undone
+          cannot be undone.
           <br />
           <br />
           Are you sure you want to continue?
@@ -75,7 +75,7 @@ export default function Reset_Queue() {
         <>
           Resetting All Queue will set all queue <br />
           number sequence back to one. This action <br />
-          cannot be undone
+          cannot be undone.
           <br />
           <br />
           Are you sure you want to continue?
