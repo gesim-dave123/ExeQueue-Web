@@ -125,6 +125,9 @@ export function startSkippedRequestMonitor() {
           ` Found ${skippedRequests.length} SKIPPED requests to cancel`
         );
 
+        // Group requests by queueId to update queue status efficiently
+        const queueIdsToUpdate = new Set();
+
         for (const request of skippedRequests) {
           await prisma.$transaction(async (tx) => {
             // Update request to CANCELLED
@@ -137,7 +140,7 @@ export function startSkippedRequestMonitor() {
               },
             });
 
-            //Update transaction history to CANCELLED (finalizes it)
+            // Update transaction history to CANCELLED (finalizes it)
             await tx.transactionHistory.updateMany({
               where: {
                 queueId: request.queueId,
@@ -150,9 +153,17 @@ export function startSkippedRequestMonitor() {
               },
             });
 
-            // console.log(`Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
+            // Mark this queue for status update
+            queueIdsToUpdate.add(request.queueId);
           });
         }
+
+        // Update queue statuses based on new request statuses
+        for (const queueId of queueIdsToUpdate) {
+          await updateQueueStatus(queueId);
+        }
+
+        console.log(`Updated ${queueIdsToUpdate.size} queue statuses`);
       } catch (error) {
         console.error("Error in SKIPPED request monitor:", error);
       }
@@ -161,8 +172,69 @@ export function startSkippedRequestMonitor() {
       timezone: TIMEZONE,
     }
   );
+}
 
-  // console.log('SKIPPED request monitor started (runs every 15 minutes)');
+async function updateQueueStatus(queueId) {
+  try {
+    // Get all requests for this queue
+    const requests = await prisma.request.findMany({
+      where: {
+        queueId: queueId,
+        isActive: true,
+      },
+      select: {
+        requestStatus: true,
+      },
+    });
+
+    if (requests.length === 0) return;
+
+    const allCompleted = requests.every(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const allCancelled = requests.every(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
+    const hasStalled = requests.some((r) => r.requestStatus === Status.STALLED);
+    const hasSkipped = requests.some((r) => r.requestStatus === Status.SKIPPED);
+    const hasCompleted = requests.some(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const hasCancelled = requests.some(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
+
+    let finalStatus = Status.DEFERRED;
+
+    if (allCompleted) {
+      finalStatus = Status.COMPLETED;
+    } else if (allCancelled) {
+      finalStatus = Status.CANCELLED;
+    } else if (hasStalled || hasSkipped) {
+      finalStatus = Status.DEFERRED;
+    } else if (hasCompleted && hasCancelled) {
+      finalStatus = Status.PARTIALLY_COMPLETE;
+    }
+
+    // Update queue
+    await prisma.queue.update({
+      where: { queueId },
+      data: {
+        queueStatus: finalStatus,
+        completedAt:
+          finalStatus === Status.COMPLETED ||
+          finalStatus === Status.CANCELLED ||
+          finalStatus === Status.PARTIALLY_COMPLETE
+            ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            : null,
+        updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      },
+    });
+
+    console.log(`Updated queue ${queueId} status to ${finalStatus}`);
+  } catch (error) {
+    console.error(`Error updating queue status for queue ${queueId}:`, error);
+  }
 }
 
 // Transaction History Schedulers
