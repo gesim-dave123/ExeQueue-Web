@@ -1,4 +1,3 @@
-
 import nodemailer from 'nodemailer';
 const otpStore = new Map();
 
@@ -6,19 +5,16 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.ADMIN_GMAIL,
-    pass: process.env.GMAIL_PASSKEY 
-  }
+    pass: process.env.GMAIL_PASSKEY,
+  },
 });
-   
 
 export const generateCode = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
-
-export const sendCodeToEmail = async (email,adminEmail, code) => {
+export const sendCodeToEmail = async (email, adminEmail, code) => {
   try {
-   
     await transporter.sendMail({
       from: adminEmail,
       to: email,
@@ -30,7 +26,7 @@ export const sendCodeToEmail = async (email,adminEmail, code) => {
         <h1 style="color: #007bff; font-size: 32px; letter-spacing: 5px;">${code}</h1>
         <p>This code expires in 1 minute.</p>
         <p><small>If you did not request this, please ignore this email.</small></p>
-      `
+      `,
     });
     return true;
   } catch (error) {
@@ -44,8 +40,8 @@ export const storeOTP = (email, code) => {
   otpStore.set(`otp_${email}`, {
     code: code,
     created_at: Date.now(),
-    expires_at: Date.now() + 120000,  // 1 minute
-    is_used: false
+    expires_at: Date.now() + 60000,
+    is_used: false,
   });
 };
 
@@ -74,11 +70,12 @@ export const cleanupExpiredOTPs = () => {
   for (let [key, value] of otpStore.entries()) {
     if (now > value.expires_at) {
       otpStore.delete(key);
+      console.log(`Cleaned up expired OTP: ${key}`);
     }
   }
 };
 
-
-
-
-
+//Run cleanup every 1 minute automatically
+setInterval(() => {
+  cleanupExpiredOTPs();
+}, 60000); // Run every 60 seconds
