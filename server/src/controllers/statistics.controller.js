@@ -595,23 +595,23 @@ export const getAnalyticsData = async (req, res) => {
 
     console.log('Queue Summary:', queueSummary);
 
-    // --- FETCH COMPLETED REQUESTS OF THE WEEK ---
+    const orderedRequestTypes = [
+      'Good Moral Certificate',
+      'Insurance Payment',
+      'Transmittal Letter',
+      'Temporary Gate Pass',
+      'Uniform Exemption',
+      'Enrollment/Transfer',
+    ];
+
+    // --- FETCH COMPLETED REQUESTS OF THE WEEK - ✅ COMPLETED ONLY ---
     const allRequestOfTheWeek = await prisma.request.findMany({
       where: {
         createdAt: {
           gte: monday,
           lte: saturday,
         },
-        OR: [
-          { requestStatus: Status.COMPLETED },
-          {
-            requestStatus: Status.CANCELLED,
-            processedBy: { not: null },
-            processedAt: {
-              not: null,
-            },
-          },
-        ],
+        requestStatus: Status.COMPLETED, // ✅ ONLY COMPLETED
       },
       select: {
         createdAt: true,
@@ -619,7 +619,16 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
 
-    console.log('Found requests:', allRequestOfTheWeek.length);
+    console.log('📊 Found COMPLETED requests:', allRequestOfTheWeek.length);
+
+    // Fetch request type names
+    const requestTypes = await prisma.requestType.findMany();
+    const typeIdToNameMap = new Map(
+      requestTypes.map((rt) => [rt.requestTypeId, rt.requestName])
+    );
+    const nameToIdMap = new Map(
+      requestTypes.map((rt) => [rt.requestName, rt.requestTypeId])
+    );
 
     // --- GROUP REQUESTS BY REQUEST TYPE (Weekly total) ---
     const requestTypeMap = new Map();
@@ -628,27 +637,27 @@ export const getAnalyticsData = async (req, res) => {
       requestTypeMap.set(typeId, (requestTypeMap.get(typeId) || 0) + 1);
     });
 
-    // Fetch request type names
-    const requestTypes = await prisma.requestType.findMany();
-    const typeIdToNameMap = new Map(
-      requestTypes.map((rt) => [rt.requestTypeId, rt.requestName])
-    );
+    // ✅ Build weekly breakdown with all types (0 if no data)
+    const weeklyRequestBreakdown = orderedRequestTypes.map((typeName) => {
+      const typeId = nameToIdMap.get(typeName);
+      const total = typeId ? requestTypeMap.get(typeId) || 0 : 0;
 
-    const weeklyRequestBreakdown = Array.from(
-      requestTypeMap,
-      ([typeId, total]) => ({
-        requestTypeId: typeId,
-        requestType: typeIdToNameMap.get(typeId) || 'Unknown',
-        total,
-      })
-    );
+      return {
+        requestType: typeName,
+        total: total,
+      };
+    });
 
-    // console.log('Weekly Request Breakdown:', weeklyRequestBreakdown);
+    console.log('📊 Weekly Request Breakdown:', weeklyRequestBreakdown);
 
     // --- GROUP REQUESTS BY DAY AND REQUEST TYPE ---
     const dayRequestMap = {};
     DAYS_OF_WEEK.forEach((day) => {
       dayRequestMap[day] = {};
+      // ✅ Initialize all request types to 0 for each day
+      orderedRequestTypes.forEach((typeName) => {
+        dayRequestMap[day][typeName] = 0;
+      });
     });
 
     allRequestOfTheWeek.forEach((req) => {
@@ -656,28 +665,21 @@ export const getAnalyticsData = async (req, res) => {
       const typeId = req.requestTypeId;
       const typeName = typeIdToNameMap.get(typeId) || 'Unknown';
 
-      if (!dayRequestMap[day][typeName]) {
-        dayRequestMap[day][typeName] = 0;
+      if (dayRequestMap[day] && orderedRequestTypes.includes(typeName)) {
+        dayRequestMap[day][typeName] += 1;
       }
-      dayRequestMap[day][typeName] += 1;
     });
 
-    // Convert to array format grouped by day
+    // Convert to structured format
     const everydayRequestBreakdown = {};
     DAYS_OF_WEEK.forEach((day) => {
-      everydayRequestBreakdown[day] = [];
+      everydayRequestBreakdown[day] = orderedRequestTypes.map((typeName) => ({
+        requestType: typeName,
+        total: dayRequestMap[day][typeName] || 0,
+      }));
     });
 
-    Object.entries(dayRequestMap).forEach(([day, requests]) => {
-      Object.entries(requests).forEach(([requestType, requestTotal]) => {
-        everydayRequestBreakdown[day].push({
-          requestType,
-          total: requestTotal,
-        });
-      });
-    });
-
-    // console.log('Everyday Request Breakdown:', everydayRequestBreakdown);
+    console.log('📊 Everyday Request Breakdown:', everydayRequestBreakdown);
 
     return res.status(200).json({
       success: true,
@@ -720,10 +722,10 @@ export const getTodayAnalytics = async (req, res) => {
         isActive: true,
       },
       select: { sessionId: true },
-      orderBy: { sessionNumber: 'desc' }, // Get the latest session if multiple
+      orderBy: { sessionNumber: 'desc' },
     });
 
-    // If no active session, return empty data
+    // If no active session, return empty data with all request types at 0
     if (!activeSession) {
       console.log('⚠️ No active session found');
       return res.status(200).json({
@@ -735,7 +737,14 @@ export const getTodayAnalytics = async (req, res) => {
           completedRegular: 0,
           completedPriority: 0,
           totalQueues: 0,
-          requestBreakdown: [],
+          requestBreakdown: [
+            { requestType: 'Good Moral Certificate', total: 0 },
+            { requestType: 'Insurance Payment', total: 0 },
+            { requestType: 'Transmittal Letter', total: 0 },
+            { requestType: 'Temporary Gate Pass', total: 0 },
+            { requestType: 'Uniform Exemption', total: 0 },
+            { requestType: 'Enrollment/Transfer', total: 0 },
+          ],
         },
       });
     }
@@ -745,7 +754,6 @@ export const getTodayAnalytics = async (req, res) => {
 
     // ⚡ Fetch queues + requests from CURRENT SESSION ONLY
     const [sessionQueues, sessionRequests, requestTypes] = await Promise.all([
-      // ✅ FIX: Fetch ALL queues (not just completed ones)
       prisma.queue.findMany({
         where: {
           sessionId: sessionId,
@@ -809,15 +817,10 @@ export const getTodayAnalytics = async (req, res) => {
           q.queueStatus === Status.PARTIALLY_COMPLETE)
     ).length;
 
-    // 🧩 Request breakdown by type
+    // 🧩 Request breakdown by type - ✅ COMPLETED ONLY
     const requestTypeMap = new Map();
-    // ✅ FIX: Changed todayRequests to sessionRequests
     sessionRequests
-      .filter(
-        (r) =>
-          r.requestStatus === Status.COMPLETED ||
-          r.requestStatus === Status.CANCELLED
-      )
+      .filter((r) => r.requestStatus === Status.COMPLETED)
       .forEach((r) => {
         requestTypeMap.set(
           r.requestTypeId,
@@ -825,15 +828,37 @@ export const getTodayAnalytics = async (req, res) => {
         );
       });
 
+    console.log('📊 Completed requests count:', requestTypeMap.size);
+
     const typeIdToNameMap = new Map(
       requestTypes.map((rt) => [rt.requestTypeId, rt.requestName])
     );
 
-    const requestBreakdown = Array.from(requestTypeMap, ([typeId, total]) => ({
-      requestTypeId: typeId,
-      requestType: typeIdToNameMap.get(typeId) || 'Unknown',
-      total,
-    }));
+    // ✅ Define the fixed order of request types
+    const orderedRequestTypes = [
+      'Good Moral Certificate',
+      'Insurance Payment',
+      'Transmittal Letter',
+      'Temporary Gate Pass',
+      'Uniform Exemption',
+      'Enrollment/Transfer',
+    ];
+
+    // ✅ Create a map of requestName to requestTypeId
+    const nameToIdMap = new Map(
+      requestTypes.map((rt) => [rt.requestName, rt.requestTypeId])
+    );
+
+    // ✅ Build request breakdown with all types (0 if no data)
+    const requestBreakdown = orderedRequestTypes.map((typeName) => {
+      const typeId = nameToIdMap.get(typeName);
+      const total = typeId ? requestTypeMap.get(typeId) || 0 : 0;
+
+      return {
+        requestType: typeName,
+        total: total,
+      };
+    });
 
     // ✅ Combine all analytics
     const analytics = {
