@@ -101,15 +101,15 @@ export default function Display_Queue() {
   const totalPriorityWaiting = totals.totalPriorityWaiting || 0;
 
   return (
-    <div className="min-h-screen flex flex-col justify-start lg:w-[100%]">
+    <div className="h-screen flex flex-col bg-[#F5F5F5]">
       <div
         ref={containerRef}
-        className={`flex justify-start flex-col min-h-[90vh] bg-[#F5F5F5] pb-15 xl:pl-9 pr-8 overflow-y-auto
-            ${
-              isFullscreen
-                ? "flex pl-8 lg:pl-7"
-                : "md:pl-15 pt-15 xl:pb-5 lg:pt-15 2xl:pt-18 justify-center "
-            }`}      >
+       className={`flex flex-col h-full bg-[#F5F5F5]
+    ${
+      isFullscreen
+        ? "p-4"
+        : "p-6 md:p-8 lg:p-12"
+    }`}  >
 
           <div
           className={`flex items-center justify-center ${
@@ -149,10 +149,10 @@ export default function Display_Queue() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6 flex-1 min-h-0">
           {/* Left Side - Current Serving */}
           {/* // Left Side - Current Serving */}
-          <div className="space-y-6 flex flex-col justify-between">
+          <div className="flex flex-col gap-4 lg:gap-6 min-h-0">
             {[1, 2].map((windowNumber) => {
               const windowData =
                 formattedCurrentServing?.[`window${windowNumber}`];
@@ -165,8 +165,7 @@ export default function Display_Queue() {
               return (
                 <div
                   key={windowNumber}
-                  className="bg-white flex flex-col py-20 items-center justify-center rounded-2xl shadow-xs p-8 flex-1"
-                >
+                  className="bg-white flex flex-col items-center justify-center rounded-2xl shadow-sm flex-1 min-h-0 p-4 lg:p-8"                >
                   <div className="flex items-center gap-2 text-gray-600 mb-6">
                     <div className="inline-block">
                       <img
@@ -214,10 +213,10 @@ export default function Display_Queue() {
             })}
           </div>
           {/* Right Side - Next in Line & Waiting Counts */}
-          <div className="space-y-6 flex flex-1 flex-col justify-between">
-            {/* Next in Line */}
-            <div className="bg-white flex flex-1 flex-col rounded-2xl shadow-xs p-8">
-              <h2 className="text-3xl text-left font-bold text-[#202124] mb-6">
+          <div className="flex flex-col gap-4 lg:gap-6 min-h-0">    
+                    {/* Next in Line */}
+            <div className="bg-white flex flex-col rounded-2xl shadow-sm p-4 lg:p-8 flex-[2] min-h-0">
+                <h2 className="text-3xl text-left font-bold text-[#202124] mb-6">
                 Next in Line
               </h2>
 
@@ -243,7 +242,7 @@ export default function Display_Queue() {
 
             {/* Waiting Counts */}
             <div
-              className={`grid grid-cols-2 gap-4 bg-white p-7 rounded-2xl shadow-xs 
+              className={`grid grid-cols-2 gap-3 lg:gap-4 bg-white p-4 lg:p-6 rounded-2xl shadow-sm flex-1 
             ${isFullscreen ? "mb-10 xl:mb-0" : ""}`}
             >
               {/* Regular Waiting */}
@@ -272,3 +271,4 @@ export default function Display_Queue() {
     </div>
   );
 }
+  
