@@ -175,7 +175,7 @@ export default function SearchQueue() {
         <button
           onClick={checkQueue}
           disabled={loading}
-          className="w-23 h-md bg-[#1A73E8] hover:bg-[#1557B0] flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-23 h-md cursor-pointer bg-[#1A73E8] hover:bg-[#1557B0] flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -193,7 +193,7 @@ export default function SearchQueue() {
       <div className="w-full max-w-xl flex justify-end">
         <button
           onClick={() => navigate('/')}
-          className="mt-6 mb-20 bg-[#1A73E8] hover:bg-[#1557B0] text-sm  text-white font-medium px-5 py-4 rounded-2xl flex items-center gap-2"
+          className="mt-6 mb-20 bg-[#1A73E8] cursor-pointer hover:bg-[#1557B0] text-sm  text-white font-medium px-5 py-4 rounded-2xl flex items-center gap-2"
         >
           <ArrowLeft size={17} /> Back to Homepage
         </button>
