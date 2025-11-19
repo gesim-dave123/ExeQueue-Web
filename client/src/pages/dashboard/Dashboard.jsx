@@ -369,18 +369,19 @@ export default function Dashboard() {
               </div>
 
               {/* Legend with Percentages */}
-              <div className="mt-6 flex flex-col sm:flex-row sm:justify-center gap-4">
+              <div className="mt-6 flex flex-col sm:flex-row sm:justify-between gap-10">
                 {[
+                      {
+                    name: 'Priority',
+                    color: 'bg-[#FDE5B0]',
+                    value: completedPriority,
+                  },
                   {
                     name: 'Regular',
                     color: 'bg-[#1A73E8]',
                     value: completedRegular,
                   },
-                  {
-                    name: 'Priority',
-                    color: 'bg-[#FDE5B0]',
-                    value: completedPriority,
-                  },
+              
                   {
                     name: 'In Progress',
                     color: 'bg-[#E2E3E4]',
@@ -401,7 +402,7 @@ export default function Dashboard() {
                         className={`w-3 h-3 rounded-full ${item.color}`}
                       ></div>
                       <span className="text-gray-600">{item.name}</span>
-                      <span className="font-medium text-[#202124]">
+                      <span className="font-medium text-xl text-[#202124]">
                         {percentage}%
                       </span>
                     </div>
