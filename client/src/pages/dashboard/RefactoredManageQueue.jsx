@@ -863,7 +863,7 @@ export default function Manage_Queue() {
                     </div>
 
                     {/* container */}
-                    <div className="flex lg:flex-row flex-col  items-center justify-between gap-6 h-full">
+                    <div className="flex lg:flex-row flex-col  items-start justify-between gap-6 h-full">
                       {/* left side */}
                       <div className="border w-full md:flex-1 flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
                         <div className=" text-left mb-4 ">
@@ -1735,7 +1735,7 @@ export default function Manage_Queue() {
                   </div>
 
                   <div className="px-6 md:pb-6 pb-4 pt-2 xl:pt-0">
-                    <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="w-full flex flex-col md:flex-row items-start justify-between gap-6">
                       {/* left side */}
                       <div className="w-full lg:w-auto border-1 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
                         <div className="text-left mb-4">

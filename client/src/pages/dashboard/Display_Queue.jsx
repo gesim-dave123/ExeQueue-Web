@@ -218,31 +218,36 @@ export default function Display_Queue() {
                 Next in Line
               </h2>
 
-              <div className="space-y-1 sm:space-y-2 md:space-y-3 flex flex-col justify-center h-full overflow-hidden min-h-0">
-                {mappedNextInLine.length > 0 ? (
-                  mappedNextInLine.map((item, index) => (
-                    <div
-                      key={index}
-                      className={`rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-5 flex-1 flex items-center justify-center text-center min-h-[50px] sm:min-h-[70px] md:min-h-[80px] ${
-                        item.type === "Regular" ? "bg-[#B8D4F8]" : "bg-[#FDE5B0]"
-                      }`}
-                    >
-                      <span
-                        className={`text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold ${
-                          item.type === "Regular" ? "text-[#1A73E8]" : "text-[#F9A825]"
-                        }`}
-                      >
-                        {item.number}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  // Empty state when no next in line
-                  <div className="flex-1 flex items-center justify-center text-gray-400 text-sm sm:text-base">
-                    No one in line
-                  </div>
-                )}
-              </div>
+        <div className="h-full overflow-hidden min-h-0">
+  {mappedNextInLine.length > 0 ? (
+    <div className="flex flex-col h-full gap-1 xs:gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3">
+      {mappedNextInLine.map((item, index) => (
+        <div
+          key={index}
+          className={`rounded-md xs:rounded-lg sm:rounded-xl md:rounded-2xl 
+                     p-1.5 xs:p-2 sm:p-2.5 md:p-3 lg:p-4 xl:p-5 
+                     flex items-center justify-center text-center 
+                     flex-1 min-h-0 ${
+            item.type === "Regular" ? "bg-[#B8D4F8]" : "bg-[#FDE5B0]"
+          }`}
+        >
+          <span
+            className={`text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${
+              item.type === "Regular" ? "text-[#1A73E8]" : "text-[#F9A825]"
+            }`}
+          >
+            {item.number}
+          </span>
+        </div>
+      ))}
+    </div>
+  ) : (
+    // Empty state when no next in line
+    <div className="h-full flex items-center justify-center text-gray-400 text-xs xs:text-sm sm:text-base md:text-lg">
+      No one in line
+    </div>
+  )}
+</div>
             </div>
 
             {/* Waiting Counts */}
