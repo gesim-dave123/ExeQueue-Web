@@ -106,7 +106,7 @@ export default function Display_Queue() {
       <div
         ref={containerRef}
         className={`flex flex-col h-full w-full bg-[#F5F5F5] overflow-hidden ${
-          isFullscreen ? "p-5" : "pb-10 pt-15 xl:pt-17 xl:px-9 sm:pl-15 pr-7"
+          isFullscreen ? "p-5" : "pb-10 pt-15 xl:pt-17 xl:px-9 md:pl-15 pr-7"
         }`}
       >
         {/* Fullscreen Logo Header */}
