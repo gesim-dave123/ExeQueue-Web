@@ -8,10 +8,10 @@ export default function Home() {
   const handleRedirect = (destination) => {
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
-      navigate(destination);
-    }, 2000);
+    // setTimeout(() => {
+    //   setLoading(false);
+    //   navigate(destination);
+    // }, 2000);
   };
 
   return (
