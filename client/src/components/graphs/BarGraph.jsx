@@ -144,7 +144,33 @@ const BarGraph = ({ chartData, onDayClick, selectedDay }) => {
   const [hoveredType, setHoveredType] = useState(null);
 
   const [hoveredDay, setHoveredDay] = useState(null);
+  const maxTotal = Math.max(...chartData.map(item => item.total));
 
+   // Round up to nearest nice number for better appearance
+  const getYAxisMax = (max) => {
+    const magnitude = Math.pow(10, Math.floor(Math.log10(max)));
+    const normalized = max / magnitude;
+    
+    let roundedNormalized;
+    if (normalized <= 1) roundedNormalized = 1;
+    else if (normalized <= 2) roundedNormalized = 2;
+    else if (normalized <= 5) roundedNormalized = 5;
+    else roundedNormalized = 10;
+    
+    return roundedNormalized * magnitude;
+  };
+
+  const yAxisMax = getYAxisMax(maxTotal);
+  
+  // Generate evenly spaced ticks
+  const generateTicks = (max) => {
+    const tickCount = 4; // You can adjust this
+    const interval = max / (tickCount - 1);
+    return Array.from({ length: tickCount }, (_, i) => Math.round(i * interval));
+  };
+
+  const yAxisTicks = generateTicks(yAxisMax);
+  
   const handleDayClick = (day) => {
     if (onDayClick) {
       // If clicking the same day, deselect it
@@ -221,8 +247,10 @@ const CustomTooltip = ({ active, payload }) => {
             <YAxis
               axisLine={false}
               tickLine={false}
-              domain={[0, 1500]}
-              ticks={[0, 500, 1000, 1500]}
+              // domain={[0, yAxisMax]}
+              // ticks={yAxisTicks}
+              // domain={[0, 1500]}
+              // ticks={[0, 500, 1000, 1500]}
               tick={{ fontSize: 12 }}
               className="text-xs sm:text-sm"
               width={50}

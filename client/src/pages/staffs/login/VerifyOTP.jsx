@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Mail } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { verifyOTP } from "../../../api/auth";
-import { sendOTPtoEmail } from "../../../api/auth";
+import React, { useState, useRef, useEffect } from 'react';
+import { ArrowLeft, Mail } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { verifyOTP } from '../../../api/auth';
+import { sendOTPtoEmail } from '../../../api/auth';
 
 export default function VerifyOTP() {
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const inputRefs = [useRef(), useRef(), useRef(), useRef()];
   const navigate = useNavigate();
@@ -13,63 +13,62 @@ export default function VerifyOTP() {
   const email = location.state?.email;
 
   // Mask email for display
-  const maskedEmail = email.replace(/(.{3}).*(@.*)/, "$1****$2");
+  const maskedEmail = email.replace(/(.{3}).*(@.*)/, '$1****$2');
 
   useEffect(() => {
     inputRefs[0].current?.focus();
   }, []);
 
   const handleChange = (index, value) => {
- 
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
- 
     if (value && index < 3) {
       inputRefs[index + 1].current?.focus();
     }
   };
 
   const handleKeyDown = (index, e) => {
-
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs[index - 1].current?.focus();
     }
   };
 
- const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const otpCode = otp.join("");
-    
+    const otpCode = otp.join('');
+
     if (otpCode.length !== 4) return;
 
     setLoading(true);
-    const res = await verifyOTP(otpCode, email); 
-    
+    const res = await verifyOTP(otpCode, email);
+
     if (!res?.success) {
       setLoading(false);
       return;
     }
-    navigate("/staff/reset-password", { state: { resetToken: res.resetToken, email} });
+    navigate('/staff/reset-password', {
+      state: { resetToken: res.resetToken, email },
+    });
     console.log(res.resetToken);
     setLoading(false);
   };
 
   const handleResend = async () => {
-    setOtp(["", "", "", ""]); 
-    inputRefs[0].current?.focus(); 
+    setOtp(['', '', '', '']);
+    inputRefs[0].current?.focus();
     try {
-      const res = await sendOTPtoEmail(email); 
+      const res = await sendOTPtoEmail(email);
       if (res?.success) {
-        showToast("A new OTP has been sent to your email!", "success");
+        showToast('A new OTP has been sent to your email!', 'success');
       } else {
-        showToast(res?.message || "Failed to resend OTP.", "error");
+        showToast(res?.message || 'Failed to resend OTP.', 'error');
       }
     } catch (error) {
-      showToast("An unexpected error occurred.", "error");
+      showToast('An unexpected error occurred.', 'error');
     }
   };
 
@@ -116,21 +115,21 @@ export default function VerifyOTP() {
               onClick={handleResend}
               className="text-sm text-[#1A73E8]  font-medium cursor-pointer"
             >
-              Click to resend
+              Send Code
             </button>
           </div>
 
           {/* Verify Button */}
           <button
             type="submit"
-            disabled={loading || otp.join("").length !== 4}
+            disabled={loading || otp.join('').length !== 4}
             className={`w-full font-semibold py-3 rounded-xl transition-all cursor-pointer ${
-              loading || otp.join("").length !== 4
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white"
+              loading || otp.join('').length !== 4
+                ? 'bg-[#1A73E8] cursor-not-allowed text-white'
+                : 'bg-[#1A73E8] hover:bg-blue-700 text-white'
             }`}
           >
-            {loading ? "Verifying..." : "Verify"}
+            {loading ? 'Verifying...' : 'Verify'}
           </button>
         </form>
 
@@ -138,7 +137,7 @@ export default function VerifyOTP() {
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-[#202124]" />
           <button
-            onClick={() => navigate("/staff/login")}
+            onClick={() => navigate('/staff/login')}
             className="text-sm text-[#202124]  cursor-pointer font-medium "
           >
             Back to Login

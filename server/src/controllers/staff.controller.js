@@ -1,25 +1,26 @@
-import { Role, Status } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import prisma from "../../prisma/prisma.js";
-import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
-import { getShiftTag } from "../../utils/shiftTag.js";
-import { QueueActions, WindowEvents } from "../services/enums/SocketEvents.js";
+import { Role, Status } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import prisma from '../../prisma/prisma.js';
+import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
+import { getShiftTag } from '../../utils/shiftTag.js';
+import { QueueActions, WindowEvents } from '../services/enums/SocketEvents.js';
 // import { sendDashboardUpdate } from "./sse.controllers.js";
 import { encryptQueueId } from "../../utils/encryptId.js";
+import { scheduleAssignmentTimer } from "../services/Window/windowAssignment.service.js";
 import {
   sendDashboardUpdate,
   sendLiveDisplayUpdate,
-} from "./statistics.controller.js";
+} from './statistics.controller.js';
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
-  "Asia/Manila"
+  'Asia/Manila'
 );
 const isIntegerParam = (val) => /^\d+$/.test(val);
 
 export const assignServiceWindow = async (req, res) => {
   const { sasStaffId } = req.user;
   const { windowId: windowIdStr } = req.params;
-  const io = req.app.get("io");
+  const io = req.app.get('io');
   const shift = getShiftTag();
 
   try {
@@ -27,7 +28,7 @@ export const assignServiceWindow = async (req, res) => {
     if (!isIntegerParam(windowIdStr)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid param. windowID must be an integer.",
+        message: 'Invalid param. windowID must be an integer.',
       });
     }
 
@@ -36,7 +37,7 @@ export const assignServiceWindow = async (req, res) => {
     if (isNaN(windowIdStr)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Type. windowID must be a Number.",
+        message: 'Invalid Type. windowID must be a Number.',
       });
     }
 
@@ -62,7 +63,7 @@ export const assignServiceWindow = async (req, res) => {
           sasStaffId,
           windowId,
           shiftTag: shift,
-          lastHeartbeat: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          lastHeartbeat: DateAndTimeFormatter.nowInTimeZone('Asia/Manila'),
         },
         include: {
           staff: {
@@ -74,7 +75,10 @@ export const assignServiceWindow = async (req, res) => {
 
       return assignment;
     });
-
+    scheduleAssignmentTimer(
+      result.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+    );
     io.emit(WindowEvents.ASSIGN_WINDOW, {
       windowId,
       staff: result.staff,
@@ -87,18 +91,18 @@ export const assignServiceWindow = async (req, res) => {
       assignment: result,
     });
   } catch (error) {
-    console.error("❌ Error assigning staff:", error);
+    console.error('❌ Error assigning staff:', error);
 
     // Handle unique constraint (window already taken)
-    if (error.code === "P2002" && error.meta?.target?.includes("windowId")) {
+    if (error.code === 'P2002' && error.meta?.target?.includes('windowId')) {
       return res.status(409).json({
         success: false,
-        message: "This window is already assigned to another staff.",
+        message: 'This window is already assigned to another staff.',
       });
     }
 
     // 🧩 Handle custom logic errors (like already assigned)
-    if (error.message.includes("already assigned")) {
+    if (error.message.includes('already assigned')) {
       return res.status(409).json({
         success: false,
         message: error.message,
@@ -107,7 +111,7 @@ export const assignServiceWindow = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
       error: error.message,
     });
   }
@@ -117,7 +121,7 @@ export const releaseServiceWindow = async (req, res) => {
   try {
     const { sasStaffId } = req.user;
     const shift = getShiftTag();
-    const io = req.app.get("io");
+    const io = req.app.get('io');
 
     const result = await prisma.$transaction(async (tx) => {
       const activeAssignment = await tx.windowAssignment.findFirst({
@@ -134,7 +138,7 @@ export const releaseServiceWindow = async (req, res) => {
       if (!activeAssignment) {
         return res.status(203).json({
           success: false,
-          messsage: "There is no active staff assigned to this window",
+          messsage: 'There is no active staff assigned to this window',
           wasWindowAssigned: false,
         });
       }
@@ -176,7 +180,7 @@ export const releaseServiceWindow = async (req, res) => {
 
       const released = await tx.windowAssignment.updateMany({
         where: { sasStaffId, shiftTag: shift, releasedAt: null },
-        data: { releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila") },
+        data: { releasedAt: DateAndTimeFormatter.nowInTimeZone('Asia/Manila') },
       });
 
       return {
@@ -231,14 +235,14 @@ export const releaseServiceWindow = async (req, res) => {
       success: true,
       message: result.resetQueue
         ? `Window released and queue ${result.resetQueue.queueNumber} reset to waiting`
-        : "Window released successfully",
+        : 'Window released successfully',
       resetQueue: result.resetQueue,
       wasWindowAssigned: true,
     });
   } catch (error) {
-    console.error("❌ Error releasing window:", error);
+    console.error('❌ Error releasing window:', error);
 
-    if (error.message === "No active window assignment found") {
+    if (error.message === 'No active window assignment found') {
       return res.status(404).json({
         success: false,
         message: error.message,
@@ -247,7 +251,7 @@ export const releaseServiceWindow = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -277,21 +281,21 @@ export const getMyWindowAssignment = async (req, res) => {
     if (!assignment) {
       return res.status(200).json({
         success: true,
-        message: "No active assignment",
+        message: 'No active assignment',
         assignment: null,
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Active assignment found",
+      message: 'Active assignment found',
       assignment: assignment,
     });
   } catch (error) {
-    console.error("❌ Error getting assignment:", error);
+    console.error('❌ Error getting assignment:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -302,7 +306,7 @@ export const checkAvailableWindow = async (req, res) => {
 
     if (!Array.isArray(windowIds)) {
       return res.status(400).json({
-        error: "windowIds must be an array",
+        error: 'windowIds must be an array',
         example: { windowIds: [1, 2, 3] },
       });
     }
@@ -310,12 +314,11 @@ export const checkAvailableWindow = async (req, res) => {
     if (!windowIds || windowIds.length === 0) {
       return res.status(403).json({
         success: false,
-        message: "Window Id array is empty",
+        message: 'Window Id array is empty',
       });
     }
 
     const shift = getShiftTag(); // returns "MORNING", "AFTERNOON", "EVENING"
-    console.log(shift);
     const assignedWindows = await prisma.windowAssignment.findMany({
       where: {
         windowId: { in: windowIds },
@@ -329,7 +332,6 @@ export const checkAvailableWindow = async (req, res) => {
     });
 
     const assignedIds = assignedWindows.map((a) => a.windowId);
-    console.log(assignedIds);
     const availableWindows = windowIds.filter(
       (id) => !assignedIds.includes(id)
     );
@@ -340,10 +342,10 @@ export const checkAvailableWindow = async (req, res) => {
       assignedIds,
     });
   } catch (error) {
-    console.error("Error occurred checking window availability: ", error);
+    console.error('Error occurred checking window availability: ', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -352,9 +354,17 @@ export const updateWindowHeartbeat = async (req, res) => {
   try {
     const { sasStaffId } = req.user;
     const { windowId } = req.body;
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const shift = getShiftTag();
-    const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+    const HEARTBEAT_INTERVAL = 2 * 60 *  1000;
+
+    // Validate windowId
+    if (!windowId) {
+      return res.status(400).json({
+        success: false,
+        message: "windowId is required",
+      });
+    }
 
     const assignment = await prisma.windowAssignment.findFirst({
       where: {
@@ -363,66 +373,79 @@ export const updateWindowHeartbeat = async (req, res) => {
         shiftTag: shift,
         releasedAt: null,
       },
-      select: { lastHeartbeat: true },
+      select: {
+        assignmentId: true,
+        lastHeartbeat: true,
+      },
     });
 
     if (!assignment) {
       return res.status(404).json({
         success: false,
-        message: "No active assignment found",
+        message: 'No active assignment found',
       });
     }
 
     const now = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
-    const timeSinceLastHeartbeat =
-      now.getTime() - new Date(assignment.lastHeartbeat).getTime();
 
-    // Only update if heartbeat is older than interval
-    if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
-      return res.status(200).json({
-        success: true,
-        message: "Heartbeat still fresh, skipped update",
-        skipped: true,
-      });
+    // Check if heartbeat needs updating
+    if (assignment.lastHeartbeat) {
+      const timeSinceLastHeartbeat =
+        now.getTime() - new Date(assignment.lastHeartbeat).getTime();
+
+      // Only update if heartbeat is older than interval
+      if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
+        return res.status(200).json({
+          success: true,
+          message: "Heartbeat still fresh, skipped update",
+          skipped: true,
+          lastHeartbeat: assignment.lastHeartbeat,
+        });
+      }
     }
 
-    // Update only if needed
-    await prisma.windowAssignment.updateMany({
+    // Update heartbeat using the specific assignmentId
+    const updatedAssignment = await prisma.windowAssignment.update({
       where: {
-        sasStaffId,
-        windowId,
-        shiftTag: shift,
-        releasedAt: null,
+        assignmentId: assignment.assignmentId,
       },
       data: {
         lastHeartbeat: now,
       },
+      select: {
+        assignmentId: true,
+      },
     });
-
-    // Only emit socket event when actually updating
-    io.emit(WindowEvents.HEARTBEAT_UPDATE, {
-      windowId,
-      sasStaffId,
-      timestamp: now,
-    });
+    scheduleAssignmentTimer(
+      updatedAssignment.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+    );
+    // Emit socket event for monitoring/debugging (optional)
+    if (io) {
+      io.emit(WindowEvents.HEARTBEAT_UPDATE, {
+        windowId,
+        sasStaffId,
+        timestamp: now,
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Heartbeat updated",
+      message: 'Heartbeat updated',
       updated: true,
+      lastHeartbeat: now,
     });
   } catch (error) {
-    console.error("❌ Error updating heartbeat:", error);
+    console.error("Error updating heartbeat:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
-
 export const checkAndReleaseStaleAssignments = async (req, res) => {
   try {
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const HEARTBEAT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
     const now = new Date();
     const timeoutThreshold = new Date(now.getTime() - HEARTBEAT_TIMEOUT);
@@ -444,7 +467,7 @@ export const checkAndReleaseStaleAssignments = async (req, res) => {
     if (staleAssignments.length === 0) {
       return res.status(200).json({
         success: true,
-        message: "No stale assignments found",
+        message: 'No stale assignments found',
         count: 0,
       });
     }
@@ -466,7 +489,7 @@ export const checkAndReleaseStaleAssignments = async (req, res) => {
         windowId: assignment.windowId,
         sasStaffId: assignment.sasStaffId,
         staffName: `${assignment.staff.firstName} ${assignment.staff.lastName}`,
-        reason: "No activity detected (5 minute timeout)",
+        reason: 'No activity detected (5 minute timeout)',
       });
     });
 
@@ -476,10 +499,10 @@ export const checkAndReleaseStaleAssignments = async (req, res) => {
       count: released.count,
     });
   } catch (error) {
-    console.error("❌ Error checking stale assignments:", error);
+    console.error('❌ Error checking stale assignments:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!",
+      message: 'Internal Server Error!',
     });
   }
 };
@@ -494,12 +517,12 @@ export const getServiceWindowDetails = async (req, res) => {
     if (serviceWindows === null) {
       return res.status(200).json({
         success: false,
-        message: "Error occured, returned null",
+        message: 'Error occured, returned null',
       });
     }
     return res.status(200).json({
       success: true,
-      message: "Service Windows:",
+      message: 'Service Windows:',
       windows: serviceWindows,
     });
   } catch (error) {}
@@ -534,14 +557,14 @@ export const getWorkingScholars = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Working Scholar accounts retrieved successfully.",
+      message: 'Working Scholar accounts retrieved successfully.',
       data: formattedScholars,
     });
   } catch (error) {
-    console.error("Error retrieving working scholars:", error);
+    console.error('Error retrieving working scholars:', error);
     return res.status(500).json({
       success: false,
-      message: "Failed to retrieve Working Scholar accounts.",
+      message: 'Failed to retrieve Working Scholar accounts.',
     });
   }
 };
@@ -564,18 +587,27 @@ export const createWorkingScholar = async (req, res) => {
       !username?.trim() ||
       !firstName?.trim() ||
       !lastName?.trim() ||
-      !email?.trim() ||
-      !password
+      !email?.trim()
     ) {
       return res
         .status(400)
-        .json({ success: false, message: "Missing required fields." });
+        .json({ success: false, message: 'Missing required fields.' });
+    }
+
+    // ✅ Check if password is provided
+    if (!password || !password.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password cannot be empty',
+        field: 'password', // Add field identifier
+      });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: "Password and confirmation do not match.",
+        message: 'Passwords do not match',
+        field: 'password', // Add field identifier
       });
     }
 
@@ -589,13 +621,17 @@ export const createWorkingScholar = async (req, res) => {
 
     if (existing) {
       if (existing.username === username) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Username already exists." });
+        return res.status(409).json({
+          success: false,
+          message: 'Username already exists',
+          field: 'username',
+        });
       }
-      return res
-        .status(409)
-        .json({ success: false, message: "Email already exists." });
+      return res.status(409).json({
+        success: false,
+        message: 'Email already exists',
+        field: 'email',
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -626,7 +662,7 @@ export const createWorkingScholar = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Working Scholar account created successfully.",
+      message: 'Working Scholar account created successfully.',
       data: {
         sasStaffId: newAccount.sasStaffId,
         username: newAccount.username,
@@ -636,10 +672,10 @@ export const createWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating working scholar account:", error);
+    console.error('Error creating working scholar account:', error);
     return res
       .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+      .json({ success: false, message: 'Internal Server Error' });
   }
 };
 
@@ -671,13 +707,13 @@ export const updateWorkingScholar = async (req, res) => {
     if (!account || !account.isActive) {
       return res
         .status(404)
-        .json({ success: false, message: "Account not found or inactive." });
+        .json({ success: false, message: 'Account not found or inactive.' });
     }
 
     if (account.role !== Role.WORKING_SCHOLAR) {
       return res.status(403).json({
         success: false,
-        message: "Can only update Working Scholar accounts.",
+        message: 'Can only update Working Scholar accounts.',
       });
     }
 
@@ -689,14 +725,14 @@ export const updateWorkingScholar = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Both newPassword and confirmPassword are required to change password.",
+          'Both newPassword and confirmPassword are required to change password.',
       });
     }
     if (newPassword && confirmPassword) {
       if (newPassword !== confirmPassword) {
         return res
           .status(400)
-          .json({ success: false, message: "Password does not match." });
+          .json({ success: false, message: 'Password does not match.' });
       }
       hashedPassword = await bcrypt.hash(newPassword, 10);
     }
@@ -709,7 +745,7 @@ export const updateWorkingScholar = async (req, res) => {
       if (existingUsername) {
         return res
           .status(409)
-          .json({ success: false, message: "Username already in use." });
+          .json({ success: false, message: 'Username already in use.' });
       }
     }
     if (email && email !== account.email) {
@@ -720,7 +756,7 @@ export const updateWorkingScholar = async (req, res) => {
       if (existingEmail) {
         return res
           .status(409)
-          .json({ success: false, message: "Email already in use." });
+          .json({ success: false, message: 'Email already in use.' });
       }
     }
 
@@ -729,11 +765,11 @@ export const updateWorkingScholar = async (req, res) => {
       ...(username ? { username } : {}),
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
-      ...(typeof middleName !== "undefined"
+      ...(typeof middleName !== 'undefined'
         ? { middleName: middleName ?? null }
         : {}),
       ...(email ? { email } : {}),
-      ...(typeof hashedPassword !== "undefined" ? { hashedPassword } : {}),
+      ...(typeof hashedPassword !== 'undefined' ? { hashedPassword } : {}),
       updatedAt: new Date(),
       createdBy: account.createdBy ?? updaterId ?? null, // keep createdBy if any; optional
     };
@@ -755,7 +791,7 @@ export const updateWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Account updated successfully.",
+      message: 'Account updated successfully.',
       data: {
         sasStaffId: updated.sasStaffId,
         username: updated.username,
@@ -765,10 +801,10 @@ export const updateWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating working scholar account:", error);
+    console.error('Error updating working scholar account:', error);
     return res
       .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+      .json({ success: false, message: 'Internal Server Error' });
   }
 };
 
@@ -784,20 +820,20 @@ export const softDeleteWorkingScholar = async (req, res) => {
     if (!account) {
       return res
         .status(404)
-        .json({ success: false, message: "Account not found." });
+        .json({ success: false, message: 'Account not found.' });
     }
 
     if (account.role !== Role.WORKING_SCHOLAR) {
       return res.status(403).json({
         success: false,
-        message: "Can only delete Working Scholar accounts.",
+        message: 'Can only delete Working Scholar accounts.',
       });
     }
 
     if (!account.isActive) {
       return res
         .status(400)
-        .json({ success: false, message: "Account already deleted." });
+        .json({ success: false, message: 'Account already deleted.' });
     }
 
     const deleted = await prisma.sasStaff.update({
@@ -819,7 +855,7 @@ export const softDeleteWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Account deleted successfully.",
+      message: 'Account deleted successfully.',
       data: {
         sasStaffId: deleted.sasStaffId,
         username: deleted.username,
@@ -830,10 +866,10 @@ export const softDeleteWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error soft-deleting account:", error);
+    console.error('Error soft-deleting account:', error);
     return res
       .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+      .json({ success: false, message: 'Internal Server Error' });
   }
 };
 
@@ -841,20 +877,20 @@ export const manualWindowRelease = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
     const { windowNum: windowNoStr } = req.params;
-    const io = req.app.get("io");
+    const io = req.app.get('io');
     const shift = getShiftTag();
 
     if (!sasStaffId || !role) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! No Id and Role provided!",
+        message: 'Unauthorized Operation! No Id and Role provided!',
       });
     }
 
     if (role !== Role.PERSONNEL) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+        message: 'Unauthorized Operation! Role is not of PERSONNEL!',
       });
     }
 
@@ -866,14 +902,13 @@ export const manualWindowRelease = async (req, res) => {
     if (sasStaff.role !== role) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+        message: 'Unauthorized Operation! Database Role is not of PERSONNEL!',
       });
     }
-    console.log("windowSTr", windowNoStr);
     if (!isIntegerParam(windowNoStr)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid window number, must be anumerical type!",
+        message: 'Invalid window number, must be anumerical type!',
       });
     }
     const windowNum = parseInt(windowNoStr);
@@ -881,7 +916,7 @@ export const manualWindowRelease = async (req, res) => {
     if (isNaN(windowNum)) {
       return res.status(400).json({
         success: false,
-        message: "An error occurred while parsing window number!",
+        message: 'An error occurred while parsing window number!',
       });
     }
 
@@ -915,7 +950,7 @@ export const manualWindowRelease = async (req, res) => {
       if (!activeAssignment) {
         return res.status(200).json({
           success: false,
-          messsage: "There is no active staff assigned to this window",
+          messsage: 'There is no active staff assigned to this window',
           wasWindowAssigned: false,
         });
       }
@@ -955,14 +990,12 @@ export const manualWindowRelease = async (req, res) => {
           previousWindowId: activeAssignment.windowId,
         });
       }
-      console.log("Current Queue", currentQueue);
-
       const released = await tx.windowAssignment.update({
         where: {
           assignmentId: activeAssignment.assignmentId,
         },
         data: {
-          releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          releasedAt: DateAndTimeFormatter.nowInTimeZone('Asia/Manila'),
         },
         select: {
           staff: {
@@ -1031,15 +1064,15 @@ export const manualWindowRelease = async (req, res) => {
       success: true,
       message: result.resetQueue
         ? `Window released and queue ${result.resetQueue.queueNumber} reset to waiting`
-        : "Window released successfully",
+        : 'Window released successfully',
       resetQueue: result.resetQueue,
       wasWindowAssigned: true,
     });
   } catch (error) {
-    console.error("Manual window release error:", error);
+    console.error('Manual window release error:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!" || error.message,
+      message: 'Internal Server Error!' || error.message,
     });
   }
 };
@@ -1048,19 +1081,19 @@ export const manualResetQueueNumber = async (req, res) => {
   try {
     const { queueType } = req.params;
     const { sasStaffId, role } = req.user;
-    const io = req.app.get("io");
+    const io = req.app.get('io');
 
     if (!sasStaffId || !role) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! No Id and Role provided!",
+        message: 'Unauthorized Operation! No Id and Role provided!',
       });
     }
 
     if (role !== Role.PERSONNEL) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+        message: 'Unauthorized Operation! Role is not of PERSONNEL!',
       });
     }
 
@@ -1072,21 +1105,21 @@ export const manualResetQueueNumber = async (req, res) => {
     if (sasStaff.role !== role) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+        message: 'Unauthorized Operation! Database Role is not of PERSONNEL!',
       });
     }
 
     const normalizedType = queueType?.toUpperCase();
-    if (!["REGULAR", "PRIORITY"].includes(normalizedType)) {
+    if (!['REGULAR', 'PRIORITY'].includes(normalizedType)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid queue type. Must be REGULAR or PRIORITY.",
+        message: 'Invalid queue type. Must be REGULAR or PRIORITY.',
       });
     }
 
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
 
     return await prisma.$transaction(async (tx) => {
@@ -1097,13 +1130,13 @@ export const manualResetQueueNumber = async (req, res) => {
           isServing: true,
           isAcceptingNew: true,
         },
-        orderBy: { sessionNumber: "desc" },
+        orderBy: { sessionNumber: 'desc' },
       });
 
       if (!session) {
         return res.status(203).json({
           success: false,
-          messsage: "There is no active session found!",
+          messsage: 'There is no active session found!',
           activeSessionFound: false,
         });
       }
@@ -1114,7 +1147,7 @@ export const manualResetQueueNumber = async (req, res) => {
           queueType: normalizedType,
           isActive: true,
         },
-        orderBy: { sequenceNumber: "desc" },
+        orderBy: { sequenceNumber: 'desc' },
       });
 
       if (!lastQueue) {
@@ -1124,7 +1157,7 @@ export const manualResetQueueNumber = async (req, res) => {
       // ===========================================================
       // 🧠 Store the SEQUENCE NUMBER where reset happened
       // ===========================================================
-      let resetInfo = req.app.get("manualResetTriggered") || {};
+      let resetInfo = req.app.get('manualResetTriggered') || {};
 
       if (!resetInfo[normalizedType]) {
         resetInfo[normalizedType] = {
@@ -1138,9 +1171,9 @@ export const manualResetQueueNumber = async (req, res) => {
 
       // Get current count from session
       const counterField =
-        normalizedType === "REGULAR" ? "regularCount" : "priorityCount";
+        normalizedType === 'REGULAR' ? 'regularCount' : 'priorityCount';
       const currentSequence =
-        normalizedType === "REGULAR"
+        normalizedType === 'REGULAR'
           ? session.regularCount
           : session.priorityCount;
 
@@ -1153,12 +1186,12 @@ export const manualResetQueueNumber = async (req, res) => {
         },
       };
 
-      req.app.set("manualResetTriggered", resetInfo);
+      req.app.set('manualResetTriggered', resetInfo);
 
       // ===========================================================
       // 🔔 Notify all clients via Socket.IO
       // ===========================================================
-      io.emit("QUEUE_RESET", {
+      io.emit('QUEUE_RESET', {
         queueType: normalizedType,
         sessionId: session.sessionId,
         iteration: newIteration,
@@ -1182,10 +1215,10 @@ export const manualResetQueueNumber = async (req, res) => {
       });
     });
   } catch (error) {
-    console.error("❌ Manual reset error:", error);
+    console.error('❌ Manual reset error:', error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to reset queue.",
+      message: error.message || 'Failed to reset queue.',
     });
   }
 };
@@ -1193,19 +1226,19 @@ export const manualResetQueueNumber = async (req, res) => {
 export const manualResetSession = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
-    const io = req.app.get("io");
+    const io = req.app.get('io');
 
     if (!sasStaffId || !role) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! No Id and Role provided!",
+        message: 'Unauthorized Operation! No Id and Role provided!',
       });
     }
 
     if (role !== Role.PERSONNEL) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+        message: 'Unauthorized Operation! Role is not of PERSONNEL!',
       });
     }
 
@@ -1217,12 +1250,12 @@ export const manualResetSession = async (req, res) => {
     if (sasStaff.role !== role) {
       return res.status(400).json({
         success: false,
-        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+        message: 'Unauthorized Operation! Database Role is not of PERSONNEL!',
       });
     }
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      "Asia/Manila"
+      'Asia/Manila'
     );
 
     return await prisma.$transaction(async (tx) => {
@@ -1233,7 +1266,7 @@ export const manualResetSession = async (req, res) => {
           isServing: true,
           isAcceptingNew: true,
         },
-        orderBy: { sessionNumber: "desc" },
+        orderBy: { sessionNumber: 'desc' },
         select: {
           sessionId: true,
           sessionNumber: true,
@@ -1243,7 +1276,7 @@ export const manualResetSession = async (req, res) => {
       if (!session) {
         return res.status(203).json({
           success: false,
-          messsage: "There is no active session found!",
+          messsage: 'There is no active session found!',
           activeSessionFound: false,
         });
       }
@@ -1275,7 +1308,7 @@ export const manualResetSession = async (req, res) => {
 
       if (newSession) {
         dataClause = {
-          message: "Queue Session resetted successfully!",
+          message: 'Queue Session resetted successfully!',
           session: {
             sessionId: newSession.sessionId,
             sessionNumber: newSession.sessionNumber,
@@ -1291,7 +1324,7 @@ export const manualResetSession = async (req, res) => {
         };
       } else {
         dataClause = {
-          message: "An error occurred while resetting queue session!",
+          message: 'An error occurred while resetting queue session!',
         };
       }
 
@@ -1301,10 +1334,10 @@ export const manualResetSession = async (req, res) => {
       });
     });
   } catch (error) {
-    console.error("Manual reset error:", error);
+    console.error('Manual reset error:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error!" || error.message,
+      message: 'Internal Server Error!' || error.message,
     });
   }
 };
