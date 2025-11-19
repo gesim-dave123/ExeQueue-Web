@@ -25,10 +25,9 @@ export default function Navbar() {
 
   const getActiveClass = (sectionId) => {
     // If on the Request page, disable active/highlight
+        const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
       if (
-        location.pathname === "/student/request" ||
-        location.pathname === "/student/queue/search" ||
-        location.pathname === "/student/queue/search/result"
+        location.pathname !== "/"
       ) {
         return "text-gray-700 cursor-pointer hover:text-blue-600";
       }
@@ -56,20 +55,21 @@ export default function Navbar() {
   };
 
   const handleDesktopNavigation = (link) => {
-    // Check if user has selected a queue in Request page
-    const hasQueueSelected =
-      sessionStorage.getItem("hasRequestInProgress") === "true";
-
-    // Only show confirmation if we're on Request page AND user selected a queue
-    if (isRequestPage && hasQueueSelected) {
-      setTargetLink(link);
-      setShowModal(true);
-      // setShowConfirmation(true);
-    } else {
-      navigateToLink(link);
-    }
+    handleNavigation(link);
   };
 
+  const handleNavigation = (link) => {
+  // Check if user has any request in progress (from any page, not just request page)
+  const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+  
+  if (hasQueueSelected) {
+    setTargetLink(link);
+    setShowModal(true);
+  } else {
+    navigateToLink(link);
+  }
+};
+  
   const navigateToLink = (link) => {
     if (link === "/#" || link === "/") {
       navigate("/");
@@ -103,11 +103,31 @@ export default function Navbar() {
     }
   };
 
+  
   const cancelNavigation = () => {
     setShowModal(false);
     // setShowConfirmation(false);
     setTargetLink("");
   };
+
+
+  useEffect(() => {
+  const handleBeforeUnload = (event) => {
+    const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+    
+    if (hasQueueSelected) {
+      event.preventDefault();
+      event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+      return event.returnValue;
+    }
+  };
+
+  window.addEventListener("beforeunload", handleBeforeUnload);
+
+  return () => {
+    window.removeEventListener("beforeunload", handleBeforeUnload);
+  };
+}, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
