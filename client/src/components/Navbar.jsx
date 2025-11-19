@@ -25,9 +25,13 @@ export default function Navbar() {
 
   const getActiveClass = (sectionId) => {
     // If on the Request page, disable active/highlight
-    if (location.pathname === "/student/request") {
-      return "text-gray-700 cursor-pointer hover:text-blue-600";
-    }
+      if (
+        location.pathname === "/student/request" ||
+        location.pathname === "/student/queue/search" ||
+        location.pathname === "/student/queue/search/result"
+      ) {
+        return "text-gray-700 cursor-pointer hover:text-blue-600";
+      }
 
     // Normal behavior - compare with activeSection
     return activeSection === sectionId
@@ -82,7 +86,7 @@ export default function Navbar() {
           if (element) {
             element.scrollIntoView({ behavior: "smooth" });
           }
-        }, 60);
+        }, 50);
       } else {
         navigate(link);
       }
@@ -211,7 +215,7 @@ export default function Navbar() {
               "about"
             )}`}
           >
-            About
+            Help
           </button>
           <button
             onClick={() => handleDesktopNavigation("/#help")}
@@ -219,7 +223,7 @@ export default function Navbar() {
               "help"
             )}`}
           >
-            Help
+            About
           </button>
           <button
             onClick={() => handleDesktopNavigation("/#faq")}

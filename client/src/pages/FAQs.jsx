@@ -24,17 +24,17 @@ export default function FAQ() {
       },
       {
         q: "What do I do after I get my queue number?",
-        a: "After receiving your queue number, please wait in the waiting area. Monitor the screen for the currently serving numbers. Your number will be called when it's your turn.",
+        a: "Please wait in the waiting area. Monitor the screen for the currently serving numbers. Your number will be called when it's your turn.",
       },
     ],
     "Tracking & Issues": [
       {
         q: " I forgot my queue number. What should I do?",
-        a: "Use the Search Queue Number feature on the main page. Enter your Student ID number to retrieve your queue number and its current status. ",
+        a: "Use the \"Search Queue\" feature on the main page. Enter your Student ID number or Queue Reference number to retrieve your queue ticket and its current status. ",
       },
       {
         q: "What does it mean if my queue status is 'Skipped'?",
-        a: "It means your number was called multiple times, but you did not respond. You have one hour to approach the counter to have your status updated and be served. After one hour, it will be automatically cancelled. ",
+        a: "It means your number was called multiple times, but you did not respond. You have one hour to approach the counter to have your status updated and be served. After one hour, it will be automatically cancelled.  ",
       },
       {
         q: "What if I need to leave? Can I get back in line?",
@@ -48,7 +48,7 @@ export default function FAQ() {
       },
       {
         q: "How do I select a Priority Queue?",
-        a: "On the service selection page, choose the Priority option before submitting your details.",
+        a: "On the service selection page, choose the \"Priority\" option before submitting your details.",
       },
       {
         q: "Can I select multiple services at once?",
@@ -62,7 +62,7 @@ export default function FAQ() {
       },
       {
         q: "Where can I learn more about what this system does?",
-        a: "Please visit the About page for information on the system's purpose and functions.",
+        a: "Please visit the \"About\" page for information on the system's purpose and functions.",
       },
     ],
   };

@@ -470,7 +470,7 @@ export default function Analytics() {
                 <div className="flex flex-col items-center justify-center h-[350px]">
                   {doughnutTotals && <DoughnutChart totals={doughnutTotals} />}
 
-                  <div className="flex items-center justify-center gap-6 mt-8">
+                  <div className="flex items-center justify-center gap-6 mt-8 bg-black">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                       <span className="text-sm text-gray-600">
