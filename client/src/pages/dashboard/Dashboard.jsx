@@ -395,7 +395,7 @@ export default function Dashboard() {
                       {
                     name: 'Priority',
                     color: 'bg-[#FDE5B0]',
-                    value: completedPriority,
+                    value: totalPriorityWaiting,
                   },
                   {
                     name: 'Regular',
