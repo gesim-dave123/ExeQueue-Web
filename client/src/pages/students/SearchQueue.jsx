@@ -149,7 +149,7 @@ export default function SearchQueue() {
     <div className="min-h-[90vh] w-full flex justify-center items-center flex-col px-4 py-6">
       {/* Title and instruction */}
       <div className="w-full max-w-lg flex flex-col text-start mb-6 lg:mb-10 lg:ml-10 lg:pr-5">
-        <h1 className="text-4xl sm:text-5xl font-bold text-blue-600 mb-2">
+        <h1 className="text-4xl sm:text-5xl font-bold text-[#1A73E8]   mb-2">
           Search Queue
         </h1>
         <span className=" text-sm sm:text-[17px] mt-2 mb-3">
@@ -175,7 +175,7 @@ export default function SearchQueue() {
         <button
           onClick={checkQueue}
           disabled={loading}
-          className="w-23 h-md bg-blue-600 flex items-center justify-center hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-23 h-md bg-[#1A73E8] hover:bg-[#1557B0] flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -192,8 +192,8 @@ export default function SearchQueue() {
       {/* Button */}
       <div className="w-full max-w-xl flex justify-end">
         <button
-          onClick={() => (window.location.href = '/')}
-          className="mt-6 mb-20 bg-blue-600 text-sm hover:bg-blue-700 text-white font-medium px-5 py-4 rounded-2xl flex items-center gap-2"
+          onClick={() => navigate('/')}
+          className="mt-6 mb-20 bg-[#1A73E8] hover:bg-[#1557B0] text-sm  text-white font-medium px-5 py-4 rounded-2xl flex items-center gap-2"
         >
           <ArrowLeft size={17} /> Back to Homepage
         </button>
