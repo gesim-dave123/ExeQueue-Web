@@ -710,7 +710,7 @@ export const getTodayAnalytics = async (req, res) => {
       'Asia/Manila'
     );
 
-    console.log('📅 Fetching today analytics:', today, 'to', now);
+    console.log('📅 Fetching today analytics for date:', todayUTC);
 
     // ✅ Find the CURRENT ACTIVE SESSION (isServing: true)
     const activeSession = await prisma.queueSession.findFirst({
@@ -741,24 +741,15 @@ export const getTodayAnalytics = async (req, res) => {
     }
 
     const sessionId = activeSession.sessionId;
-    // console.log('✅ Active session ID:', sessionId);
+    console.log('✅ Active session ID:', sessionId);
 
     // ⚡ Fetch queues + requests from CURRENT SESSION ONLY
     const [sessionQueues, sessionRequests, requestTypes] = await Promise.all([
+      // ✅ FIX: Fetch ALL queues (not just completed ones)
       prisma.queue.findMany({
         where: {
-          sessionId: sessionId, // ✅ Only from active session
+          sessionId: sessionId,
           isActive: true,
-          OR: [
-            { queueStatus: Status.COMPLETED },
-            { queueStatus: Status.PARTIALLY_COMPLETE },
-            {
-              queueStatus: Status.CANCELLED,
-              calledAt: {
-                not: null,
-              },
-            },
-          ],
         },
         select: {
           queueStatus: true,
@@ -769,19 +760,9 @@ export const getTodayAnalytics = async (req, res) => {
       prisma.request.findMany({
         where: {
           queue: {
-            sessionId: sessionId, // ✅ Only requests from active session
+            sessionId: sessionId,
           },
           isActive: true,
-          OR: [
-            { requestStatus: Status.COMPLETED },
-            {
-              requestStatus: Status.CANCELLED,
-              processedBy: { not: null },
-              processedAt: {
-                not: null,
-              },
-            },
-          ],
         },
         select: {
           requestId: true,
@@ -798,15 +779,15 @@ export const getTodayAnalytics = async (req, res) => {
       }),
     ]);
 
-    // console.log('📊 Found queues in active session:', sessionQueues.length);
-    // console.log('📊 Found requests in active session:', sessionRequests.length);
+    console.log('📊 Found queues in active session:', sessionQueues.length);
+    console.log('📊 Found requests in active session:', sessionRequests.length);
 
     // 🧮 Queue analytics
     const completed = sessionQueues.filter(
       (q) =>
-        q.queueStatus === 'COMPLETED' ||
-        q.queueStatus === 'CANCELLED' ||
-        q.queueStatus === 'PARTIALLY_COMPLETE'
+        q.queueStatus === Status.COMPLETED ||
+        q.queueStatus === Status.CANCELLED ||
+        q.queueStatus === Status.PARTIALLY_COMPLETE
     ).length;
 
     const inProgress = sessionQueues.length - completed;
@@ -814,24 +795,29 @@ export const getTodayAnalytics = async (req, res) => {
     // ✅ Count COMPLETED regular and priority queues only
     const completedRegular = sessionQueues.filter(
       (q) =>
-        q.queueType === 'REGULAR' &&
-        (q.queueStatus === 'COMPLETED' ||
-          q.queueStatus === 'CANCELLED' ||
-          q.queueStatus === 'PARTIALLY_COMPLETE')
+        q.queueType === Queue_Type.REGULAR &&
+        (q.queueStatus === Status.COMPLETED ||
+          q.queueStatus === Status.CANCELLED ||
+          q.queueStatus === Status.PARTIALLY_COMPLETE)
     ).length;
 
     const completedPriority = sessionQueues.filter(
       (q) =>
-        q.queueType === 'PRIORITY' &&
-        (q.queueStatus === 'COMPLETED' ||
-          q.queueStatus === 'CANCELLED' ||
-          q.queueStatus === 'PARTIALLY_COMPLETE')
+        q.queueType === Queue_Type.PRIORITY &&
+        (q.queueStatus === Status.COMPLETED ||
+          q.queueStatus === Status.CANCELLED ||
+          q.queueStatus === Status.PARTIALLY_COMPLETE)
     ).length;
 
     // 🧩 Request breakdown by type
     const requestTypeMap = new Map();
-    todayRequests
-      .filter((r) => r.requestStatus === 'COMPLETED')
+    // ✅ FIX: Changed todayRequests to sessionRequests
+    sessionRequests
+      .filter(
+        (r) =>
+          r.requestStatus === Status.COMPLETED ||
+          r.requestStatus === Status.CANCELLED
+      )
       .forEach((r) => {
         requestTypeMap.set(
           r.requestTypeId,
