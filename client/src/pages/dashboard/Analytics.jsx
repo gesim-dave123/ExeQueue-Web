@@ -80,11 +80,11 @@ export default function Analytics() {
   const viewRef = useRef(view);
 
   const iconMap = {
-    'Good Moral Certificate': '/assets/analytics/goodmoral.png',
-    'Insurance Payment': '/assets/analytics/insurancepay.png',
-    'Transmittal Letter': '/assets/analytics/transmittal.png',
+    'Good Moral Certificat': '/assets/analytics/goodmoral.png',
+    Insurance: '/assets/analytics/insurancepay.png',
+    'Approval/Transmittal Letter': '/assets/analytics/transmittal.png',
     'Temporary Gate Pass': '/assets/analytics/gatepass.png',
-    'Uniform Exemption': '/assets/analytics/uniform.png',
+    'Uniform Exception': '/assets/analytics/uniform.png',
     'Enrollment/Transfer': '/assets/analytics/enrollment.png',
   };
 

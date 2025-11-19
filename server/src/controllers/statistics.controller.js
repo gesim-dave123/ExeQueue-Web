@@ -596,11 +596,11 @@ export const getAnalyticsData = async (req, res) => {
     console.log('Queue Summary:', queueSummary);
 
     const orderedRequestTypes = [
-      'Good Moral Certificate',
-      'Insurance Payment',
-      'Transmittal Letter',
+      'Good Moral Certificat',
+      'Insurance',
+      'Approval/Transmittal Letter',
       'Temporary Gate Pass',
-      'Uniform Exemption',
+      'Uniform Exception',
       'Enrollment/Transfer',
     ];
 
@@ -611,7 +611,7 @@ export const getAnalyticsData = async (req, res) => {
           gte: monday,
           lte: saturday,
         },
-        requestStatus: Status.COMPLETED, // ✅ ONLY COMPLETED
+        requestStatus: Status.COMPLETED,
       },
       select: {
         createdAt: true,
@@ -738,11 +738,11 @@ export const getTodayAnalytics = async (req, res) => {
           completedPriority: 0,
           totalQueues: 0,
           requestBreakdown: [
-            { requestType: 'Good Moral Certificate', total: 0 },
-            { requestType: 'Insurance Payment', total: 0 },
-            { requestType: 'Transmittal Letter', total: 0 },
+            { requestType: 'Good Moral Certificat', total: 0 },
+            { requestType: 'Insurance', total: 0 },
+            { requestType: 'Approval/Transmittal Letter', total: 0 },
             { requestType: 'Temporary Gate Pass', total: 0 },
-            { requestType: 'Uniform Exemption', total: 0 },
+            { requestType: 'Uniform Exception', total: 0 },
             { requestType: 'Enrollment/Transfer', total: 0 },
           ],
         },
@@ -828,19 +828,22 @@ export const getTodayAnalytics = async (req, res) => {
         );
       });
 
-    console.log('📊 Completed requests count:', requestTypeMap.size);
+    console.log(
+      '📊 Completed requests by type:',
+      Array.from(requestTypeMap.entries())
+    );
 
     const typeIdToNameMap = new Map(
       requestTypes.map((rt) => [rt.requestTypeId, rt.requestName])
     );
 
-    // ✅ Define the fixed order of request types
+    // ✅ Define the fixed order of request types - MATCH SEED DATA
     const orderedRequestTypes = [
-      'Good Moral Certificate',
-      'Insurance Payment',
-      'Transmittal Letter',
+      'Good Moral Certificat',
+      'Insurance',
+      'Approval/Transmittal Letter',
       'Temporary Gate Pass',
-      'Uniform Exemption',
+      'Uniform Exception',
       'Enrollment/Transfer',
     ];
 
