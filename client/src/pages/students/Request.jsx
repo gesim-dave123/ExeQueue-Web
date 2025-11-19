@@ -182,6 +182,7 @@ export default function Request() {
   const [yearSearchTerm, setYearSearchTerm] = useState('');
   const [isYearOpen, setIsYearOpen] = useState(false);
   const yearDropdownRef = useRef(null);
+  const isInternalNavigation = useRef(false); // To track internal navigation for back button
   const yearOptions = [
     '1st Year',
     '2nd Year',
@@ -214,13 +215,61 @@ export default function Request() {
   //     fetchCourseData();
   //   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
     if (selectedQueue) {
       sessionStorage.setItem("hasRequestInProgress", "true");
     } else {
       sessionStorage.removeItem("hasRequestInProgress");
     }
   }, [selectedQueue]);
+
+  // Handle browser back button
+  useEffect(() => {
+    // Push initial state when component mounts
+    if (currentStep === 1) {
+      window.history.pushState({ step: 1 }, '', window.location.pathname);
+    } 
+    
+    const handlePopState = (e) => {
+      // Prevent default browser behavior
+      e.preventDefault();
+      
+      if (currentStep > 1) {
+        // Go back one step
+        isInternalNavigation.current = true;
+        setCurrentStep(prev => prev - 1);
+        setErrors({});
+      } else {
+        // On step 1, check if queue is selected
+        const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+        
+        if (hasQueueSelected) {
+          // Show confirmation modal and push state back
+          setShowBackConfirmModal(true);
+          window.history.pushState({ step: currentStep }, '', window.location.pathname);
+        } else {
+          // Allow natural navigation
+          navigate(-1);
+        }
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('popstate', handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentStep, navigate]);
+
+  // Push new state when step changes (but not when going back)
+  useEffect(() => {
+    if (currentStep > 1 && !isInternalNavigation.current) {
+      window.history.pushState({ step: currentStep }, '', window.location.pathname);
+    }
+    isInternalNavigation.current = false;
+  }, [currentStep]);
 
   const validateStep1 = () => {
     if (!selectedQueue) {
