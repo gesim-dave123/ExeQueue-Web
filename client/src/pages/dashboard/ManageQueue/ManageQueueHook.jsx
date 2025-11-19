@@ -11,6 +11,7 @@ const ManageQueueHook = ({
   isConnected,
   showWindowModal,
   setShowWindowModal,
+  stopHeartbeat,
   // sortByPriorityPattern,
   loadWindows,
   showToast,
@@ -34,6 +35,14 @@ const ManageQueueHook = ({
   const [deferredQueueIds, setDeferredQueueIds] = useState([]);
   const [totalDeferredCount, setTotalDeferredCount] = useState(0);
   const [hasMoreDeferred, setHasMoreDeferred] = useState(true);
+
+  const [filteredDeferredQueueIds, setFilteredDeferredQueueIds] = useState([]);
+  const [filteredDeferredQueueMap, setFilteredDeferredQueueMap] = useState(new Map());
+  const [hasMoreFilteredDeferred, setHasMoreFilteredDeferred] = useState(true);
+  const [totalFilteredDeferredCount, setTotalFilteredDeferredCount] = useState(0);
+  const [statusFilter, setStatusFilter] = useState([]);
+  const isFilteringDeferred = statusFilter.length > 0;
+
 
   const [waitingSearchMap, setWaitingSearchMap] = useState(new Map());
   const [waitingSearchIds, setWaitingSearchIds] = useState([]);
@@ -99,6 +108,67 @@ const ManageQueueHook = ({
 
     return sorted;
   }, []);
+const toggleStatusFilter = useCallback((status) => {
+  setStatusFilter((prev) => {
+    const newFilter = prev.includes(status)
+      ? prev.filter((s) => s !== status)
+      : [...prev, status];
+    
+    console.log("Filter changed:", newFilter);
+    
+    // Reset filtered state
+    setFilteredDeferredQueueIds([]);
+    setFilteredDeferredQueueMap(new Map());
+    setHasMoreFilteredDeferred(true);
+    setTotalFilteredDeferredCount(0);
+    
+    // Load with the NEW filter immediately
+    if (newFilter.length > 0) {
+      const mappedStatusFilter = newFilter
+        .map(s => mapStatusToEnum(s))
+        .filter(Boolean);
+      
+      if (mappedStatusFilter.length > 0) {
+        // Call API directly with new filter
+        getQueueListByQuery(Status.DEFERRED, {
+          requestStatus: mappedStatusFilter,
+          limit: LOAD_MORE_SIZE,
+          offset: 0,
+        }).then(response => {
+          const queues = response?.queues || response;
+          const total = response?.pagination?.total || 0;
+
+          if (Array.isArray(queues) && queues.length > 0) {
+            const formattedDeferred = queues.map(formatQueueData);
+
+            setFilteredDeferredQueueMap((prev) => {
+              const newMap = new Map(prev);
+              formattedDeferred.forEach((queue) => newMap.set(queue.queueId, queue));
+              return newMap;
+            });
+
+            setFilteredDeferredQueueIds(formattedDeferred.map((q) => q.queueId));
+            setTotalFilteredDeferredCount(total);
+            setHasMoreFilteredDeferred(queues.length < total);
+          }
+        }).catch(error => {
+          console.error("Error loading filtered deferred queues:", error);
+        });
+      }
+    }
+    
+    return newFilter;
+  });
+}, [formatQueueData, Status]);
+
+// No useEffect needed!
+  const mapStatusToEnum = (statusString) => {
+    const statusMap = {
+      'stalled': Status.STALLED,
+      'skipped': Status.SKIPPED,
+    };
+    return statusMap[statusString.toLowerCase()];
+  };
 
   const addToWaitingQueue = useCallback(
     (formattedQueue) => {
@@ -373,6 +443,52 @@ const ManageQueueHook = ({
     },
     [formatQueueData, Status]
   );
+  
+  const handleFilteredDeferred = useCallback(async () => {
+    if (!hasMoreDeferredSearch || !isDeferredSearchMode || isLoading) return;
+
+    try {
+      const response = await getQueueListByQuery(Status.DEFERRED, {
+        requestStatus: statusFilter.length > 0 ? statusFilter : [Status.STALLED, Status.SKIPPED],
+        limit: LOAD_MORE_SIZE,
+        offset: deferredSearchIds.length,
+        searchValue: deferredSearchValueRef.current,
+        include_total: true,
+      });
+
+      const queues = response?.queues || response;
+      if (Array.isArray(queues) && queues.length > 0) {
+        const formatted = queues.map(formatQueueData);
+
+        setDeferredSearchMap((prev) => {
+          const newMap = new Map(prev);
+          formatted.forEach((q) => newMap.set(q.queueId, q));
+          return newMap;
+        });
+
+        setDeferredSearchIds((prev) => [
+          ...prev,
+          ...formatted.map((q) => q.queueId),
+        ]);
+
+        setHasMoreDeferredSearch(
+          deferredSearchIds.length + formatted.length < deferredSearchTotal
+        );
+      } else {
+        setHasMoreDeferredSearch(false);
+      }
+    } catch (error) {
+      console.error("Error loading more deferred search results:", error);
+    }
+  }, [
+    hasMoreDeferredSearch,
+    isDeferredSearchMode,
+    isLoading,
+    deferredSearchIds.length,
+    deferredSearchTotal,
+    formatQueueData,
+    Status,
+  ]);
 
   const handleFetchQueue = useCallback(async (data, options = {}) => {
     try {
@@ -474,11 +590,27 @@ const ManageQueueHook = ({
     if (!hasMoreDeferred || isLoading) return;
 
     try {
-      const response = await getQueueListByQuery(Status.DEFERRED, {
-        requestStatus: [Status.STALLED, Status.SKIPPED],
+      const mappedStatusFilter = statusFilter
+        .map(status => mapStatusToEnum(status))
+        .filter(Boolean);
+      
+      console.log("Original statusFilter: ", statusFilter);
+      console.log("Mapped Status Filter: ", mappedStatusFilter);
+      
+      // Build query params
+      const queryParams = {
         limit: LOAD_MORE_SIZE,
         offset: deferredQueueIds.length,
-      });
+      };
+
+      // Only add requestStatus if there are filters
+      if (mappedStatusFilter.length > 0) {
+        queryParams.requestStatus = mappedStatusFilter;
+      }
+
+      console.log("Query Params: ", queryParams);
+
+      const response = await getQueueListByQuery(Status.DEFERRED, queryParams);
 
       const queues = response?.queues || response;
       if (Array.isArray(queues) && queues.length > 0) {
@@ -497,7 +629,7 @@ const ManageQueueHook = ({
           ...formattedDeferred.map((q) => q.queueId),
         ]);
         setHasMoreDeferred(
-          deferredQueueIds.length + formattedDeferred.length <
+          deferredQueueIds.length + formattedDeferred.length ,
             totalDeferredCount
         );
       }
@@ -511,8 +643,8 @@ const ManageQueueHook = ({
     totalDeferredCount,
     formatQueueData,
     Status,
+    statusFilter,
   ]);
-
   const loadMoreWaitingSearch = useCallback(async () => {
     if (!hasMoreWaitingSearch || !isWaitingSearchMode || isLoading) return;
 
@@ -602,6 +734,70 @@ const ManageQueueHook = ({
     isLoading,
     deferredSearchIds.length,
     deferredSearchTotal,
+    formatQueueData,
+    Status,
+  ]);
+
+  const loadMoreFilteredDeferredQueues = useCallback(async () => {
+    if (!hasMoreFilteredDeferred || isLoading) return;
+
+    try {
+      // setIsLoading(true);
+      console.log("Load Filtered Deferred Triggered");
+      const mappedStatusFilter = statusFilter
+        .map(status => mapStatusToEnum(status))
+        .filter(Boolean);
+
+      if (mappedStatusFilter.length === 0) {
+        console.warn("No valid filters");
+        return;
+      }
+
+      console.log("Loading filtered deferred:", {
+        filter: mappedStatusFilter,
+        offset: filteredDeferredQueueIds.length,
+      });
+
+      const response = await getQueueListByQuery(Status.DEFERRED, {
+        requestStatus: mappedStatusFilter,
+        limit: LOAD_MORE_SIZE,
+        offset: filteredDeferredQueueIds.length,
+      });
+
+      const queues = response?.queues || response;
+      const total = response?.pagination?.total || 0;
+
+      if (Array.isArray(queues) && queues.length > 0) {
+        const formattedDeferred = queues.map(formatQueueData);
+
+        setFilteredDeferredQueueMap((prev) => {
+          const newMap = new Map(prev);
+          formattedDeferred.forEach((queue) => newMap.set(queue.queueId, queue));
+          return newMap;
+        });
+
+        setFilteredDeferredQueueIds((prev) => [
+          ...prev,
+          ...formattedDeferred.map((q) => q.queueId),
+        ]);
+
+        setTotalFilteredDeferredCount(total);
+        setHasMoreFilteredDeferred(
+          filteredDeferredQueueIds.length + queues.length < total
+        );
+      } else {
+        setHasMoreFilteredDeferred(false);
+      }
+    } catch (error) {
+      console.error("Error loading filtered deferred queues:", error);
+    } finally {
+      // setIsLoading(false);
+    }
+  }, [
+    hasMoreFilteredDeferred,
+    isLoading,
+    filteredDeferredQueueIds.length,
+    statusFilter,
     formatQueueData,
     Status,
   ]);
@@ -870,6 +1066,7 @@ const ManageQueueHook = ({
           setSelectedWindow(null);
           setCurrentQueue(null);
           setIsLoading(true);
+          if (stopHeartbeat) stopHeartbeat();
           localStorage.removeItem("selectedWindow");
 
           showToast("Your window has been released", "info");
@@ -899,7 +1096,11 @@ const ManageQueueHook = ({
 
   // ✅ Simplified useEffect
   useEffect(() => {
-    if (!socket || !isConnected || !selectedWindow?.id) return;
+    if (!socket || !isConnected || !selectedWindow?.id) {
+      // console.log("Stopping heartbeat update...");
+      // stopHeartbeat?.();
+      return;
+    }
     socket.on(QueueActions.QUEUE_RESET, handleQueueReset);
     socket.on(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
     socket.on(
@@ -914,7 +1115,12 @@ const ManageQueueHook = ({
     socket.on(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
     socket.on(WindowEvents.RELEASE_WINDOW, handleWindowRelease);
     socket.on("error", handleError);
-
+    // socket.on("disconnect", (reason) => {
+    //   console.log("WINDOW DISCONNECTED:", reason);
+    //   console.log("BOBO KABA?>");
+    //   stopHeartbeat?.(); // <- Call your cleanup function here
+    //   showToast("Disconnected from server", "error");
+    // });
     return () => {
       socket.off(QueueActions.QUEUE_RESET, handleQueueReset);
       socket.off(QueueActions.QUEUE_DEFERRED, handleDeferredQueue);
@@ -933,6 +1139,7 @@ const ManageQueueHook = ({
       socket.off(WindowEvents.ASSIGN_WINDOW, handleWindowAssigned);
       socket.off(WindowEvents.RELEASE_WINDOW, handleWindowRelease);
       socket.off("error", handleError);
+      // socket.off("disconnect");
     };
   }, [
     socket,
@@ -992,6 +1199,19 @@ const ManageQueueHook = ({
       loaded: globalQueueIds.length,
     });
   }, [totalWaitingCount, hasMoreWaiting, globalQueueIds]);
+
+  // useEffect(() => {
+  //   if (statusFilter.length > 0) {
+  //     // Filter activated - reset and load filtered data
+  //     console.log("Filter activated, loading filtered results");
+  //     setFilteredDeferredQueueIds([]);
+  //     setFilteredDeferredQueueMap(new Map());
+  //     setHasMoreFilteredDeferred(true);
+  //     setTotalFilteredDeferredCount(0);
+  //     loadMoreFilteredDeferredQueues();
+  //   }
+  //   // When filter cleared, show unfiltered data (already loaded)
+  // }, [statusFilter]);
   // ==================== RETURN VALUES ====================
 
   // Convert Map to Array for rendering (only when needed)
@@ -1015,21 +1235,28 @@ const ManageQueueHook = ({
     hasMoreWaiting: isWaitingSearchMode ? hasMoreWaitingSearch : hasMoreWaiting,
 
     // Main Deferred Queue
-    deferredQueue: isDeferredSearchMode
-      ? deferredSearchIds.map((id) => deferredSearchMap.get(id)).filter(Boolean)
-      : deferredQueue,
+  deferredQueue: isDeferredSearchMode
+    ? deferredSearchIds.map((id) => deferredSearchMap.get(id)).filter(Boolean)
+    : statusFilter.length > 0  // ✅ Direct check
+    ? filteredDeferredQueueIds.map((id) => filteredDeferredQueueMap.get(id)).filter(Boolean)
+    : deferredQueue,
     deferredQueueMap,
     deferredQueueIds,
     totalDeferredCount: isDeferredSearchMode
-      ? deferredSearchTotal
-      : totalDeferredCount,
+    ? deferredSearchTotal
+    : statusFilter.length > 0  // ✅ Direct check
+    ? totalFilteredDeferredCount
+    : totalDeferredCount,
     hasMoreDeferred: isDeferredSearchMode
-      ? hasMoreDeferredSearch
-      : hasMoreDeferred,
+    ? hasMoreDeferredSearch
+    : statusFilter.length > 0  // ✅ Direct check
+    ? hasMoreFilteredDeferred
+    : hasMoreDeferred,
 
     // Search states
     isWaitingSearchMode,
     isDeferredSearchMode,
+    isFilteringDeferred: statusFilter.length > 0,
 
     // Other states...
     currentQueue,
@@ -1037,6 +1264,7 @@ const ManageQueueHook = ({
     isLoading,
     setIsLoading,
     nextInLineLoading,
+    statusFilter,
 
     // Actions
     setCurrentQueue,
@@ -1047,9 +1275,12 @@ const ManageQueueHook = ({
       ? loadMoreWaitingSearch
       : loadMoreWaitingQueues,
     loadMoreDeferredQueues: isDeferredSearchMode
-      ? loadMoreDeferredSearch
-      : loadMoreDeferredQueues,
+    ? loadMoreDeferredSearch
+    : statusFilter.length > 0  // ✅ Direct check
+    ? loadMoreFilteredDeferredQueues
+    : loadMoreDeferredQueues,
     fetchQueueList,
+    toggleStatusFilter
   };
 };
 

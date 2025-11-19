@@ -8,19 +8,19 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 export const getDashboardStatistics = async (req, res) => {
   try {
     // ✅ AUTO-UPDATE: SKIPPED → CANCELLED after 1 hour
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    // const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    await prisma.queue.updateMany({
-      where: {
-        queueStatus: Status.SKIPPED,
-        updatedAt: { lt: oneHourAgo },
-        isActive: true,
-      },
-      data: {
-        queueStatus: Status.CANCELLED,
-        updatedAt: new Date(),
-      },
-    });
+    // await prisma.queue.updateMany({
+    //   where: {
+    //     queueStatus: Status.SKIPPED,
+    //     updatedAt: { lt: oneHourAgo },
+    //     isActive: true,
+    //   },
+    //   data: {
+    //     queueStatus: Status.CANCELLED,
+    //     updatedAt: new Date(),
+    //   },
+    // });
 
     // ✅ Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
@@ -154,9 +154,14 @@ export const getDashboardStatistics = async (req, res) => {
         where: {
           sessionId: { in: sessionIds },
           queueType: Queue_Type.REGULAR,
-          queueStatus: {
-            in: [Status.COMPLETED, Status.PARTIALLY_COMPLETE, Status.CANCELLED],
-          },
+          OR: [
+            { queueStatus: Status.COMPLETED },
+            { queueStatus: Status.PARTIALLY_COMPLETE },
+            {
+              queueStatus: Status.CANCELLED,
+              calledAt: { not: null },
+            },
+          ],
           isActive: true,
         },
       }),
@@ -165,9 +170,14 @@ export const getDashboardStatistics = async (req, res) => {
         where: {
           sessionId: { in: sessionIds },
           queueType: Queue_Type.PRIORITY,
-          queueStatus: {
-            in: [Status.COMPLETED, Status.PARTIALLY_COMPLETE, Status.CANCELLED],
-          },
+          OR: [
+            { queueStatus: Status.COMPLETED },
+            { queueStatus: Status.PARTIALLY_COMPLETE },
+            {
+              queueStatus: Status.CANCELLED,
+              calledAt: { not: null },
+            },
+          ],
           isActive: true,
         },
       }),
@@ -175,9 +185,14 @@ export const getDashboardStatistics = async (req, res) => {
       prisma.queue.count({
         where: {
           sessionId: { in: sessionIds },
-          queueStatus: {
-            in: [Status.COMPLETED, Status.PARTIALLY_COMPLETE, Status.CANCELLED],
-          },
+          OR: [
+            { queueStatus: Status.COMPLETED },
+            { queueStatus: Status.PARTIALLY_COMPLETE },
+            {
+              queueStatus: Status.CANCELLED,
+              calledAt: { not: null },
+            },
+          ],
           isActive: true,
         },
       }),
@@ -499,10 +514,21 @@ export const getAnalyticsData = async (req, res) => {
           lte: saturday,
         },
         isActive: true,
+        OR: [
+          { queueStatus: Status.COMPLETED },
+          { queueStatus: Status.PARTIALLY_COMPLETE },
+          {
+            queueStatus: Status.CANCELLED,
+            calledAt: {
+              not: null,
+            },
+          },
+        ],
       },
       select: {
         queueType: true,
         createdAt: true,
+        calledAt: true,
       },
     });
 
@@ -576,9 +602,16 @@ export const getAnalyticsData = async (req, res) => {
           gte: monday,
           lte: saturday,
         },
-        requestStatus: {
-          in: [Status.COMPLETED, Status.CANCELLED],
-        },
+        OR: [
+          { requestStatus: Status.COMPLETED },
+          {
+            requestStatus: Status.CANCELLED,
+            processedBy: { not: null },
+            processedAt: {
+              not: null,
+            },
+          },
+        ],
       },
       select: {
         createdAt: true,
@@ -677,7 +710,7 @@ export const getTodayAnalytics = async (req, res) => {
       'Asia/Manila'
     );
 
-    console.log('📅 Fetching today analytics for date:', todayUTC);
+    console.log('📅 Fetching today analytics:', today, 'to', now);
 
     // ✅ Find the CURRENT ACTIVE SESSION (isServing: true)
     const activeSession = await prisma.queueSession.findFirst({
@@ -716,6 +749,16 @@ export const getTodayAnalytics = async (req, res) => {
         where: {
           sessionId: sessionId, // ✅ Only from active session
           isActive: true,
+          OR: [
+            { queueStatus: Status.COMPLETED },
+            { queueStatus: Status.PARTIALLY_COMPLETE },
+            {
+              queueStatus: Status.CANCELLED,
+              calledAt: {
+                not: null,
+              },
+            },
+          ],
         },
         select: {
           queueStatus: true,
@@ -729,6 +772,16 @@ export const getTodayAnalytics = async (req, res) => {
             sessionId: sessionId, // ✅ Only requests from active session
           },
           isActive: true,
+          OR: [
+            { requestStatus: Status.COMPLETED },
+            {
+              requestStatus: Status.CANCELLED,
+              processedBy: { not: null },
+              processedAt: {
+                not: null,
+              },
+            },
+          ],
         },
         select: {
           requestId: true,
@@ -777,7 +830,7 @@ export const getTodayAnalytics = async (req, res) => {
 
     // 🧩 Request breakdown by type
     const requestTypeMap = new Map();
-    sessionRequests
+    todayRequests
       .filter((r) => r.requestStatus === 'COMPLETED')
       .forEach((r) => {
         requestTypeMap.set(
@@ -806,7 +859,7 @@ export const getTodayAnalytics = async (req, res) => {
       requestBreakdown,
     };
 
-    // console.log('✅ Today analytics (session-based):', analytics);
+    console.log('✅ Today analytics:', analytics);
 
     return res.status(200).json({
       success: true,

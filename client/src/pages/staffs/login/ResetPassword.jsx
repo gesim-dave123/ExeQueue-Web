@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { resetPassword } from "../../../api/auth";
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { resetPassword } from '../../../api/auth';
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
   const [errors, setErrors] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
+  const [focusedField, setFocusedField] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,68 +27,71 @@ export default function ResetPassword() {
   // }, [otp]);
 
   // useEffect(() => {
-  //   if (email === undefined || resetToken === undefined) return; 
+  //   if (email === undefined || resetToken === undefined) return;
   //   if (!email || !resetToken) {
   //     navigate("/staff/forgot-password", { replace: true });
   //   }
   // }, [email, resetToken, navigate]);
 
-    const handleChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    const updatedFormData = {
+
+    setFormData({
       ...formData,
       [name]: value,
-    };
-    
-    setFormData(updatedFormData);
-    
-    let newErrors = { ...errors, [name]: "" }; 
-    
-    if (updatedFormData.newPassword && updatedFormData.confirmPassword) {
-      if (updatedFormData.newPassword !== updatedFormData.confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match";
-      } else {
-        newErrors.confirmPassword = "";  
-      }
-    }
+    });
 
-    setErrors(newErrors);
+    // Clear the error for the field being edited
+    setErrors({
+      ...errors,
+      [name]: '',
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.newPassword !== formData.confirmPassword) {
-      setErrors({
-        ...errors,
-        confirmPassword: "Passwords do not match",
-      });
-      return;
-    }
+
+    // Clear previous errors
+    setErrors({
+      newPassword: '',
+      confirmPassword: '',
+    });
+
+    // Validate password length
     if (formData.newPassword.length < 8) {
       setErrors({
-        ...errors,
-        newPassword: "Password must be at least 8 characters",
+        newPassword: 'Your password must be at least 8 characters long.',
+        confirmPassword: '',
       });
       return;
     }
-    console.log("Reset Token:", resetToken);
+
+    // Validate passwords match
+    if (formData.newPassword !== formData.confirmPassword) {
+      setErrors({
+        newPassword: '',
+        confirmPassword: 'Passwords do not match',
+      });
+      return;
+    }
+
+    console.log('Reset Token:', resetToken);
 
     setLoading(true);
-    const res = await resetPassword(
-      resetToken,                    
-      formData.newPassword           
-    );
-    
+    const res = await resetPassword(resetToken, formData.newPassword);
+
     if (!res?.success) {
       setErrors({
-        ...errors,
-        newPassword: res?.message || "Failed to reset password",
+        newPassword: res?.message || 'Failed to reset password',
+        confirmPassword: '',
       });
       setLoading(false);
       return;
-    }   
-    navigate("/staff/success-reset", { state: { message: "Password reset successfully!" } });
+    }
+
+    navigate('/staff/success-reset', {
+      state: { message: 'Password reset successfully!' },
+    });
     setLoading(false);
   };
 
@@ -116,39 +120,54 @@ export default function ResetPassword() {
             <label
               htmlFor="newPassword"
               className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.newPassword
-                  ? "-top-2.5 text-xs bg-white px-1"
-                  : "top-3 text-base text-gray-500"
+                focusedField === 'newPassword' || !formData.newPassword
+                  ? formData.newPassword
+                    ? '-top-2.5 text-xs bg-white px-1'
+                    : 'top-3 text-base text-gray-500'
+                  : 'opacity-0'
               } ${
                 errors.newPassword
-                  ? "text-red-500"
+                  ? 'text-red-500'
                   : formData.newPassword
-                  ? "text-blue-500"
-                  : "text-gray-500"
+                  ? 'text-blue-500'
+                  : 'text-gray-500'
               }`}
             >
               New Password
             </label>
             <input
-              type={showPassword ? "text" : "password"}
+              type={showPassword ? 'text' : 'password'}
               id="newPassword"
               name="newPassword"
               value={formData.newPassword}
               onChange={handleChange}
+              onFocus={() => setFocusedField('newPassword')}
+              onBlur={() => {
+                setFocusedField(null);
+                setShowPassword(false);
+              }}
               className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
                 errors.newPassword
-                  ? "border-red-500 focus:ring-2 focus:ring-red-500"
-                  : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  ? 'border-red-500 focus:ring-2 focus:ring-red-500'
+                  : 'border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              } ${
+                focusedField === 'newPassword' ? 'text-black' : 'text-gray-400'
               }`}
             />
-            {formData.newPassword && (
+            {formData.newPassword && focusedField === 'newPassword' && (
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                className="absolute right-4 top-3.5 text-black hover:text-gray-700 focus:outline-none cursor-pointer"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
+            )}
+            {errors.newPassword && (
+              <p className="text-red-500 text-xs mt-1 ml-1">
+                {errors.newPassword}
+              </p>
             )}
           </div>
 
@@ -157,36 +176,48 @@ export default function ResetPassword() {
             <label
               htmlFor="confirmPassword"
               className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.confirmPassword
-                  ? "-top-2.5 text-xs bg-white px-1"
-                  : "top-3 text-base text-gray-500"
+                focusedField === 'confirmPassword' || !formData.confirmPassword
+                  ? formData.confirmPassword
+                    ? '-top-2.5 text-xs bg-white px-1'
+                    : 'top-3 text-base text-gray-500'
+                  : 'opacity-0'
               } ${
                 errors.confirmPassword
-                  ? "text-red-500"
+                  ? 'text-red-500'
                   : formData.confirmPassword
-                  ? "text-blue-500"
-                  : "text-gray-500"
+                  ? 'text-blue-500'
+                  : 'text-gray-500'
               }`}
             >
               Confirm New Password
             </label>
             <input
-              type={showConfirmPassword ? "text" : "password"}
+              type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
+              onFocus={() => setFocusedField('confirmPassword')}
+              onBlur={() => {
+                setFocusedField(null);
+                setShowConfirmPassword(false);
+              }}
               className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
                 errors.confirmPassword
-                  ? "border-red-500 focus:ring-2 focus:ring-red-500"
-                  : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  ? 'border-red-500 focus:ring-2 focus:ring-red-500'
+                  : 'border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+              } ${
+                focusedField === 'confirmPassword'
+                  ? 'text-black'
+                  : 'text-gray-400'
               }`}
             />
-            {formData.confirmPassword && (
+            {formData.confirmPassword && focusedField === 'confirmPassword' && (
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-6 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                className="absolute right-4 top-3.5 text-black hover:text-gray-700 focus:outline-none cursor-pointer"
               >
                 {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -201,14 +232,16 @@ export default function ResetPassword() {
           {/* Reset Button */}
           <button
             type="submit"
-            disabled={loading || !formData.newPassword || !formData.confirmPassword}
+            disabled={
+              loading || !formData.newPassword || !formData.confirmPassword
+            }
             className={`w-full font-semibold py-3 rounded-xl transition-all  ${
               loading || !formData.newPassword || !formData.confirmPassword
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer"
+                ? 'bg-[#1A73E8] cursor-not-allowed text-white'
+                : 'bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer'
             }`}
           >
-            {loading ? "Resetting..." : "Reset Password"}
+            {loading ? 'Resetting...' : 'Reset Password'}
           </button>
         </form>
 
@@ -216,7 +249,7 @@ export default function ResetPassword() {
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
-            onClick={() => navigate("/staff/login")}
+            onClick={() => navigate('/staff/login')}
             className="text-sm text-gray-700  cursor-pointer"
           >
             Back to Login
