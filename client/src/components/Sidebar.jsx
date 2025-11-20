@@ -125,6 +125,32 @@ export default function Sidebar() {
     }
   };
 
+  // Add this useEffect to handle outside clicks
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    // Check if click is outside the dropdown
+    const dropdown = document.querySelector('[data-dropdown="profile-dropdown"]');
+    const profileButton = document.querySelector('[data-profile-button]');
+    
+    if (isProfileOpen && 
+        dropdown && 
+        !dropdown.contains(event.target) &&
+        profileButton &&
+        !profileButton.contains(event.target)) {
+      setIsProfileOpen(false);
+      setIsSystemSettingsOpen(false);
+    }
+  };
+
+  if (isProfileOpen) {
+    document.addEventListener('mousedown', handleClickOutside);
+  }
+
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [isProfileOpen]);
+
   useEffect(() => {
   const checkHeight = () => {
     setIsHeightSmall(window.innerHeight < 600); // Adjust threshold as needed
@@ -522,6 +548,7 @@ export default function Sidebar() {
         <div className={`pb-4 mt-auto ${isOpen ? "px-3" : ""} relative overflow-visible`}>
           {/* Profile Button */}
           <div
+          data-profile-button
             onClick={() => handleItemClick("profile")}
             className={`flex items-center justify-start pl-2 gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
               isOpen ? "py-1.5" : "ml-3 mr-3 py-2.5"
@@ -565,6 +592,7 @@ export default function Sidebar() {
           <AnimatePresence>
             {isProfileOpen && isOpen && (
               <motion.div
+              data-dropdown="profile-dropdown"
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -656,7 +684,8 @@ export default function Sidebar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999] bottom-0 left-full ml-2"
+                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999] -bottom-13  left-60 ml-2"
+                        data-dropdown="profile-dropdown"
                       >
                         {/* PERSONNEL: Show all options */}
                         {user?.role === "PERSONNEL" && (
@@ -704,7 +733,7 @@ export default function Sidebar() {
                               }`}
                             >
                               <img
-                                src="/assets/dashboard/system_settings_dropdown/window.png"
+                                src="/assets/profileMonitor.png"
                                 alt="window"
                                 className="w-5 h-5"
                               />
