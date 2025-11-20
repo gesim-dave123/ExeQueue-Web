@@ -285,7 +285,7 @@ export default function DisplayQueue() {
       <div className="w-full max-w-md flex justify-center">
         <button
           onClick={() => navigate("/")}
-          className="mt-10 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center justify-center gap-2"
+          className="mt-10 w-full bg-[#1A73E8] hover:bg-[#1456AE] cursor-pointer text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center justify-center gap-2"
         >
           <ArrowLeft size={17} /> Back to Homepage
         </button>

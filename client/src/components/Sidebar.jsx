@@ -125,6 +125,32 @@ export default function Sidebar() {
     }
   };
 
+  // Add this useEffect to handle outside clicks
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    // Check if click is outside the dropdown
+    const dropdown = document.querySelector('[data-dropdown="profile-dropdown"]');
+    const profileButton = document.querySelector('[data-profile-button]');
+    
+    if (isProfileOpen && 
+        dropdown && 
+        !dropdown.contains(event.target) &&
+        profileButton &&
+        !profileButton.contains(event.target)) {
+      setIsProfileOpen(false);
+      setIsSystemSettingsOpen(false);
+    }
+  };
+
+  if (isProfileOpen) {
+    document.addEventListener('mousedown', handleClickOutside);
+  }
+
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [isProfileOpen]);
+
   useEffect(() => {
   const checkHeight = () => {
     setIsHeightSmall(window.innerHeight < 600); // Adjust threshold as needed
@@ -262,7 +288,7 @@ export default function Sidebar() {
       setIsSystemSettingsOpen((prev) => !prev);
       setIsProfileOpen(false);
       setActiveItem("system-settings");
-      return; // ⛔ Stop here — don’t close the sidebar
+      return; // ⛔ Stop here — don't close the sidebar
     }
 
     // For system settings sub-items (queue-reset, release-window, profile-settings)
@@ -329,190 +355,200 @@ export default function Sidebar() {
         initial={false}
         animate={{ width: isOpen ? 260 : 64 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-       className={`
-  fixed top-0 left-0 h-full bg-white shadow-xs z-40 flex flex-col
-  rounded-r-3xl xl:rounded-3xl 
-  ${isMobileView && !isOpen ? "-translate-x-full" : "translate-x-0"}
-  md:translate-x-0 xl:static
-  ${isHeightSmall ? 'overflow-y-auto' : ''} /* Add scroll when height is small */
-`}
+        className={`
+          fixed top-0 left-0 h-full bg-white shadow-xs z-40 flex flex-col
+          rounded-r-3xl xl:rounded-3xl 
+          ${isMobileView && !isOpen ? "-translate-x-full" : "translate-x-0"}
+          md:translate-x-0 xl:static
+          overflow-visible
+        `}
       >
-        {!isMobileView && isSidebarOpen && (
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="absolute top-4 right-3 w-8 h-8 flex items-center justify-center cursor-pointer translate-y-[30%] -translate-x-[20%]"
+        {/* Scrollable Content Area */}
+        <div 
+          className={`flex-1 flex flex-col ${isHeightSmall ? 'overflow-y-auto' : 'overflow-visible'}`}
+          style={{
+            maxHeight: isHeightSmall ? 'calc(100vh - 120px)' : 'none',
+          }}
+        >
+          {!isMobileView && isSidebarOpen && (
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute top-4 right-3 w-8 h-8 flex items-center justify-center cursor-pointer translate-y-[30%] -translate-x-[20%]"
+            >
+              <img
+                src="/assets/dashboard/minimize.png"
+                alt="Toggle Sidebar"
+                className="w-6 h-6"
+              />
+            </button>
+          )}
+
+          {/* Logo */}
+          <div
+            className={`flex items-center justify-start pt-5 ${
+              !isMobileView && !isSidebarOpen ? "mb-0" : "mb-10"
+            }`}
           >
             <img
-              src="/assets/dashboard/minimize.png"
-              alt="Toggle Sidebar"
-              className="w-6 h-6"
+              src={icon}
+              alt="Exequeue Logo"
+              className="w-[70px] h-[70px] transform -translate-y-[20%]"
             />
-          </button>
-        )}
+            <motion.h1
+              className="text-xl font-bold ml-2 overflow-hidden transform -translate-y-[50%] -translate-x-[10%]"
+              style={{ fontFamily: "Montserrat, sans-serif" }}
+              initial={false}
+              animate={{
+                opacity: isOpen ? 1 : 0,
+                x: isOpen ? 0 : -20,
+                width: isOpen ? "auto" : 0,
+              }}
+              transition={{ duration: 0.2 }}
+            >
+              ExeQueue
+            </motion.h1>
+          </div>
 
-        {/* Logo */}
-        <div
-          className={`flex items-center justify-start pt-5 ${
-            !isMobileView && !isSidebarOpen ? "mb-0" : "mb-10"
-          }`}
-        >
-          <img
-            src={icon}
-            alt="Exequeue Logo"
-            className="w-[70px] h-[70px] transform -translate-y-[20%]"
-          />
-          <motion.h1
-            className="text-xl font-bold ml-2 overflow-hidden transform -translate-y-[50%] -translate-x-[10%]"
-            style={{ fontFamily: "Montserrat, sans-serif" }}
-            initial={false}
-            animate={{
-              opacity: isOpen ? 1 : 0,
-              x: isOpen ? 0 : -20,
-              width: isOpen ? "auto" : 0,
-            }}
-            transition={{ duration: 0.2 }}
-          >
-            ExeQueue
-          </motion.h1>
-        </div>
+          {!isMobileView && !isSidebarOpen && (
+            <div
+              className="w-full h-10 cursor-pointer"
+              onClick={() => setIsSidebarOpen(true)}
+            ></div>
+          )}
 
-        {!isMobileView && !isSidebarOpen && (
-          <div
-            className="w-full h-10 cursor-pointer"
-            onClick={() => setIsSidebarOpen(true)}
-          ></div>
-        )}
-
-        {/* Nav Items */}
-        <div className="flex flex-col gap-2 px-3">
-          {sidebarItems.map((item) => {
-            if (item.key === "queue") {
-              return (
-                <div key={item.key} className="flex flex-col w-full">
-                  <button
-                    onClick={() => {
-                      setIsSidebarOpen(true);
-                      setIsQueueOpen(!isQueueOpen);
-                      setActiveItem("queue");
-                    }}
-                    className={`w-full flex items-center pr-2 justify-between cursor-pointer py-2.5 rounded-lg transition-colors duration-300
-                      ${
-                        activeItem === "queue"
-                          ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
-                          : "text-black hover:bg-blue-50"
-                      }`}
-                  >
-                    <div
-                      className={`flex items-center ${isOpen ? "gap-4" : ""}`}
+          {/* Nav Items */}
+          <div className="flex flex-col gap-2 px-3">
+            {sidebarItems.map((item) => {
+              if (item.key === "queue") {
+                return (
+                  <div key={item.key} className="flex flex-col w-full">
+                    <button
+                      onClick={() => {
+                        setIsSidebarOpen(true);
+                        setIsQueueOpen(!isQueueOpen);
+                        setActiveItem("queue");
+                      }}
+                      className={`w-full flex items-center pr-2 justify-between cursor-pointer py-2.5 rounded-lg transition-colors duration-300
+                        ${
+                          activeItem === "queue"
+                            ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
+                            : "text-black hover:bg-blue-50"
+                        }`}
                     >
-                      <img
-                        src={
-                          activeItem === item.key ? item.iconActive : item.icon
-                        }
-                        alt={item.label}
-                        className="w-6 h-6 transform translate-x-[35%]"
-                      />
-                      <motion.span
-                        className="whitespace-nowrap overflow-hidden"
-                        initial={false}
-                        animate={{
-                          opacity: isOpen ? 1 : 0,
-                          x: isOpen ? 0 : -20,
-                          width: isOpen ? "auto" : 0,
-                        }}
-                        transition={{ duration: 0.2 }}
+                      <div
+                        className={`flex items-center ${isOpen ? "gap-4" : ""}`}
                       >
-                        {item.label}
-                      </motion.span>
-                    </div>
-                    {isOpen &&
-                      (isQueueOpen ? (
-                        <ChevronUp size={16} />
-                      ) : (
-                        <ChevronDown size={16} />
-                      ))}
-                  </button>
-
-                  <AnimatePresence>
-                    {isQueueOpen && isOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4"
-                      >
-                        {item.subItems.map((sub) => (
-                          <div
-                            key={sub.key}
-                            className="flex justify-center w-full"
-                          >
-                            <Link
-                              to={sub.link}
-                              onClick={() => setSubItem(sub.key)}
-                              className={`block w-[80%] text-left py-2 text-sm rounded-md transition ${
-                                subItem === sub.key
-                                  ? "text-[#1A73E8] font-medium"
-                                  : "text-gray-700 hover:text-[#1A73E8]"
-                              }`}
-                            >
-                              {sub.label}
-                            </Link>
-                          </div>
+                        <img
+                          src={
+                            activeItem === item.key ? item.iconActive : item.icon
+                          }
+                          alt={item.label}
+                          className="w-6 h-6 transform translate-x-[35%]"
+                        />
+                        <motion.span
+                          className="whitespace-nowrap overflow-hidden"
+                          initial={false}
+                          animate={{
+                            opacity: isOpen ? 1 : 0,
+                            x: isOpen ? 0 : -20,
+                            width: isOpen ? "auto" : 0,
+                          }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {item.label}
+                        </motion.span>
+                      </div>
+                      {isOpen &&
+                        (isQueueOpen ? (
+                          <ChevronUp size={16} />
+                        ) : (
+                          <ChevronDown size={16} />
                         ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                    </button>
+
+                    <AnimatePresence>
+                      {isQueueOpen && isOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-4"
+                        >
+                          {item.subItems.map((sub) => (
+                            <div
+                              key={sub.key}
+                              className="flex justify-center w-full"
+                            >
+                              <Link
+                                to={sub.link}
+                                onClick={() => setSubItem(sub.key)}
+                                className={`block w-[80%] text-left py-2 text-sm rounded-md transition ${
+                                  subItem === sub.key
+                                    ? "text-[#1A73E8] font-medium"
+                                    : "text-gray-700 hover:text-[#1A73E8]"
+                                }`}
+                              >
+                                {sub.label}
+                              </Link>
+                            </div>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              }
+              return (
+                <div className="flex flex-col w-full">
+                  <Link
+                    key={item.key}
+                    to={item.link}
+                    onClick={() => handleItemClick(item.key)}
+                    className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
+                    ${
+                      activeItem === item.key
+                        ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
+                        : "text-black hover:bg-blue-50"
+                    }`}
+                  >
+                    <img
+                      src={activeItem === item.key ? item.iconActive : item.icon}
+                      alt={item.label}
+                      className="w-6 h-6 transition-opacity duration-300"
+                    />
+                    <motion.span
+                      className="whitespace-nowrap overflow-hidden"
+                      initial={false}
+                      animate={{
+                        opacity: isOpen ? 1 : 0,
+                        x: isOpen ? 0 : -20,
+                        width: isOpen ? "auto" : 0,
+                      }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {item.label}
+                    </motion.span>
+                  </Link>
                 </div>
               );
-            }
-            return (
-              <div className="flex flex-col w-full">
-                <Link
-                  key={item.key}
-                  to={item.link}
-                  onClick={() => handleItemClick(item.key)}
-                  className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
-                  ${
-                    activeItem === item.key
-                      ? "bg-[#DDEAFC] text-[#1A73E8] font-medium"
-                      : "text-black hover:bg-blue-50"
-                  }`}
-                >
-                  <img
-                    src={activeItem === item.key ? item.iconActive : item.icon}
-                    alt={item.label}
-                    className="w-6 h-6 transition-opacity duration-300"
-                  />
-                  <motion.span
-                    className="whitespace-nowrap overflow-hidden"
-                    initial={false}
-                    animate={{
-                      opacity: isOpen ? 1 : 0,
-                      x: isOpen ? 0 : -20,
-                      width: isOpen ? "auto" : 0,
-                    }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {item.label}
-                  </motion.span>
-                </Link>
-              </div>
-            );
-          })}
+            })}
+          </div>
         </div>
 
         {!isMobileView && !isSidebarOpen && (
           <div
-            className="flex-1 w-full cursor-pointer"
+            className={`flex-1 w-full cursor-pointer 
+              ${isHeightSmall ? "hidden" : "flex"} `}
             onClick={() => setIsSidebarOpen(true)}
           ></div>
         )}
 
-        {/* Bottom User Section with Dropdown */}
-        <div className={`pb-4 mt-auto ${isOpen ? "px-3" : ""} relative`}>
+        {/* Bottom User Section with Dropdown - Fixed at bottom */}
+        <div className={`pb-4 mt-auto ${isOpen ? "px-3" : ""} relative overflow-visible`}>
           {/* Profile Button */}
           <div
+          data-profile-button
             onClick={() => handleItemClick("profile")}
             className={`flex items-center justify-start pl-2 gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
               isOpen ? "py-1.5" : "ml-3 mr-3 py-2.5"
@@ -556,11 +592,12 @@ export default function Sidebar() {
           <AnimatePresence>
             {isProfileOpen && isOpen && (
               <motion.div
+              data-dropdown="profile-dropdown"
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-col p-1.5 absolute w-[260px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-50 top-[-100px]"
+                className="flex flex-col p-1.5 absolute w-[260px] bg-white shadow-[0px_4px_15px_rgba(0,0,0,0.1)] rounded-[18px] z-[9999] bottom-full mb-2 left-0"
               >
                 {/* New Button at Top */}
                 <div
@@ -647,7 +684,8 @@ export default function Sidebar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-100 top-[-140px] left-[145px] sm:top-[-40px] sm:left-full -ml-4"
+                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999] -bottom-13  left-60 ml-2"
+                        data-dropdown="profile-dropdown"
                       >
                         {/* PERSONNEL: Show all options */}
                         {user?.role === "PERSONNEL" && (
@@ -695,7 +733,7 @@ export default function Sidebar() {
                               }`}
                             >
                               <img
-                                src="/assets/dashboard/system_settings_dropdown/window.png"
+                                src="/assets/profileMonitor.png"
                                 alt="window"
                                 className="w-5 h-5"
                               />

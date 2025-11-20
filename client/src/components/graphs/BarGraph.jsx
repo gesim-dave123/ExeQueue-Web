@@ -212,7 +212,7 @@ const CustomTooltip = ({ active, payload }) => {
 
   return (
     <div className="w-full" style={{ outline: 'none' }} tabIndex={-1}>
-      <div className="w-full h-[250px] sm:h-[280px] md:h-[315px] relative no-outline" style={{ outline: 'none' }}>
+      <div className="w-full h-[250px] sm:h-[280px] md:h-[250px] lg:h-[280px] relative no-outline " style={{ outline: 'none' }}>
         <ResponsiveContainer width="100%" height="100%"   style={{ outline: 'none' }}>
           <BarChart
             data={chartData}
