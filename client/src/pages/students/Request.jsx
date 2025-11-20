@@ -1357,7 +1357,7 @@ export default function Request() {
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer transition-colors"
+                : "bg-[#1A73E8] text-white hover:bg-[#1456AE] cursor-pointer transition-colors"
             }`}
           >
             {currentStep === 4 ? "Confirm" : "Continue"}
