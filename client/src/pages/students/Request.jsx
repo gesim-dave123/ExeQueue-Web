@@ -182,7 +182,6 @@ export default function Request() {
   const [yearSearchTerm, setYearSearchTerm] = useState('');
   const [isYearOpen, setIsYearOpen] = useState(false);
   const yearDropdownRef = useRef(null);
-  const isInternalNavigation = useRef(false); // To track internal navigation for back button
   const yearOptions = [
     '1st Year',
     '2nd Year',
