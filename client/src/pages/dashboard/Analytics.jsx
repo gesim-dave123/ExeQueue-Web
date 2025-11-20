@@ -79,13 +79,12 @@ export default function Analytics() {
 
   const viewRef = useRef(view);
 
-  // Icon mapping for request types
   const iconMap = {
-    'Good Moral Certificate': '/assets/analytics/goodmoral.png',
-    'Insurance Payment': '/assets/analytics/insurancepay.png',
-    'Transmittal Letter': '/assets/analytics/transmittal.png',
+    'Good Moral Certificat': '/assets/analytics/goodmoral.png',
+    Insurance: '/assets/analytics/insurancepay.png',
+    'Approval/Transmittal Letter': '/assets/analytics/transmittal.png',
     'Temporary Gate Pass': '/assets/analytics/gatepass.png',
-    'Uniform Exemption': '/assets/analytics/uniform.png',
+    'Uniform Exception': '/assets/analytics/uniform.png',
     'Enrollment/Transfer': '/assets/analytics/enrollment.png',
   };
 
@@ -239,7 +238,7 @@ export default function Analytics() {
         icon: (
           <img
             src={iconMap[req.requestType] || '/assets/analytics/goodmoral.png'}
-            alt=""
+            alt={req.requestType}
             className="w-6 h-6"
           />
         ),
@@ -271,7 +270,7 @@ export default function Analytics() {
               src={
                 iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
               }
-              alt=""
+              alt={req.requestType}
               className="w-6 h-6"
             />
           ),
@@ -288,7 +287,7 @@ export default function Analytics() {
               src={
                 iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
               }
-              alt=""
+              alt={req.requestType}
               className="w-6 h-6"
             />
           ),
