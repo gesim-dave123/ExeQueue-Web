@@ -182,6 +182,7 @@ export default function Request() {
   const [yearSearchTerm, setYearSearchTerm] = useState('');
   const [isYearOpen, setIsYearOpen] = useState(false);
   const yearDropdownRef = useRef(null);
+  const isInternalNavigation = useRef(false); // To track internal navigation for back button
   const yearOptions = [
     '1st Year',
     '2nd Year',
@@ -214,13 +215,61 @@ export default function Request() {
   //     fetchCourseData();
   //   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
     if (selectedQueue) {
       sessionStorage.setItem("hasRequestInProgress", "true");
     } else {
       sessionStorage.removeItem("hasRequestInProgress");
     }
   }, [selectedQueue]);
+
+  // Handle browser back button
+  useEffect(() => {
+    // Push initial state when component mounts
+    if (currentStep === 1) {
+      window.history.pushState({ step: 1 }, '', window.location.pathname);
+    } 
+    
+    const handlePopState = (e) => {
+      // Prevent default browser behavior
+      e.preventDefault();
+      
+      if (currentStep > 1) {
+        // Go back one step
+        isInternalNavigation.current = true;
+        setCurrentStep(prev => prev - 1);
+        setErrors({});
+      } else {
+        // On step 1, check if queue is selected
+        const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+        
+        if (hasQueueSelected) {
+          // Show confirmation modal and push state back
+          setShowBackConfirmModal(true);
+          window.history.pushState({ step: currentStep }, '', window.location.pathname);
+        } else {
+          // Allow natural navigation
+          navigate(-1);
+        }
+      }
+    };
+    
+    // Add event listener
+    window.addEventListener('popstate', handlePopState);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentStep, navigate]);
+
+  // Push new state when step changes (but not when going back)
+  useEffect(() => {
+    if (currentStep > 1 && !isInternalNavigation.current) {
+      window.history.pushState({ step: currentStep }, '', window.location.pathname);
+    }
+    isInternalNavigation.current = false;
+  }, [currentStep]);
 
   const validateStep1 = () => {
     if (!selectedQueue) {
@@ -849,8 +898,8 @@ export default function Request() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.1 }}
               >
-                <label className="block text-sm font-medium text-gray-700">
-                  Last name <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-[#202124]">
+                  Last name<span className="">*</span>
                 </label>
                 <input
                   type="text"
@@ -871,8 +920,8 @@ export default function Request() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
-                <label className="block text-sm font-medium text-gray-700">
-                  Middle name <span className="text-gray-400">(optional)</span>
+                <label className="block text-sm font-semibold text-[#202124]">
+                  Middle name <span className="text-gray-400 text-xs ">(optional)</span>
                 </label>
                 <input
                   type="text"
@@ -890,8 +939,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                First name <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                First name<span className="">*</span>
               </label>
               <input
                 type="text"
@@ -913,8 +962,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.4 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Student ID No. <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                Student ID No.<span className="">*</span>
               </label>
               {/* <input
                 type="text"
@@ -949,8 +998,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                Course<span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124] mb-2">
+                Course<span className="">*</span>
               </label>
               
               <div className="relative" ref={dropdownRef}>
@@ -1019,8 +1068,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Year Level <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                Year Level<span className="">*</span>
               </label>
 
               <div className="relative" ref={yearDropdownRef}>

@@ -6,6 +6,7 @@ import { sendOTPtoEmail } from "../../../api/auth";
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isEmptyError, setIsEmptyError] = useState(false); 
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -14,7 +15,13 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setIsEmptyError(false); 
 
+     if (!email.trim()) {
+      setIsEmptyError(true);
+      setLoading(false);
+    }
+    
     const res = await sendOTPtoEmail( email );
     
     if (!res) {
@@ -28,7 +35,11 @@ export default function ForgotPassword() {
   };
 
   const handleResend = () => {
-    handleSubmit(new Event('submit'));
+     if (!email.trim()) {
+      setIsEmptyError(true);
+      handleSubmit(new Event('submit'));
+      return;
+    }
   };
 
   return (
@@ -52,14 +63,24 @@ export default function ForgotPassword() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           {/* Email Input */}
-          <div className="relative mb-3">
+          <div className={`relative ${
+                  isEmptyError 
+                    ? ""
+                    : "mb-3"
+                }`}>
             <label
               htmlFor="email"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                email
-                  ? "-top-2.5 text-xs bg-white px-1 text-blue-500"
-                  : "top-3 text-base text-gray-500"
-              }`}
+              className={`absolute left-5 transition-all duration-200 pointer-events-none
+                ${
+                  isEmptyError 
+                    ? "top-3.5 text-base text-gray-500"
+                    : ""
+                }
+                ${
+                  email
+                    ? "-top-2.5 text-xs bg-white px-1 text-blue-500 "
+                    : "top-3.5 text-base text-gray-500 "
+                }`}
             >
               Email
             </label>
@@ -70,18 +91,30 @@ export default function ForgotPassword() {
               onChange={(e) => {
                 setEmail(e.target.value);
                 setError("");
+                setIsEmptyError(false);
               }}
-              className="w-full px-4 py-3 border border-[#DDEAFC] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              autoComplete="off"
+              className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all ${
+                isEmptyError 
+                  ? "border-red-500 border-2" 
+                  : email
+                    ? "border-[#1A73E8] border-2"  // Blue border when email has value
+                    : "border-[#DDEAFC] border-2 focus:ring-blue-500 focus:border-[#1A73E8]"
+              }`}
             />
-          </div>
+            {isEmptyError && (
+              <p className="text-red-500 text-left text-xs mt-1">Email is required</p>
+            )}
+
+        </div>
 
           {/* Send Code Button */}
           <button
             type="submit" //kani line i remove, for render rani sya
             disabled={loading || !email}
-            className={`w-full font-semibold py-3 mb-5 rounded-2xl transition-all  ${
+            className={`w-full font-medium py-3 mb-5 rounded-2xl transition-all  ${
               loading || !email
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
+                ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
                 : "bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer"
             }`}
           >

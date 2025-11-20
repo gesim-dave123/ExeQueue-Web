@@ -31,8 +31,7 @@ export default function Help() {
               2
             </span>
             <p className="text-base md:text-lg xl:text-base 2xl:text-xl text-start font-light pt-2 xl:pt-2">
-              Fill in your details like name, ID number, and contact
-              information.
+              Fill in your details like Full name, Student ID number, Course, and Year Level.
             </p>
           </div>
 

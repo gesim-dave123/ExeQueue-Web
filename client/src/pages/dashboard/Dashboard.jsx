@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { SSE } from '../../api/sseApi';
-import { fetchDashboardStatistics } from '../../api/statistics';
+import React, { useState, useEffect } from 'react';
 import DoughnutChart from '../../components/graphs/DoughnutChart';
+import { fetchDashboardStatistics } from '../../api/statistics';
+import backendConnection from '../../api/backendConnection';
 
 // export default function Dashboard() {
 //   const [activeTab, setActiveTab] = useState('Today');
@@ -199,16 +199,42 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    // Initial fetch
     getStats();
 
-    SSE.subscribe('statistics/dashboard', (data) => {
-      if (data.type === 'dashboard-update') {
-        console.log('Received Dashboard update:', data);
-        getStats();
-      }
-    });
+    // ✅ Connect to SSE endpoint
+    const eventSource = new EventSource(
+      `${backendConnection()}/api/statistics/dashboard/stream`,
+      { withCredentials: true }
+    );
 
-    return () => SSE.unsubscribe('statistics/dashboard');
+    eventSource.onopen = () => {
+      console.log('🟢 Dashboard SSE connection opened');
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📊 Dashboard update received:', data);
+
+        if (data.type === 'dashboard-update') {
+          getStats(); // Refresh dashboard data
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('🔴 Dashboard SSE error:', error);
+      // EventSource will auto-reconnect
+    };
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🔴 Closing Dashboard SSE connection');
+      eventSource.close();
+    };
   }, []);
 
   if (loading) {
@@ -227,31 +253,43 @@ export default function Dashboard() {
   const totals = stats?.totals || {};
   const backendWindows = stats?.windows || [];
 
-  // Format windows - only show if IN_SERVICE
-  const formattedWindows = (stats?.windows || []).map((window) => ({
-    windowNo: window.windowNo,
-    currentServing: {
-      number: window.currentServing?.formattedQueueNumber || null,
-      type:
-        window.currentServing?.queueType === 'PRIORITY'
-          ? 'Priority'
-          : window.currentServing?.queueType === 'REGULAR'
-          ? 'Regular'
-          : null,
+  // ✅ Ensure we always have 2 windows (default placeholders)
+  const defaultWindows = [
+    {
+      windowNo: 1,
+      displayName: 'Window 1',
+      currentServing: { formattedQueueNumber: 'R000' },
     },
-  }));
+    {
+      windowNo: 2,
+      displayName: 'Window 2',
+      currentServing: { formattedQueueNumber: 'P000' },
+    },
+  ];
+
+  // Merge backend windows with default ones
+  const windows = defaultWindows.map((defWin) => {
+    const match = backendWindows.find((w) => w.windowNo === defWin.windowNo);
+    return match
+      ? {
+          ...defWin,
+          ...match,
+          currentServing: match.currentServing || defWin.currentServing,
+        }
+      : defWin;
+  });
 
   // Fallback-safe totals
   const totalQueueToday = totals.totalQueueToday || 0;
   const inProgress = totals.inProgress || 0;
   const completed = totals.completed || 0;
-  const completedRegular = totals.completedRegular || 0;
-  const completedPriority = totals.completedPriority || 0;
+  const totalRegularWaiting = totals.totalRegular || 0; // ✅ Changed name
+  const totalPriorityWaiting = totals.totalPriority || 0; // ✅ Changed name
 
   return (
     <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full">
       {/* Main Content */}
-      <div className="flex-1 pb-5 pr-8 xl:pt-18 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
+      <div className="flex-1 pr-8 xl:pt-17 md:px-8 md:pl-15 xl:pl-9 transition-all duration-300 ease-in-out">
         {/* Header */}
         <div className="mb-6 text-left">
           <h2 className="text-3xl font-semibold text-[#202124]">Dashboard</h2>
@@ -263,7 +301,7 @@ export default function Dashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           {/* Dynamic Window Cards */}
-          {formattedWindows.map((win) => (
+          {windows.map((win) => (
             <div
               key={win.windowNo}
               className="bg-white rounded-xl shadow-xs p-5 flex flex-col gap-3"
@@ -273,44 +311,27 @@ export default function Dashboard() {
                   <img src="/assets/Monitor.png" alt="" />
                 </div>
                 <h3 className="text-base md:text-lg font-medium text-[#202124]">
-                  Window {win.windowNo}
+                  {win.displayName || `Window ${win.windowNo}`}
                 </h3>
               </div>
-
-              {/* Only show number if there's an active queue */}
-              {win.currentServing.number ? (
-                <>
-                  <p
-                    className={`text-3xl md:text-5xl font-bold mt-7 xl:text-start ${
-                      win.currentServing.type === 'Priority'
-                        ? 'text-[#F9A825]'
-                        : 'text-[#1A73E8]'
-                    }`}
-                  >
-                    {win.currentServing.number}
-                  </p>
-                  <div className="flex justify-start">
-                    <span className="py-1 px-5 rounded-2xl text-xs md:text-sm lg:text-md font-medium bg-[#26BA33]/20 text-[#26BA33]">
-                      Currently Serving
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-3xl md:text-5xl font-bold mt-7 xl:text-start text-transparent">
-                    &nbsp;
-                  </p>
-                  <div className="flex justify-start">
-                    <span className="py-1 px-5 rounded-2xl text-xs md:text-sm lg:text-md font-medium text-transparent">
-                      &nbsp;
-                    </span>
-                  </div>
-                </>
-              )}
+              <p
+                className={`text-3xl md:text-5xl font-bold mt-7 text-start ${
+                  win.currentServing?.formattedQueueNumber?.startsWith('P')
+                    ? 'text-[#F9AB00]'
+                    : 'text-[#1A73E8]'
+                }`}
+              >
+                {win.currentServing?.formattedQueueNumber || 'R000'}
+              </p>
+              <div className="flex justify-start">
+                <button className="bg-[#26BA33]/20 py-1 px-5 rounded-2xl text-[#26BA33] text-xs md:text-sm lg:text-md font-medium">
+                  Currently Serving
+                </button>
+              </div>
             </div>
           ))}
 
-          {/* Total Regular (Completed) */}
+          {/* Total Regular */}
           <div className="bg-white rounded-xl shadow-xs p-5 flex flex-col justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#F5F5F5] p-2 rounded-xl">
@@ -321,11 +342,11 @@ export default function Dashboard() {
               </h3>
             </div>
             <p className="text-4xl md:text-6xl font-semibold text-[#202124] xl:text-start">
-              {completedRegular}
+              {totalRegularWaiting}
             </p>
           </div>
 
-          {/* Total Priority (Completed) */}
+          {/* Total Priority */}
           <div className="bg-white rounded-xl shadow-xs p-5 flex flex-col justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-[#F5F5F5] p-2 rounded-xl">
@@ -336,7 +357,7 @@ export default function Dashboard() {
               </h3>
             </div>
             <p className="text-4xl md:text-6xl font-semibold text-[#202124] xl:text-start">
-              {completedPriority}
+              {totalPriorityWaiting}
             </p>
           </div>
         </div>
@@ -361,26 +382,27 @@ export default function Dashboard() {
                 <DoughnutChart
                   totals={{
                     totalQueueToday: totals.totalQueueToday,
-                    completedRegular: totals.completedRegular,
-                    completedPriority: totals.completedPriority,
+                    totalRegularWaiting: totals.totalRegular,
+                    totalPriorityWaiting: totals.totalPriority,
                     inProgress: totals.inProgress,
                   }}
                 />
               </div>
 
               {/* Legend with Percentages */}
-              <div className="mt-6 flex flex-col sm:flex-row sm:justify-center gap-4">
+              <div className="mt-6 flex flex-col sm:flex-row sm:justify-between gap-10">
                 {[
+                      {
+                    name: 'Priority',
+                    color: 'bg-[#FDE5B0]',
+                    value: totalPriorityWaiting,
+                  },
                   {
                     name: 'Regular',
                     color: 'bg-[#1A73E8]',
-                    value: completedRegular,
+                    value: totalRegularWaiting,
                   },
-                  {
-                    name: 'Priority',
-                    color: 'bg-[#FDE5B0]',
-                    value: completedPriority,
-                  },
+              
                   {
                     name: 'In Progress',
                     color: 'bg-[#E2E3E4]',
@@ -401,7 +423,7 @@ export default function Dashboard() {
                         className={`w-3 h-3 rounded-full ${item.color}`}
                       ></div>
                       <span className="text-gray-600">{item.name}</span>
-                      <span className="font-medium text-[#202124]">
+                      <span className="font-medium text-xl text-[#202124]">
                         {percentage}%
                       </span>
                     </div>
