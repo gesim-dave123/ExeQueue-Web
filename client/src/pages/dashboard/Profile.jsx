@@ -253,17 +253,18 @@ export default function Profile() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs sm:text-sm lg:text-base font-semibold">
-                        First Name
+                        Last Name
                       </label>
                       <input
                         type="text"
-                        name="firstName"
-                        value={formData.firstName}
+                        name="lastName"
+                        value={formData.lastName}
                         onChange={handleChange}
                         className="w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
                           focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] text-black"
                       />
                     </div>
+                
                     <div>
                       <label className="text-xs sm:text-sm lg:text-base font-semibold">
                         Middle Name
@@ -279,12 +280,12 @@ export default function Profile() {
                     </div>
                     <div>
                       <label className="text-xs sm:text-sm lg:text-base font-semibold">
-                        Last Name
+                        First Name
                       </label>
                       <input
                         type="text"
-                        name="lastName"
-                        value={formData.lastName}
+                        name="firstName"
+                        value={formData.firstName}
                         onChange={handleChange}
                         className="w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
                           focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] text-black"
