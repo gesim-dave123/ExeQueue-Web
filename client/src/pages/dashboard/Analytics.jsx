@@ -337,7 +337,7 @@ export default function Analytics() {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <div className="w-full min-h-[80vh] mx-auto pr-8 pt-5 md:pl-15 xl:pl-9 xl:pt-7">
+      <div className="w-full min-h-[80vh] mx-auto pr-3 pt-5 lg:pr-7 md:pl-15 xl:pl-9 xl:pr-7 xl:pt-7">
         {/* Header */}
         <div className="mb-8 pt-10">
           <h1 className="text-3xl text-left font-semibold text-[#202124]">

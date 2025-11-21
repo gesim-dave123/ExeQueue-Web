@@ -1,17 +1,19 @@
-import React from 'react'
+import React, { use } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import { useIsSystemOpen } from '../context/ModalCheckerProvider'
 
 export default function LayoutDashboard() {
+  const [isSystemSettingsOpen] = useIsSystemOpen();
   return (
     <div className='flex h-screen bg-[#F5F5F5] overflow-hidden relative'>
         {/* Sidebar */}
-      <div className='py-8 pl-7 lg:pl-8 z-[2]'>
+      <div className={`py-8 pl-3 lg:pl-8  ${ isSystemSettingsOpen ? 'z-[9999]' : ''} `}>
         <Sidebar/>
 
       </div>
         {/* Main Content */}
-        <main className="flex-1 transition-all duration-300 overflow-auto z-[0]">
+        <main className="flex-1 transition-all duration-300 overflow-auto ">
           <Outlet />
         </main>
 

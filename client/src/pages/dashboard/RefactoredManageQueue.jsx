@@ -44,6 +44,7 @@ import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
 import { useDebounce } from "../../utils/hooks/useDebounce.jsx";
 import ManageQueueHook from "./ManageQueue/ManageQueueHook.jsx";
 
+
 export default function Manage_Queue() {
   const navigate = useNavigate();
   const parentRef = useRef(null);
@@ -57,7 +58,6 @@ export default function Manage_Queue() {
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
   const [statusFilter, setStatusFilter] = useState([]);
   const [tooltipData, setTooltipData] = useState(null);
-
   // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
   const [hoveredRow, setHoveredRow] = useState(null);
 
@@ -715,11 +715,13 @@ export default function Manage_Queue() {
   const openActionPanel = (queue) => {
     setSelectedQueue(queue);
     setShowActionPanel(true);
+    setIsLoggedIn(isLoggedIn);
   };
 
   const closeActionPanel = () => {
     setShowActionPanel(false);
     setSelectedQueue(null);
+    setIsLoggedIn(!isLoggedIn);
   };
 
   const shouldDisableAnnounce = () => {
@@ -842,7 +844,7 @@ export default function Manage_Queue() {
         />
       ) : (
         currentQueue && (
-          <div className="min-h-screen bg-transparent w-full pr-7 pt-9 md:pl-15 xl:pl-9 xl:pt-11 xl:pr-8 pb-9">
+          <div className="min-h-screen bg-transparent w-full pr-3 pt-9 lg:pr-7 md:pl-15 xl:pl-9 xl:pt-11 xl:pr-7 pb-9">
             <div className="max-w-full mx-auto">
               <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
                 Manage Queue
