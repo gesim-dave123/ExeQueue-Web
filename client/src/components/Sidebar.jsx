@@ -171,7 +171,7 @@ useEffect(() => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      const isMobile = width < 1024; // everything below 1024 = mobile
+      const isMobile = width < 768; // everything below 1024 = mobile
       setIsMobileView(isMobile);
       setIsSidebarOpen(!isMobile && width >= 1280);
       // if(isMobile) {
@@ -720,7 +720,7 @@ useEffect(() => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999] -bottom-13  left-60 ml-2"
+                        className={`flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999]  ml-2 ${isMobileView ? '-top-35 left-20' : '-bottom-13  left-60'}`}
                         data-dropdown="profile-dropdown"
                       >
                         {/* PERSONNEL: Show all options */}
