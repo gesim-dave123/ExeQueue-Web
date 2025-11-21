@@ -211,7 +211,7 @@ export default function ManageAccount() {
             <button
               onClick={handleAddAccount}
               disabled={loading}
-              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-[#1557B0] transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
             >
               <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
                 <img
