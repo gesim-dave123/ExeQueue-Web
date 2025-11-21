@@ -758,7 +758,7 @@ export default function Manage_Queue() {
     className:
       window.status === "inactive"
         ? "bg-transparent bg-[#202124] ring-1 cursor-not-allowed w-full"
-        : "bg-[#1A73E8] text-white hover:bg-blue-700 w-full",
+        : "bg-[#1A73E8] text-white hover:bg-[#1557B0] w-full",
     disabled: window.status === "inactive",
   }));
 
@@ -1085,7 +1085,7 @@ export default function Manage_Queue() {
                                 (request) => request.status === "In Progress"
                               )
                                 ? "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
-                                : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
+                                : "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
                             }`}
                           >
                             <img
@@ -1362,7 +1362,7 @@ export default function Manage_Queue() {
                                     >
                                       <button
                                         onClick={() => openActionPanel(item)}
-                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-[#1557B0] transition-colors cursor-pointer"
                                       >
                                         View
                                       </button>
@@ -1946,7 +1946,7 @@ export default function Manage_Queue() {
                                   request.status === "Cancelled" ||
                                   request.status === "Skipped"
                               )
-                                ? "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
+                                ? "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
                                 : "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
                             }`}
                           >
