@@ -29,10 +29,13 @@ export default function Home() {
 
         {/* Subtitle with improved styling */}
         <div className="flex justify-center">
-          <p className="text-base sm:text-lg text-center mb-2 text-gray-700 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium">
-            Your campus services, now more accessible than ever.
+          <p className="text-sm sm:text-lg text-center mb-2 text-gray-700 max-w-2xl mx-auto md:mx-0 leading-relaxed font-medium">
+            Your campus services,&nbsp;
+            <br className="block sm:hidden" />
+            now more accessible than ever.
           </p>
         </div>
+
 
         {/* Buttons with improved styling and icons */}
         <div className="flex flex-row mb-4 gap-5 justify-center ">
