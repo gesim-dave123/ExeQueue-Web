@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function InputModal({
   title,
@@ -19,6 +20,10 @@ export default function InputModal({
     newPassword: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
 
   const [localErrors, setLocalErrors] = useState({});
 
@@ -98,6 +103,10 @@ export default function InputModal({
   };
 
   if (!isOpen) return null;
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+   const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
+
+
 
   return (
     <>
@@ -223,42 +232,76 @@ export default function InputModal({
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 New Password
               </label>
-              <input
-                type="password"
-                name="newPassword"
-                value={formData.newPassword}
-                onChange={handleChange}
-                placeholder="New Password"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordLength
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
-                }`}
-              />
-              {localErrors.passwordLength && (
-                <p className="text-red-500 text-xs mt-1">
-                  {localErrors.passwordLength}
-                </p>
-              )}
+                <div className="relative">  {/* Add this wrapper */}
+                  <input
+                    type={showPassword ? "text" : "password"} 
+                    name="newPassword"
+                    value={formData.newPassword}
+                    onChange={handleChange}
+                    onFocus={() => setIsPasswordFocused(true)}
+                    onBlur={() => setIsPasswordFocused(false)}
+                    placeholder="New Password"
+                    className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
+                      localErrors.passwordLength
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                        : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                    }`}
+                  />
+                  {/* <button 
+                  
+                    type="button"  
+                    className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={togglePasswordVisibility}>
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button> */}
+                    {isPasswordFocused && (
+                        <button 
+                          type="button"
+                          className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onMouseDown={(e) => e.preventDefault()} // Prevents blur when clicking
+                          onClick={togglePasswordVisibility}>
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                    )}
+                </div>  {/* Close wrapper */}
+                  {localErrors.passwordLength && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {localErrors.passwordLength}
+                    </p>
+                  )}
             </div>
 
+            {/* Confirm Password */}
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Confirm Password
               </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirm Password"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordMatch
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
-                }`}
-              />
+              <div className="relative"> 
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onFocus={() => setIsConfirmPasswordFocused(true)}
+                  onBlur={() => setIsConfirmPasswordFocused(false)}
+                  placeholder="Confirm Password"
+                  className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
+                    localErrors.passwordMatch
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                  }`}
+                />
+                {isConfirmPasswordFocused && (
+                  <button 
+                    type="button"
+                    className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={toggleConfirmPasswordVisibility}>
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                )}
+              </div>  {/* Close the relative wrapper here */}
               {localErrors.passwordMatch && (
                 <p className="text-red-500 text-xs mt-1">
                   {localErrors.passwordMatch}
@@ -274,7 +317,7 @@ export default function InputModal({
               disabled={!isFormValid()}
               className={`px-6 py-3 rounded-xl transition font-medium ${
                 isFormValid()
-                  ? 'bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer'
+                  ? 'bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
