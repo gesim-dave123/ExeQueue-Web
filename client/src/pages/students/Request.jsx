@@ -222,6 +222,70 @@ export default function Request() {
     }
   }, [selectedQueue]);
 
+  // Add these states
+const [showBrowserBackModal, setShowBrowserBackModal] = useState(false);
+const [isFormDirty, setIsFormDirty] = useState(false);
+
+// Check if form has data
+useEffect(() => {
+  const hasData = 
+    selectedQueue || 
+    formData.lastName || 
+    formData.firstName || 
+    formData.studentId || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasData);
+}, [selectedQueue, formData, selectedServices]);
+
+// Handle browser back button
+useEffect(() => {
+  const handlePopState = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      setShowBrowserBackModal(true);
+      window.history.pushState(null, '', window.location.href);
+    }
+  };
+
+  window.history.pushState(null, '', window.location.href);
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+  };
+}, [isFormDirty]);
+
+// Handle page refresh/close
+useEffect(() => {
+  const handleBeforeUnload = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [isFormDirty]);
+
+// Handle browser back confirmation
+const handleBrowserBackConfirm = () => {
+  sessionStorage.removeItem("hasRequestInProgress");
+  setShowBackConfirmModal(false);
+  setIsFormDirty(false);
+  setShowBrowserBackModal(false);
+  navigate('/');
+};
+
+const handleBrowserBackCancel = () => {
+  setShowBrowserBackModal(false);
+};
+
+
   const validateStep1 = () => {
     if (!selectedQueue) {
       setErrors({ step1: "Please select a queue type" });
@@ -1425,7 +1489,19 @@ export default function Request() {
             </>
           }
         />
-
+        {/* Browser Back Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showBrowserBackModal}
+        onClose={handleBrowserBackCancel}
+        onConfirm={handleBrowserBackConfirm}
+        icon="/assets/Caution Icon.png"
+        iconAlt="Warning"
+        iconSize="w-12 h-12"
+        title="Leave Request Page?"
+        description="You have unsaved changes. Are you sure you want to leave this page?"
+        confirmText="Confirm"
+        cancelText="Cancel"
+      />
         {/* {showBackConfirmModal && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">
