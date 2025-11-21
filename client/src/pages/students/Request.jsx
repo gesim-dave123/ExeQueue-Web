@@ -222,54 +222,6 @@ export default function Request() {
     }
   }, [selectedQueue]);
 
-  // Handle browser back button
-  // useEffect(() => {
-  //   // Push initial state when component mounts
-  //   if (currentStep === 1) {
-  //     window.history.pushState({ step: 1 }, '', window.location.pathname);
-  //   } 
-    
-  //   const handlePopState = (e) => {
-  //     // Prevent default browser behavior
-  //     e.preventDefault();
-      
-  //     if (currentStep > 1) {
-  //       // Go back one step
-  //       isInternalNavigation.current = true;
-  //       setCurrentStep(prev => prev - 1);
-  //       setErrors({});
-  //     } else {
-  //       // On step 1, check if queue is selected
-  //       const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
-        
-  //       if (hasQueueSelected) {
-  //         // Show confirmation modal and push state back
-  //         setShowBackConfirmModal(true);
-  //         window.history.pushState({ step: currentStep }, '', window.location.pathname);
-  //       } else {
-  //         // Allow natural navigation
-  //         navigate(-1);
-  //       }
-  //     }
-  //   };
-    
-  //   // Add event listener
-  //   window.addEventListener('popstate', handlePopState);
-
-  //   // Cleanup
-  //   return () => {
-  //     window.removeEventListener('popstate', handlePopState);
-  //   };
-  // }, [currentStep, navigate]);
-
-  // // Push new state when step changes (but not when going back)
-  // useEffect(() => {
-  //   if (currentStep > 1 && !isInternalNavigation.current) {
-  //     window.history.pushState({ step: currentStep }, '', window.location.pathname);
-  //   }
-  //   isInternalNavigation.current = false;
-  // }, [currentStep]);
-
   const validateStep1 = () => {
     if (!selectedQueue) {
       setErrors({ step1: "Please select a queue type" });
@@ -691,7 +643,7 @@ export default function Request() {
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div
-        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col p-5"
+        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col xl:p-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -1357,7 +1309,7 @@ export default function Request() {
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-[#1A73E8] text-white hover:bg-[#1456AE] cursor-pointer transition-colors"
+                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer transition-colors"
             }`}
           >
             {currentStep === 4 ? "Confirm" : "Continue"}

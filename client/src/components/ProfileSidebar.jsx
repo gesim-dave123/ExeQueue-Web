@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ArrowLeftCircle, RefreshCw, Monitor } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider"; // ✅ Added for role-based logic
+import { useIsSystemOpen } from "../context/ModalCheckerProvider";
 
 export default function ProfileSidebar() {
   const [activeItem, setActiveItem] = useState("");
@@ -10,6 +11,7 @@ export default function ProfileSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth(); // ✅ Get logged-in user data
+  const [isSystemSOpen, setIsSystemSOpen] = useIsSystemOpen();
 
   // ✅ Determine user role (PERSONNEL or WORKING_SCHOLAR)
   const userRole = user?.role?.toUpperCase() || "";
@@ -60,6 +62,7 @@ export default function ProfileSidebar() {
   }, [location.pathname]);
 
   const handleBack = () => {
+    setIsSystemSOpen(false); 
     const from = location.state?.from || "/staff/dashboard";
     const fromKey = location.state?.fromKey || "dashboard";
     navigate(from, { state: { activeKey: fromKey } });
