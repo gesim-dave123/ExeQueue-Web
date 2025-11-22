@@ -4,7 +4,7 @@ import { Globe } from "lucide-react";
 
 export default function Contact() {
   return (
-    <footer className="bg-[#10458B] mt-20 text-white py-8 rounded-4xl w-full">
+    <footer className="bg-[#10458B] mt-20 text-white py-8 pr-10 rounded-4xl w-full">
       <div className="max-w-8xl mx-auto flex flex-col lg:flex-row justify-between items-start gap-10   lg:gap-40">
         {/* Left Section */}
         <div className="ml-10 pr-20 sm:pr-0 md:mx-10 lg:mx-20 flex flex-col max-w-md w-full top-1/2 transform -translate-y-[15%] ">

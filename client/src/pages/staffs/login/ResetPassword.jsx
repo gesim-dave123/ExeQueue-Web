@@ -7,6 +7,8 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isNPasswordFocused, setIsNPasswordFocused] = useState(false);
+  const [isCPasswordFocused, setIsCPasswordFocused] = useState(false);
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -115,6 +117,8 @@ export default function ResetPassword() {
                 name="newPassword"
                 value={formData.newPassword}
                 onChange={handleChange}
+                onFocus={() => setIsNPasswordFocused(true)}
+                onBlur={() => setIsNPasswordFocused(false)}
                 placeholder=" "
                 className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
                   focus:outline-none transition-all
@@ -146,10 +150,13 @@ export default function ResetPassword() {
               >
                 New Password
               </label>
-              {formData.newPassword && (
+              {isNPasswordFocused && (
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowPassword(!showPassword);
+                    }}
                   className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -165,6 +172,8 @@ export default function ResetPassword() {
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                onFocus={() => setIsCPasswordFocused(true)}
+                onBlur={() => setIsCPasswordFocused(false)}
                 placeholder=" "
                 className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
                   focus:outline-none transition-all
@@ -196,10 +205,13 @@ export default function ResetPassword() {
               >
                 Confirm New Password
               </label>
-              {formData.confirmPassword && (
+              {isCPasswordFocused && (
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowConfirmPassword(!showConfirmPassword);
+                    }}
                   className={`absolute right-4 top-6.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
                 >
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}

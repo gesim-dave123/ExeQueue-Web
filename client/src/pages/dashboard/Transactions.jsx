@@ -639,7 +639,7 @@ export default function Transactions() {
   return (
     <div className="bg-transparent min-h-screen flex flex-col">
       <div className="flex flex-col bg-transparent w-full xl:justify-between pr-3 sm:px-3 lg:pr-7 md:pl-15 xl:px-9 xl:pr-7">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center pt-15 lg:pt-11 xl:pt-14 justify-between  lg:pr-9 gap-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center pt-15 lg:pt-11 xl:pt-13 justify-between  lg:pr-9 gap-4">
           <div>
             <h1 className="text-3xl sm:text-3xl font-semibold text-left text-[#202124]">
               Transactions

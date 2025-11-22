@@ -375,7 +375,7 @@ useEffect(() => {
       >
         {/* Scrollable Content Area */}
         <div 
-          className={`flex-1 flex flex-col ${isHeightSmall ? 'overflow-y-auto' : 'overflow-visible'}`}
+          className={` flex flex-col h-full ${isHeightSmall ? 'overflow-y-auto flex-1' : 'overflow-visible flex-0'}`}
           style={{
             maxHeight: isHeightSmall ? 'calc(100vh - 120px)' : 'none',
           }}
@@ -436,12 +436,7 @@ useEffect(() => {
                       onClick={() => {
                         setIsSidebarOpen(true);
                         setIsQueueOpen(!isQueueOpen); 
-                        //  if (isMobileView) { // example: 768px breakpoint for mobile
-                        //     setIsLoggedIn(false);
-                        //   } else {
-                            setIsSystemSOpen(false);
-                          // }
-
+                        setIsSystemSOpen(false);
                         setActiveItem("queue");
                       }}
                       className={`w-full flex items-center pr-2 justify-between cursor-pointer py-2.5 rounded-lg transition-colors duration-300
@@ -500,6 +495,8 @@ useEffect(() => {
                                 to={sub.link}
                                 onClick={() => {setSubItem(sub.key);
                                   setIsSystemSOpen(false);
+
+                                  if (isMobileView) setIsMobileOpen(false);
                                 }}
                                 className={`block w-[80%] text-left py-2 text-sm rounded-md transition ${
                                   subItem === sub.key
@@ -523,12 +520,7 @@ useEffect(() => {
                     key={item.key}
                     to={item.link}
                     onClick={() => {handleItemClick(item.key);
-                          // if (isMobileView) { 
-                          //   setIsLoggedIn(true);
-                          // } else {
                             setIsSystemSOpen(false);
-                          // }
-
                     }}
                     className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
                     ${
@@ -563,7 +555,7 @@ useEffect(() => {
 
         {!isMobileView && !isSidebarOpen && (
           <div
-            className={`flex-1 w-full cursor-pointer 
+            className={`flex-1 w-full cursor-pointer h-full
               ${isHeightSmall ? "hidden" : "flex"} `}
             onClick={() =>{ setIsSidebarOpen(true); 
 
@@ -578,12 +570,6 @@ useEffect(() => {
           data-profile-button
             onClick={() => {
         handleItemClick("profile"); 
-        //  if (!isMobileView) { 
-        //       setIsLoggedIn(!isLoggedIn);
-        //      } else {   
-        //       setIsLoggedIn(true);  
-        //   }     // your existing action
-           // toggle login
       }}
             className={`flex items-center justify-start pl-2 gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
               isOpen ? "py-1.5" : "ml-3 mr-3 py-2.5"
