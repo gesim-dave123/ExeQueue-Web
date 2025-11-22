@@ -12,6 +12,7 @@ import {
   manualWindowRelease,
   releaseServiceWindow,
   softDeleteWorkingScholar,
+  updateAdminProfile,
   updateWindowHeartbeat,
   updateWorkingScholar,
 } from "../controllers/staff.controller.js";
@@ -111,6 +112,13 @@ router.put(
   authenticateToken,
   authorizeRoles(Role.PERSONNEL),
   manualWindowRelease
+);
+
+router.put(
+  "/personnel/profile-setting",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL),
+  updateAdminProfile
 );
 
 export default router;

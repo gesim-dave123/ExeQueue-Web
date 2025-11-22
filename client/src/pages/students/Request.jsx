@@ -1,8 +1,7 @@
-import { motion } from 'framer-motion';
-import { ArrowLeft, X } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { motion } from "framer-motion";
+import { ArrowLeft, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 // import { getCourseData } from "../../api/course.js";
 // import { getRequestType } from "../../api/request.js";
@@ -15,7 +14,7 @@ import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
 import { showToast } from "../../components/toast/ShowToast";
 
 export default function Request() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -179,17 +178,17 @@ export default function Request() {
       icon: "fa-solid fa-right-left",
     },
   ];
-  const [yearSearchTerm, setYearSearchTerm] = useState('');
+  const [yearSearchTerm, setYearSearchTerm] = useState("");
   const [isYearOpen, setIsYearOpen] = useState(false);
   const yearDropdownRef = useRef(null);
   const yearOptions = [
-    '1st Year',
-    '2nd Year',
-    '3rd Year',
-    '4th Year',
-    '5th Year',
-    '6th Year',
-    'Irregular',
+    "1st Year",
+    "2nd Year",
+    "3rd Year",
+    "4th Year",
+    "5th Year",
+    "6th Year",
+    "Irregular",
   ];
   // useEffect(() => {
   //   const fetchCourseData = async () => {
@@ -320,8 +319,7 @@ const handleBrowserBackCancel = () => {
 
   const validateStep2 = () => {
     const newErrors = {};
-    if (!formData.lastName.trim()) 
-      newErrors.lastName = 'Last name is required';
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
     if (!formData.firstName.trim())
       newErrors.firstName = "First name is required";
     if (!formData.studentId.trim()) {
@@ -329,7 +327,7 @@ const handleBrowserBackCancel = () => {
     } else if (!/^\d{8}$/.test(formData.studentId)) {
       newErrors.studentId = "Student ID must be exactly 8 digits";
     }
-    if (!formData.courseId) newErrors.course = 'Course is required';
+    if (!formData.courseId) newErrors.course = "Course is required";
     if (!formData.yearLevel.trim())
       newErrors.yearLevel = "Year level is required";
 
@@ -407,35 +405,39 @@ const handleBrowserBackCancel = () => {
   const handleBackCancel = () => {
     setShowBackConfirmModal(false);
   };
-    // Filter courses based on search
-  const filteredCourses = courseData.filter(course =>
-    course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.courseCode.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter courses based on search
+  const filteredCourses = courseData.filter(
+    (course) =>
+      course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.courseCode.toLowerCase().includes(searchTerm.toLowerCase())
   );
-// Close dropdown when clicking outside
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-          setIsOpen(false);
-        }
-        if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
-          setIsYearOpen(false);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+      if (
+        yearDropdownRef.current &&
+        !yearDropdownRef.current.contains(event.target)
+      ) {
+        setIsYearOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const handleSelect = (courseId, courseName, courseCode) => {
-    setFormData(prev => ({ ...prev, courseId }));
+    setFormData((prev) => ({ ...prev, courseId }));
     setSearchTerm(`${courseName} - ${courseCode}`);
     setIsOpen(false);
   };
@@ -444,7 +446,7 @@ const handleBrowserBackCancel = () => {
     setSearchTerm(e.target.value);
     setIsOpen(true);
     if (!e.target.value) {
-      setFormData(prev => ({ ...prev, courseId: '' }));
+      setFormData((prev) => ({ ...prev, courseId: "" }));
     }
   };
 
@@ -510,6 +512,32 @@ const handleBrowserBackCancel = () => {
     }
   };
 
+  const formatNamePart = (name) => {
+    if (!name || typeof name !== "string") return "";
+
+    return name
+      .trim()
+      .split(/\s+/)
+      .map((word) => {
+        if (word.length === 0) return "";
+        if (word.length === 1) return word.toUpperCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  };
+
+  const handleNameBlur = (e) => {
+    const { name, value } = e.target;
+
+    if (value.trim()) {
+      const formattedValue = formatNamePart(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formattedValue,
+      }));
+    }
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setProgress(0);
@@ -522,11 +550,20 @@ const handleBrowserBackCancel = () => {
       if (!selectedCourse) {
         throw new Error("Course not found in staticCourseData");
       }
-
+      const studentName = [
+        formData.firstName,
+        formData.middleName,
+        formData.lastName,
+      ];
+      const formattedNames = studentName.map(
+        (n) => n.slice(0).toUpperCase() + n.slice(1, n.length - 1).toLowerCase()
+      );
+      console.log("Student Name: ", formattedNames);
+      const fullName = formData.middleName
+        ? `${formData.lastName}, ${formData.firstName} ${formData.middleName}`
+        : `${formData.lastName}, ${formData.firstName}`;
       const formattedFormData = {
-        fullName: `${formData.firstName} ${formData.middleName || ""} ${
-          formData.lastName
-        }`.trim(),
+        fullName: fullName.trim(),
         studentId: formData.studentId,
         courseId: formData.courseId,
         courseCode: selectedCourse.courseCode,
@@ -820,14 +857,13 @@ const handleBrowserBackCancel = () => {
             {/* Standard Queue */}
             <motion.div
               className={`border rounded-xl p-4 md:p-5  cursor-pointer transition-all duration-200 ${
-                selectedQueue === 'Standard'
-                  ? 'border-blue-500 bg-blue-50 shadow-sm'
-                  : selectedQueue === 'Priority'
-                  ? 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50' 
-                  : 'border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50'
-
-              } ${errors.step1 ? 'border-red-300' : ''}`}
-              onClick={() => handleQueueSelect('Regular')}
+                selectedQueue === "Standard"
+                  ? "border-blue-500 bg-blue-50 shadow-sm"
+                  : selectedQueue === "Priority"
+                  ? "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+                  : "border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50"
+              } ${errors.step1 ? "border-red-300" : ""}`}
+              onClick={() => handleQueueSelect("Regular")}
               variants={itemVariants}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
@@ -861,7 +897,8 @@ const handleBrowserBackCancel = () => {
                     Regular Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For general inquiries and regular services. Most visitors should select this option
+                    For general inquiries and regular services. Most visitors
+                    should select this option
                   </p>
                 </div>
               </div>
@@ -908,7 +945,8 @@ const handleBrowserBackCancel = () => {
                     Priority Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For seniors, pregnant individuals, people with disabilities, or those with urgent needs.
+                    For seniors, pregnant individuals, people with disabilities,
+                    or those with urgent needs.
                   </p>
                 </div>
               </div>
@@ -944,9 +982,10 @@ const handleBrowserBackCancel = () => {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
+                  onBlur={handleNameBlur}
                   placeholder="Last name"
                   className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                    errors.lastName ? 'border-red-500' : 'border-[#DDEAFC]'
+                    errors.lastName ? "border-red-500" : "border-[#DDEAFC]"
                   }`}
                 />
                 {errors.lastName && (
@@ -965,6 +1004,7 @@ const handleBrowserBackCancel = () => {
                   type="text"
                   name="middleName"
                   value={formData.middleName}
+                  onBlur={handleNameBlur}
                   onChange={handleChange}
                   placeholder="Middle name"
                   className="mt-1 w-full border border-[#DDEAFC] rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -984,10 +1024,11 @@ const handleBrowserBackCancel = () => {
                 type="text"
                 name="firstName"
                 value={formData.firstName}
+                onBlur={handleNameBlur}
                 onChange={handleChange}
                 placeholder="First name"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.firstName ? 'border-red-500' : 'border-[#DDEAFC]'
+                  errors.firstName ? "border-red-500" : "border-[#DDEAFC]"
                 }`}
               />
               {errors.firstName && (
@@ -1026,7 +1067,7 @@ const handleBrowserBackCancel = () => {
                 inputMode="numeric"
                 maxLength="8"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.studentId ? 'border-red-500' : 'border-[#DDEAFC]'
+                  errors.studentId ? "border-red-500" : "border-[#DDEAFC]"
                 }`}
               />
             </motion.div>
@@ -1039,7 +1080,7 @@ const handleBrowserBackCancel = () => {
               <label className="block text-sm font-semibold text-[#202124] mb-2">
                 Course<span className="">*</span>
               </label>
-              
+
               <div className="relative" ref={dropdownRef}>
                 <div className="relative">
                   <input
@@ -1049,7 +1090,11 @@ const handleBrowserBackCancel = () => {
                     onFocus={() => setIsOpen(true)}
                     placeholder="Select your course"
                     className={`w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
-                      isOpen ? 'border-blue-500' : errors.course ? 'border-red-500' : 'border-[#DDEAFC]'
+                      isOpen
+                        ? "border-blue-500"
+                        : errors.course
+                        ? "border-red-500"
+                        : "border-[#DDEAFC]"
                     }`}
                   />
                   <button
@@ -1057,24 +1102,36 @@ const handleBrowserBackCancel = () => {
                     onClick={toggleDropdown}
                     className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
                   >
-                    <ChevronDown 
-                      size={20} 
-                      className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
                     />
                   </button>
                 </div>
-                
+
                 {isOpen && (
                   <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-64 overflow-y-auto custom-scrollbar">
                     {filteredCourses.length > 0 ? (
                       filteredCourses.map((course, index) => (
                         <div
                           key={course.courseId}
-                          onClick={() => handleSelect(course.courseId, course.courseName, course.courseCode)}
+                          onClick={() =>
+                            handleSelect(
+                              course.courseId,
+                              course.courseName,
+                              course.courseCode
+                            )
+                          }
                           className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
-                            formData.courseId === course.courseId ? 'bg-blue-50' : ''
-                          } ${index === 0 ? 'rounded-t-2xl' : ''} ${
-                            index === filteredCourses.length - 1 ? 'rounded-b-2xl' : ''
+                            formData.courseId === course.courseId
+                              ? "bg-blue-50"
+                              : ""
+                          } ${index === 0 ? "rounded-t-2xl" : ""} ${
+                            index === filteredCourses.length - 1
+                              ? "rounded-b-2xl"
+                              : ""
                           }`}
                         >
                           <div className="text-sm text-gray-900">
@@ -1083,25 +1140,23 @@ const handleBrowserBackCancel = () => {
                         </div>
                       ))
                     ) : (
-                      <div className="px-5 py-3 text-gray-500 text-sm">No courses found</div>
+                      <div className="px-5 py-3 text-gray-500 text-sm">
+                        No courses found
+                      </div>
                     )}
                   </div>
                 )}
               </div>
 
-                {/* Hidden input to store the actual courseId value */}
-                <input
-                  type="hidden"
-                  name="courseId"
-                  value={formData.courseId}
-                />
+              {/* Hidden input to store the actual courseId value */}
+              <input type="hidden" name="courseId" value={formData.courseId} />
 
               {errors.course && (
                 <p className="mt-1 text-sm text-red-600">{errors.course}</p>
               )}
             </motion.div>
 
-              <motion.div
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
@@ -1115,11 +1170,15 @@ const handleBrowserBackCancel = () => {
                   <input
                     type="text"
                     readOnly
-                    value={formData.yearLevel || ''}
+                    value={formData.yearLevel || ""}
                     onFocus={() => setIsYearOpen(true)}
                     placeholder="Select your year level"
                     className={`mt-1 w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
-                      isYearOpen ? 'border-blue-500' : errors.yearLevel ? 'border-red-500' : 'border-[#DDEAFC]'
+                      isYearOpen
+                        ? "border-blue-500"
+                        : errors.yearLevel
+                        ? "border-red-500"
+                        : "border-[#DDEAFC]"
                     }`}
                   />
                   <button
@@ -1129,7 +1188,9 @@ const handleBrowserBackCancel = () => {
                   >
                     <ChevronDown
                       size={20}
-                      className={`transition-transform ${isYearOpen ? 'rotate-180' : ''}`}
+                      className={`transition-transform ${
+                        isYearOpen ? "rotate-180" : ""
+                      }`}
                     />
                   </button>
                 </div>
@@ -1143,13 +1204,13 @@ const handleBrowserBackCancel = () => {
                           setFormData((prev) => ({ ...prev, yearLevel: y }));
                           setIsYearOpen(false);
                           if (errors.yearLevel) {
-                            setErrors((prev) => ({ ...prev, yearLevel: '' }));
+                            setErrors((prev) => ({ ...prev, yearLevel: "" }));
                           }
                         }}
                         className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
-                          formData.yearLevel === y ? 'bg-blue-50' : ''
-                        } ${idx === 0 ? 'rounded-t-2xl' : ''} ${
-                          idx === arr.length - 1 ? 'rounded-b-2xl' : ''
+                          formData.yearLevel === y ? "bg-blue-50" : ""
+                        } ${idx === 0 ? "rounded-t-2xl" : ""} ${
+                          idx === arr.length - 1 ? "rounded-b-2xl" : ""
                         }`}
                       >
                         <div className="text-sm text-gray-900">{y}</div>
@@ -1160,7 +1221,11 @@ const handleBrowserBackCancel = () => {
               </div>
 
               {/* keep hidden input for form semantics */}
-              <input type="hidden" name="yearLevel" value={formData.yearLevel} />
+              <input
+                type="hidden"
+                name="yearLevel"
+                value={formData.yearLevel}
+              />
 
               {errors.yearLevel && (
                 <p className="mt-1 text-sm text-red-600">{errors.yearLevel}</p>

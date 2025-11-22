@@ -17,19 +17,18 @@ function safeSchedule(label, fn) {
   }
 }
 
-export const START_SCHEDULERS = async () => {
+export const START_SCHEDULERS = async (io) => {
   // safeSchedule("Waiting Queues Cleanup", startWaitingQueueCleanUp);
   // safeSchedule("Deferred Queues Cleanup", startDeferredQueueCleanUp);
   safeSchedule("End-of-Day Queue Cleanup", startEndOfDayQueueCleanup);
   safeSchedule("Stalled Requests Finalizer", startStalledRequestFinalizer);
-  safeSchedule("Skipped Request Monitor", startSkippedRequestMonitor);
+  safeSchedule("Skipped Request Monitor", () => startSkippedRequestMonitor(io));
   // safeSchedule("Skipped→Cancelled Request", scheduleSkippedToCancelledRequest);
   safeSchedule("Session Close", scheduleSessionClose);
   safeSchedule("Session Create", scheduleSessionCreate);
   // safeSchedule("Inactive Window Heartbeat Monitor", scheduleInactiveWindow);
-  safeSchedule(
-    "Inactive Window Heartbeat Monitor (Fall back)",
-    scheduleInactiveWindowFailsafe
+  safeSchedule("Inactive Window Heartbeat Monitor (Fall back)", () =>
+    scheduleInactiveWindowFailsafe(io)
   );
-  await restoreTimersOnStartup();
+  await restoreTimersOnStartup(io);
 };

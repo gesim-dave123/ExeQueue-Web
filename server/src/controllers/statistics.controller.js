@@ -22,20 +22,20 @@ export const getDashboardStatistics = async (req, res) => {
     //   },
     // });
 
-    // ✅ Get current date in Asia/Manila timezone
+    // Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
       'Asia/Manila'
     );
 
-    // ✅ 1) Find the active session (for dashboard view)
+    // 1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true, sessionNumber: true },
       orderBy: { sessionNumber: 'asc' },
     });
 
-    // ✅ 2) Get ALL today's sessions (for totals)
+    // 2) Get ALL today's sessions (for totals)
     const allSessionsToday = await prisma.queueSession.findMany({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true },
@@ -258,14 +258,14 @@ export const getLiveDisplayData = async (req, res) => {
       'Asia/Manila'
     );
 
-    // ✅ 1) Find the active session (for dashboard view)
+    //  1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true, sessionNumber: true },
       orderBy: { sessionNumber: 'asc' },
     });
 
-    // ✅ 2) Get ALL today's sessions (for totals)
+    //  2) Get ALL today's sessions (for totals)
     const allSessionsToday = await prisma.queueSession.findMany({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true },

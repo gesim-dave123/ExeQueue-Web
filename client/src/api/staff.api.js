@@ -229,3 +229,5 @@ export const updateHeartbeatInterval = async (windowId) => {
     return null;
   }
 };
+
+// export const updateAdminProfile = async ()

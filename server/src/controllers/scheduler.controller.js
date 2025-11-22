@@ -2,6 +2,11 @@ import { Status } from "@prisma/client";
 import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { QueueActions } from "../services/enums/SocketEvents.js";
+import {
+  sendDashboardUpdate,
+  sendLiveDisplayUpdate,
+} from "./statistics.controller.js";
 
 const TEN_PM = "0 0 22 * * *";
 const ONE_AM = "0 0 1 * * *";
@@ -44,9 +49,15 @@ export function startStalledRequestFinalizer() {
               lte: todayEnd,
             },
             isActive: true,
+            queue: {
+              queueStatus: Status.DEFERRED,
+            },
           },
-          include: {
-            queue: true,
+          select: {
+            queueId: true,
+            requestId: true,
+            performedById: true,
+            processedBy: true,
           },
         });
 
@@ -99,7 +110,7 @@ export function startStalledRequestFinalizer() {
     }
   );
 }
-export function startSkippedRequestMonitor() {
+export function startSkippedRequestMonitor(io) {
   cron.schedule(
     FIVEMIN,
     async () => {
@@ -115,9 +126,13 @@ export function startSkippedRequestMonitor() {
               lte: oneHourAgo,
             },
             isActive: true,
+            queue: {
+              queueStatus: Status.DEFERRED,
+            },
           },
-          include: {
-            queue: true,
+          select: {
+            queueId: true,
+            requestId: true,
           },
         });
 
@@ -125,19 +140,27 @@ export function startSkippedRequestMonitor() {
           ` Found ${skippedRequests.length} SKIPPED requests to cancel`
         );
 
+        // Group requests by queueId to update queue status efficiently
+        const queueIdsToUpdate = new Set();
+        const updatedRequests = []; // Store updated requests for socket emission
+
         for (const request of skippedRequests) {
           await prisma.$transaction(async (tx) => {
             // Update request to CANCELLED
-            await tx.request.update({
+            const updatedRequest = await tx.request.update({
               where: { requestId: request.requestId },
               data: {
                 requestStatus: Status.CANCELLED,
                 processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
                 updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
               },
+              select: {
+                requestId: true,
+                requestStatus: true,
+              },
             });
 
-            //Update transaction history to CANCELLED (finalizes it)
+            // Update transaction history to CANCELLED (finalizes it)
             await tx.transactionHistory.updateMany({
               where: {
                 queueId: request.queueId,
@@ -150,9 +173,35 @@ export function startSkippedRequestMonitor() {
               },
             });
 
-            // console.log(`Auto-cancelled SKIPPED request ${request.requestId} (> 1 hour)`);
+            // Mark this queue for status update
+            queueIdsToUpdate.add(request.queueId);
+
+            // Store for socket emission
+            updatedRequests.push({
+              queueId: request.queueId,
+              requestId: updatedRequest.requestId,
+              requestStatus: updatedRequest.requestStatus,
+              updatedRequest: updatedRequest,
+            });
           });
         }
+
+        // Update queue statuses based on new request statuses
+        for (const queueId of queueIdsToUpdate) {
+          await updateQueueStatus(queueId, io);
+        }
+
+        // Emit socket events for each updated request
+        updatedRequests.forEach((update) => {
+          io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+            queueId: update.queueId,
+            requestId: update.requestId,
+            requestStatus: update.requestStatus,
+            updatedRequest: update.updatedRequest,
+          });
+        });
+
+        console.log(`Updated ${queueIdsToUpdate.size} queue statuses`);
       } catch (error) {
         console.error("Error in SKIPPED request monitor:", error);
       }
@@ -161,8 +210,101 @@ export function startSkippedRequestMonitor() {
       timezone: TIMEZONE,
     }
   );
+}
 
-  // console.log('SKIPPED request monitor started (runs every 15 minutes)');
+async function updateQueueStatus(queueId, io) {
+  try {
+    // Get all requests for this queue
+    const requests = await prisma.request.findMany({
+      where: {
+        queueId: queueId,
+        isActive: true,
+      },
+      select: {
+        requestStatus: true,
+      },
+    });
+
+    if (requests.length === 0) return;
+
+    const allCompleted = requests.every(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const allCancelled = requests.every(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
+    const hasStalled = requests.some((r) => r.requestStatus === Status.STALLED);
+    const hasSkipped = requests.some((r) => r.requestStatus === Status.SKIPPED);
+    const hasCompleted = requests.some(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const hasCancelled = requests.some(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
+
+    let finalStatus = Status.DEFERRED;
+
+    if (allCompleted) {
+      finalStatus = Status.COMPLETED;
+    } else if (allCancelled) {
+      finalStatus = Status.CANCELLED;
+    } else if (hasStalled || hasSkipped) {
+      finalStatus = Status.DEFERRED;
+    } else if (hasCompleted && hasCancelled) {
+      finalStatus = Status.PARTIALLY_COMPLETE;
+    }
+
+    // Update queue
+    const updatedQueue = await prisma.queue.update({
+      where: { queueId },
+      data: {
+        queueStatus: finalStatus,
+        completedAt:
+          finalStatus === Status.COMPLETED ||
+          finalStatus === Status.CANCELLED ||
+          finalStatus === Status.PARTIALLY_COMPLETE
+            ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+            : null,
+        updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      },
+    });
+
+    console.log(`Updated queue ${queueId} status to ${finalStatus}`);
+
+    // Socket emission logic
+    const actionMap = {
+      [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
+      [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
+      [Status.CANCELLED]: QueueActions.QUEUE_CANCELLED,
+      [Status.PARTIALLY_COMPLETE]: QueueActions.QUEUE_PARTIALLY_COMPLETE,
+    };
+    const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
+
+    console.log("Updated Queue in updateQueueStatus func", updatedQueue);
+    io.emit(event, updatedQueue);
+
+    console.log(
+      `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber}`
+    );
+
+    // Dashboard and live display updates
+    sendDashboardUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
+
+    sendLiveDisplayUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
+
+    return updatedQueue;
+  } catch (error) {
+    console.error(`Error updating queue status for queue ${queueId}:`, error);
+    throw error;
+  }
 }
 
 // Transaction History Schedulers
@@ -379,7 +521,7 @@ export function scheduleInactiveWindow() {
     }
   );
 }
-export function scheduleInactiveWindowFailsafe() {
+export function scheduleInactiveWindowFailsafe(io) {
   cron.schedule(
     FIFTEENMIN, // every 15 mins
     async () => {
@@ -393,6 +535,7 @@ export function scheduleInactiveWindowFailsafe() {
           },
           select: {
             assignmentId: true,
+            windowId: true,
             serviceWindow: { select: { windowName: true } },
             staff: { select: { firstName: true, lastName: true } },
           },
@@ -406,6 +549,35 @@ export function scheduleInactiveWindowFailsafe() {
           where: { assignmentId: { in: releasedIds } },
           data: { releasedAt: new Date() },
         });
+
+        // Find and reassign queues from released windows
+        const affectedWindowIds = staleAssignments.map((a) => a.windowId);
+        const queuesToReassign = await prisma.queue.findMany({
+          where: {
+            windowId: { in: affectedWindowIds },
+            status: { in: ["SERVING", "CALLED"] },
+          },
+        });
+
+        // Reassign each queue and emit socket event
+        for (const queue of queuesToReassign) {
+          const previousWindowId = queue.windowId;
+
+          const updatedQueue = await prisma.queue.update({
+            where: { queueId: queue.queueId },
+            data: {
+              windowId: null,
+              status: "WAITING",
+            },
+          });
+
+          io.emit(QueueActions.QUEUE_RESET, {
+            queueId: updatedQueue.queueId,
+            windowId: updatedQueue.windowId,
+            referenceNumber: updatedQueue.referenceNumber,
+            previousWindowId: previousWindowId,
+          });
+        }
 
         staleAssignments.forEach((a) =>
           console.log(

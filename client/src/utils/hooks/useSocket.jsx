@@ -6,7 +6,7 @@ import { showToast } from "../../components/toast/ShowToast";
 
 export const useSocket = (onDisconnectOrCleanup) => {
   const socketRef = useRef(null);
-  const [socket, setSocket] = useState(null); // ✅ Add this
+  const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
@@ -22,21 +22,22 @@ export const useSocket = (onDisconnectOrCleanup) => {
       setSocket(socketRef.current); // ✅ Set socket in state
 
       socketRef.current.on("connect", () => {
-        console.log("🟢 Socket connected:", socketRef.current.id);
+        console.log("Connected:", socketRef.current.id);
+        showToast("Connected", "success");
         setIsConnected(true);
       });
 
       socketRef.current.on("disconnect", (reason) => {
-        console.log("🔴 Socket disconnected:", reason);
+        console.log("Disconnected:", reason);
         onDisconnectOrCleanup?.();
-        showToast("Socket disconnected", "error");
+        showToast("Disconnected", "error");
         setIsConnected(false);
       });
 
       socketRef.current.on("connect_error", (error) => {
-        console.error("❌ Socket connection error:", error);
+        console.error("Cconnection error:", error);
         onDisconnectOrCleanup?.();
-        showToast("Socket connection error", "error");
+        showToast("Connection error", "error");
         setIsConnected(false);
       });
     }
