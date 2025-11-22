@@ -214,13 +214,100 @@ export default function Request() {
   //     fetchCourseData();
   //   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
     if (selectedQueue) {
       sessionStorage.setItem("hasRequestInProgress", "true");
     } else {
       sessionStorage.removeItem("hasRequestInProgress");
     }
   }, [selectedQueue]);
+
+  // Add these states
+const [showBrowserBackModal, setShowBrowserBackModal] = useState(false);
+const [isFormDirty, setIsFormDirty] = useState(false);
+
+// Check if form has data
+useEffect(() => {
+  const hasData = 
+    selectedQueue || 
+    formData.lastName || 
+    formData.firstName || 
+    formData.studentId || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasData);
+}, [selectedQueue, formData, selectedServices]);
+
+// Handle browser back button
+// Track if user has started filling the form
+const [hasUserInteracted, setHasUserInteracted] = useState(false);
+
+// Check if form has substantial data (not just started typing)
+useEffect(() => {
+  const hasSubstantialData = 
+    selectedQueue || 
+    (formData.lastName && formData.lastName.length > 1) || 
+    (formData.firstName && formData.firstName.length > 1) || 
+    (formData.studentId && formData.studentId.length >= 4) || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasSubstantialData);
+}, [selectedQueue, formData, selectedServices]);
+
+// Improved browser back button handler
+useEffect(() => {
+  const handlePopState = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      setShowBrowserBackModal(true);
+      // Use replaceState to avoid adding to history stack
+      window.history.replaceState(null, '', window.location.href);
+    }
+  };
+
+  // Only push state if form is dirty
+  if (isFormDirty) {
+    window.history.pushState(null, '', window.location.href);
+  }
+
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+  };
+}, [isFormDirty]);
+
+// Improved page refresh/close handler
+useEffect(() => {
+  const handleBeforeUnload = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [isFormDirty]);
+
+// Handle browser back confirmation
+const handleBrowserBackConfirm = () => {
+  sessionStorage.removeItem("hasRequestInProgress");
+  setShowBackConfirmModal(false);
+  setIsFormDirty(false);
+  setShowBrowserBackModal(false);
+  navigate('/');
+};
+
+const handleBrowserBackCancel = () => {
+  setShowBrowserBackModal(false);
+};
+
 
   const validateStep1 = () => {
     if (!selectedQueue) {
@@ -305,7 +392,7 @@ export default function Request() {
         setShowBackConfirmModal(true);
       } else {
         // Navigate back immediately if no queue selected
-        navigate(-1);
+        navigate("/");
       }
     }
   };
@@ -643,7 +730,7 @@ export default function Request() {
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div
-        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col p-5"
+        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col xl:p-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -849,8 +936,8 @@ export default function Request() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.1 }}
               >
-                <label className="block text-sm font-medium text-gray-700">
-                  Last name <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-[#202124]">
+                  Last name<span className="">*</span>
                 </label>
                 <input
                   type="text"
@@ -871,8 +958,8 @@ export default function Request() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
-                <label className="block text-sm font-medium text-gray-700">
-                  Middle name <span className="text-gray-400">(optional)</span>
+                <label className="block text-sm font-semibold text-[#202124]">
+                  Middle name <span className="text-gray-400 text-xs ">(optional)</span>
                 </label>
                 <input
                   type="text"
@@ -890,8 +977,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                First name <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                First name<span className="">*</span>
               </label>
               <input
                 type="text"
@@ -913,8 +1000,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.4 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Student ID No. <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                Student ID No.<span className="">*</span>
               </label>
               {/* <input
                 type="text"
@@ -949,8 +1036,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                Course<span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124] mb-2">
+                Course<span className="">*</span>
               </label>
               
               <div className="relative" ref={dropdownRef}>
@@ -1019,8 +1106,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Year Level <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                Year Level<span className="">*</span>
               </label>
 
               <div className="relative" ref={yearDropdownRef}>
@@ -1407,7 +1494,7 @@ export default function Request() {
         <ConfirmModal
           isOpen={showBackConfirmModal}
           onClose={() => setShowBackConfirmModal(false)}
-          onConfirm={handleBackConfirm}
+          onConfirm={handleBrowserBackConfirm}
           loading={loading}
           progress={progress}
           icon="/assets/Caution Icon.png"
@@ -1425,7 +1512,20 @@ export default function Request() {
             </>
           }
         />
-
+        {/* Browser Back Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showBrowserBackModal}
+        onClose={handleBrowserBackCancel}
+        onConfirm={handleBrowserBackConfirm}
+        showCloseButton={false}
+        icon="/assets/Caution Icon.png"
+        iconAlt="Warning"
+        iconSize="w-12 h-12"
+        title="Leave Request Page?"
+        description="You have unsaved changes. Are you sure you want to leave this page?"
+        confirmText="Confirm"
+        cancelText="Cancel"
+      />
         {/* {showBackConfirmModal && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">
