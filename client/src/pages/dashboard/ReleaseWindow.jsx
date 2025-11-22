@@ -37,7 +37,7 @@ export default function ReleaseWindow() {
   };
 
   return (
-    <div className="min-h-screen flex items-start xl:items-center py-19 xl:py-7 px-6 sm:px-10  xl:px-0 xl:pl-1 xl:pr-7">
+    <div className="min-h-screen flex items-start xl:items-center py-19 xl:py-7 px-3 sm:px-10  xl:px-0 xl:pl-1 xl:pr-7">
       <div className="h-full w-full p-5 sm:p-8 lg:p-8 xl:pt-9 xl:p-10 bg-white rounded-2xl sm:rounded-3xl shadow-xs  lg:pb-[39vh] xl:pb-[56vh]">
         {/* Title */}
         <h1 className="text-2xl sm:text-3xl xl:text-4xl font-semibold mb-8 sm:mb-12 lg:mt-1 xl:mt-0 text-left">

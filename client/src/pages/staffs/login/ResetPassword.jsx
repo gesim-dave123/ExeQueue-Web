@@ -7,6 +7,8 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isNPasswordFocused, setIsNPasswordFocused] = useState(false);
+  const [isCPasswordFocused, setIsCPasswordFocused] = useState(false);
   const [formData, setFormData] = useState({
     newPassword: '',
     confirmPassword: '',
@@ -22,61 +24,51 @@ export default function ResetPassword() {
   const email = location.state?.email;
   const resetToken = location.state?.resetToken;
 
-  // useEffect(() => {
-  //   inputRefs[0].current?.focus();
-  // }, [otp]);
-
-  // useEffect(() => {
-  //   if (email === undefined || resetToken === undefined) return;
-  //   if (!email || !resetToken) {
-  //     navigate("/staff/forgot-password", { replace: true });
-  //   }
-  // }, [email, resetToken, navigate]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     setFormData({
       ...formData,
       [name]: value,
-    });
-
-    // Clear the error for the field being edited
-    setErrors({
-      ...errors,
-      [name]: '',
-    });
+    };
+    
+    setFormData(updatedFormData);
+    
+    // Clear errors when user types
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: "",
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Clear previous errors
+    
+    // Reset errors
     setErrors({
-      newPassword: '',
-      confirmPassword: '',
+      newPassword: "",
+      confirmPassword: "",
     });
 
-    // Validate password length
+    // Validate on submit only
     if (formData.newPassword.length < 8) {
       setErrors({
-        newPassword: 'Your password must be at least 8 characters long.',
-        confirmPassword: '',
+        ...errors,
+        newPassword: "Password must be at least 8 characters",
       });
       return;
     }
 
-    // Validate passwords match
     if (formData.newPassword !== formData.confirmPassword) {
       setErrors({
-        newPassword: '',
-        confirmPassword: 'Passwords do not match',
+        ...errors,
+        confirmPassword: "Passwords do not match",
       });
       return;
     }
-
-    console.log('Reset Token:', resetToken);
-
+    // console.log("Reset Token:", resetToken);
     setLoading(true);
     const res = await resetPassword(resetToken, formData.newPassword);
 
@@ -114,143 +106,157 @@ export default function ResetPassword() {
         </p>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col text-left gap-5">
-          {/* New Password Input */}
-          <div className="relative">
-            <label
-              htmlFor="newPassword"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                focusedField === 'newPassword' || !formData.newPassword
-                  ? formData.newPassword
-                    ? '-top-2.5 text-xs bg-white px-1'
-                    : 'top-3 text-base text-gray-500'
-                  : 'opacity-0'
-              } ${
-                errors.newPassword
-                  ? 'text-red-500'
-                  : formData.newPassword
-                  ? 'text-blue-500'
-                  : 'text-gray-500'
-              }`}
-            >
-              New Password
-            </label>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              id="newPassword"
-              name="newPassword"
-              value={formData.newPassword}
-              onChange={handleChange}
-              onFocus={() => setFocusedField('newPassword')}
-              onBlur={() => {
-                setFocusedField(null);
-                setShowPassword(false);
-              }}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
-                errors.newPassword
-                  ? 'border-red-500 focus:ring-2 focus:ring-red-500'
-                  : 'border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-              } ${
-                focusedField === 'newPassword' ? 'text-black' : 'text-gray-400'
-              }`}
-            />
-            {formData.newPassword && focusedField === 'newPassword' && (
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-3.5 text-black hover:text-gray-700 focus:outline-none cursor-pointer"
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="flex flex-col gap-5">
+            {/* New Password Input */}
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="newPassword"
+                name="newPassword"
+                value={formData.newPassword}
+                onChange={handleChange}
+                onFocus={() => setIsNPasswordFocused(true)}
+                onBlur={() => setIsNPasswordFocused(false)}
+                placeholder=" "
+                className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
+                  focus:outline-none transition-all
+                  ${
+                    errors.newPassword
+                      ? "border-red-500 border-1 focus:ring-red-500"
+                      : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  }`}
+              />
+              <label
+                htmlFor="newPassword"
+                className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none 
+                  text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
+                  peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
+                  -top-2.5 text-xs 
+                  ${
+                    formData.newPassword ? "hidden peer-focus:flex" : ""
+                  }
+                  ${
+                    errors.newPassword
+                      ? "peer-focus:text-red-500 text-red-500"
+                      : "peer-focus:text-blue-500"
+                  }
+                  ${
+                    formData.newPassword && !errors.newPassword
+                      ? "text-blue-500"
+                      : ""
+                  }`}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            )}
-            {errors.newPassword && (
-              <p className="text-red-500 text-xs mt-1 ml-1">
-                {errors.newPassword}
-              </p>
-            )}
+                New Password
+              </label>
+              {isNPasswordFocused && (
+                <button
+                  type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowPassword(!showPassword);
+                    }}
+                  className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+            </div>
+
+            {/* Confirm Password Input */}
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                onFocus={() => setIsCPasswordFocused(true)}
+                onBlur={() => setIsCPasswordFocused(false)}
+                placeholder=" "
+                className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
+                  focus:outline-none transition-all
+                  ${
+                    errors.confirmPassword
+                      ? "border-red-500 border-1 focus:ring-red-500"
+                      : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  }`}
+              />
+              <label
+                htmlFor="confirmPassword"
+                className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none 
+                  text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
+                  peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs
+                  -top-2.5 text-xs 
+                  ${
+                    formData.confirmPassword ? "hidden peer-focus:flex" : ""
+                  }
+                  ${
+                    errors.confirmPassword
+                      ? "peer-focus:text-red-500 text-red-500"
+                      : "peer-focus:text-blue-500"
+                  }
+                  ${
+                    formData.confirmPassword && !errors.confirmPassword
+                      ? "text-blue-500"
+                      : ""
+                  }`}
+              >
+                Confirm New Password
+              </label>
+              {isCPasswordFocused && (
+                <button
+                  type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowConfirmPassword(!showConfirmPassword);
+                    }}
+                  className={`absolute right-4 top-6.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+              
+              {/* Error Message - moved inside the confirm password container */}
+              <div className="h-5 mt-0.5">
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-left text-xs">
+                    {errors.confirmPassword}
+                  </p>
+                )}
+
+                 {errors.newPassword && (
+                  <p className="text-red-500 text-left text-xs">
+                    {errors.newPassword}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Confirm Password Input */}
-          <div className="relative">
-            <label
-              htmlFor="confirmPassword"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                focusedField === 'confirmPassword' || !formData.confirmPassword
-                  ? formData.confirmPassword
-                    ? '-top-2.5 text-xs bg-white px-1'
-                    : 'top-3 text-base text-gray-500'
-                  : 'opacity-0'
-              } ${
-                errors.confirmPassword
-                  ? 'text-red-500'
-                  : formData.confirmPassword
-                  ? 'text-blue-500'
-                  : 'text-gray-500'
+          {/* Reset Button - now with consistent spacing */}
+          <div className="mt-6">
+            <button
+              type="submit"
+              disabled={loading || !formData.newPassword || !formData.confirmPassword}
+              className={`w-full font-semibold py-3 rounded-xl transition-all
+                ${
+                loading || !formData.newPassword || !formData.confirmPassword
+                  ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
+                  : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
               }`}
             >
-              Confirm New Password
-            </label>
-            <input
-              type={showConfirmPassword ? 'text' : 'password'}
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              onFocus={() => setFocusedField('confirmPassword')}
-              onBlur={() => {
-                setFocusedField(null);
-                setShowConfirmPassword(false);
-              }}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
-                errors.confirmPassword
-                  ? 'border-red-500 focus:ring-2 focus:ring-red-500'
-                  : 'border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-              } ${
-                focusedField === 'confirmPassword'
-                  ? 'text-black'
-                  : 'text-gray-400'
-              }`}
-            />
-            {formData.confirmPassword && focusedField === 'confirmPassword' && (
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-3.5 text-black hover:text-gray-700 focus:outline-none cursor-pointer"
-              >
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            )}
-            {errors.confirmPassword && (
-              <p className="text-red-500 text-xs mt-1 ml-1">
-                {errors.confirmPassword}
-              </p>
-            )}
+              {loading ? "Resetting..." : "Reset Password"}
+            </button>
           </div>
-
-          {/* Reset Button */}
-          <button
-            type="submit"
-            disabled={
-              loading || !formData.newPassword || !formData.confirmPassword
-            }
-            className={`w-full font-semibold py-3 rounded-xl transition-all  ${
-              loading || !formData.newPassword || !formData.confirmPassword
-                ? 'bg-[#1A73E8] cursor-not-allowed text-white'
-                : 'bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer'
-            }`}
-          >
-            {loading ? 'Resetting...' : 'Reset Password'}
-          </button>
         </form>
 
         {/* Back to Login */}
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
-            onClick={() => navigate('/staff/login')}
-            className="text-sm text-gray-700  cursor-pointer"
+            onClick={() => navigate("/staff/login")}
+            className="text-sm text-gray-700 cursor-pointer"
           >
             Back to Login
           </button>

@@ -79,13 +79,12 @@ export default function Analytics() {
 
   const viewRef = useRef(view);
 
-  // Icon mapping for request types
   const iconMap = {
-    'Good Moral Certificate': '/assets/analytics/goodmoral.png',
-    'Insurance Payment': '/assets/analytics/insurancepay.png',
-    'Transmittal Letter': '/assets/analytics/transmittal.png',
+    'Good Moral Certificat': '/assets/analytics/goodmoral.png',
+    Insurance: '/assets/analytics/insurancepay.png',
+    'Approval/Transmittal Letter': '/assets/analytics/transmittal.png',
     'Temporary Gate Pass': '/assets/analytics/gatepass.png',
-    'Uniform Exemption': '/assets/analytics/uniform.png',
+    'Uniform Exception': '/assets/analytics/uniform.png',
     'Enrollment/Transfer': '/assets/analytics/enrollment.png',
   };
 
@@ -239,7 +238,7 @@ export default function Analytics() {
         icon: (
           <img
             src={iconMap[req.requestType] || '/assets/analytics/goodmoral.png'}
-            alt=""
+            alt={req.requestType}
             className="w-6 h-6"
           />
         ),
@@ -271,7 +270,7 @@ export default function Analytics() {
               src={
                 iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
               }
-              alt=""
+              alt={req.requestType}
               className="w-6 h-6"
             />
           ),
@@ -288,7 +287,7 @@ export default function Analytics() {
               src={
                 iconMap[req.requestType] || '/assets/analytics/goodmoral.png'
               }
-              alt=""
+              alt={req.requestType}
               className="w-6 h-6"
             />
           ),
@@ -325,8 +324,8 @@ export default function Analytics() {
     : null;
 
   return (
-    <div className="min-h-screen bg-transparent pr-6  md:pl-14 lg:pl-8 xl:pl-1 lg:py-4 md:pr-7 lg:pr-10">
-      <div className="w-full min-h-[80vh] mx-auto pl-0 pr-1 lg:pl-5">
+    <div className="min-h-screen bg-transparent">
+      <div className="w-full min-h-[80vh] mx-auto pr-3 pt-5 lg:pr-7 md:pl-15 xl:pl-9 xl:pr-7 xl:pt-7">
         {/* Header */}
         <div className="mb-8 pt-10">
           <h1 className="text-3xl text-left font-semibold text-[#202124]">
@@ -338,7 +337,7 @@ export default function Analytics() {
         </div>
 
         {/* Top Stats Cards - Always show TODAY's data */}
-        <div className="lg:flex gap-6 mb-6">
+        <div className="flex flex-col xl:flex-row gap-6 mb-6">
           {/* Card 1 - Today's Queue */}
           <div className="bg-white flex-2 rounded-xl shadow-xs p-5 flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -455,7 +454,7 @@ export default function Analytics() {
                   onDayClick={handleDayClick}
                   selectedDay={selectedDay}
                 />
-              ) : (
+              )   : (
                 <div className="flex flex-col items-center justify-center h-[350px]">
                   {doughnutTotals && <DoughnutChart totals={doughnutTotals} />}
 
@@ -466,6 +465,7 @@ export default function Analytics() {
                         Priority{' '}
                         <span className="font-semibold">
                           {doughnutTotals?.totalQueueToday > 0
+                          
                             ? (
                                 (doughnutTotals.completedPriority /
                                   doughnutTotals.totalQueueToday) *

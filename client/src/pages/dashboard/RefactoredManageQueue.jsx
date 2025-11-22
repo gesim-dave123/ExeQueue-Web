@@ -38,6 +38,7 @@ import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
 import { useDebounce } from "../../utils/hooks/useDebounce.jsx";
 import ManageQueueHook from "./ManageQueue/ManageQueueHook.jsx";
 
+
 export default function Manage_Queue() {
   const navigate = useNavigate();
   const parentRef = useRef(null);
@@ -53,6 +54,8 @@ export default function Manage_Queue() {
   const [tooltipData, setTooltipData] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [activeButtons, setActiveButtons] = useState({});
+  const [activeDeferredButtons, setActiveDeferredButtons] = useState({});
 
   const [showWindowModal, setShowWindowModal] = useState(false);
   const [selectedWindow, setSelectedWindow] = useState({});
@@ -735,6 +738,7 @@ export default function Manage_Queue() {
   const openActionPanel = (queue) => {
     setSelectedQueue(queue);
     setShowActionPanel(true);
+    setIsLoggedIn(isLoggedIn);
   };
 
   const closeActionPanel = async () => {
@@ -799,7 +803,7 @@ export default function Manage_Queue() {
     className:
       window.status === "inactive"
         ? "bg-transparent bg-[#202124] ring-1 cursor-not-allowed w-full"
-        : "bg-[#1A73E8] text-white hover:bg-blue-700 w-full",
+        : "bg-[#1A73E8] text-white hover:bg-[#1557B0] w-full",
     disabled: window.status === "inactive",
   }));
 
@@ -885,7 +889,7 @@ export default function Manage_Queue() {
         />
       ) : (
         currentQueue && (
-          <div className="min-h-screen bg-transparent w-full pr-7 pt-9 md:pl-15 xl:pl-9 xl:pt-12 xl:pr-8 pb-9">
+          <div className="min-h-screen bg-transparent w-full pr-3 pt-9 lg:pr-7 md:pl-15 xl:pl-9 xl:pt-11 xl:pr-7 pb-9">
             <div className="max-w-full mx-auto">
               <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
                 Manage Queue
@@ -906,7 +910,7 @@ export default function Manage_Queue() {
                     </div>
 
                     {/* container */}
-                    <div className="flex lg:flex-row flex-col  items-center justify-between gap-6 h-full">
+                    <div className="flex lg:flex-row flex-col  items-start justify-between gap-6 h-full">
                       {/* left side */}
                       <div className="border w-full md:flex-1 flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
                         <div className=" text-left mb-4 ">
@@ -1013,17 +1017,21 @@ export default function Manage_Queue() {
                                           <div className="flex gap-2 items-center justify-center">
                                             {/* Done Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "done"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors cursor-pointer"
-                                              >
-                                                <Check className="w-4 h-4" />
-                                              </button>
+                                              {/* Done Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "done" }));
+        handleRequestAction(request.id, "done");
+    }}
+    disabled={activeButtons[request.id] === "done"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors ${
+        activeButtons[request.id] === "done" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <Check className="w-4 h-4" />
+</button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Done
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1032,20 +1040,22 @@ export default function Manage_Queue() {
 
                                             {/* Stall Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "stall"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
-                                              >
-                                                <img
-                                                  src="/assets/manage_queue/pause.png"
-                                                  alt="Edit"
-                                                />
-                                              </button>
+                                              {/* Stall Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "stall" }));
+        handleRequestAction(request.id, "stall");
+    }}
+    disabled={activeButtons[request.id] === "stall"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors ${
+        activeButtons[request.id] === "stall" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <img src="/assets/manage_queue/pause.png" alt="Edit" />
+</button>
+
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Stall
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1054,20 +1064,21 @@ export default function Manage_Queue() {
 
                                             {/* Skip Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "skip"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors cursor-pointer"
-                                              >
-                                                <img
-                                                  src="/assets/manage_queue/forward.png"
-                                                  alt="Edit"
-                                                />
-                                              </button>
+                                              {/* Skip Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "skip" }));
+        handleRequestAction(request.id, "skip");
+    }}
+    disabled={activeButtons[request.id] === "skip"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors ${
+        activeButtons[request.id] === "skip" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <img src="/assets/manage_queue/forward.png" alt="Edit" />
+</button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Skip
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1076,17 +1087,21 @@ export default function Manage_Queue() {
 
                                             {/* Cancel Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "cancel"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                                              >
-                                                <X className="w-4 h-4" />
-                                              </button>
+                                              {/* Cancel Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "cancel" }));
+        handleRequestAction(request.id, "cancel");
+    }}
+    disabled={activeButtons[request.id] === "cancel"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors ${
+        activeButtons[request.id] === "cancel" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <X className="w-4 h-4" />
+</button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Cancel
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1126,7 +1141,7 @@ export default function Manage_Queue() {
                                 (request) => request.status === "In Progress"
                               )
                                 ? "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
-                                : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
+                                : "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
                             }`}
                           >
                             <img
@@ -1417,7 +1432,7 @@ export default function Manage_Queue() {
                                     >
                                       <button
                                         onClick={() => openActionPanel(item)}
-                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-[#1557B0] transition-colors cursor-pointer"
                                       >
                                         View
                                       </button>
@@ -1790,7 +1805,7 @@ export default function Manage_Queue() {
                   </div>
 
                   <div className="px-6 md:pb-6 pb-4 pt-2 xl:pt-0">
-                    <div className="w-full flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="w-full flex flex-col md:flex-row items-start justify-between gap-6">
                       {/* left side */}
                       <div className="w-full lg:w-auto border-1 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
                         <div className="text-left mb-4">
@@ -1896,13 +1911,16 @@ export default function Manage_Queue() {
                                             {/* Done Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "done"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "done" }));
+                                                  handleDeferredAction(request.id, "done");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "done"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-green-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "done" 
+                                                    ? "bg-green-100 text-green-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-green-100 text-green-600 cursor-pointer"
+                                                }`}
                                               >
                                                 <Check className="w-4 h-4" />
                                               </button>
@@ -1915,13 +1933,16 @@ export default function Manage_Queue() {
                                             {/* Stall Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "stall"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "stall" }));
+                                                  handleDeferredAction(request.id, "stall");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "stall"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "stall" 
+                                                    ? "bg-gray-100 text-gray-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-gray-100 text-gray-600 cursor-pointer"
+                                                }`}
                                               >
                                                 <img
                                                   src="/assets/manage_queue/pause.png"
@@ -1937,13 +1958,16 @@ export default function Manage_Queue() {
                                             {/* Skip Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "skip"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "skip" }));
+                                                  handleDeferredAction(request.id, "skip");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "skip"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-orange-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "skip" 
+                                                    ? "bg-orange-100 text-orange-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-orange-100 text-orange-600 cursor-pointer"
+                                                }`}
                                               >
                                                 <img
                                                   src="/assets/manage_queue/forward.png"
@@ -1959,13 +1983,16 @@ export default function Manage_Queue() {
                                             {/* Cancel Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "cancel"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "cancel" }));
+                                                  handleDeferredAction(request.id, "cancel");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "cancel"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-red-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "cancel" 
+                                                    ? "bg-red-100 text-red-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-red-100 text-red-600 cursor-pointer"
+                                                }`}
                                               >
                                                 <X className="w-4 h-4" />
                                               </button>
