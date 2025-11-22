@@ -8,10 +8,29 @@ export default function VerifyOTP() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const inputRefs = [useRef(), useRef(), useRef(), useRef()];
+  const [isOtpCorrect, setOtpCorrect] = useState(true);
+  const [shake, setShake] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email;
 
+   useEffect(() => {
+    if (!email) {
+      navigate("/staff/login", { replace: true });
+    }
+  }, [email, navigate]);
+
+  // Focus first input on mount
+  useEffect(() => {
+    if (email) {
+      inputRefs[0].current?.focus();
+    }
+  }, [email]);
+
+  // Don't render if no email
+  if (!email) {
+    return null;
+  }
   // Mask email for display
   const maskedEmail = email.replace(/(.{3}).*(@.*)/, "$1****$2");
 
@@ -51,8 +70,12 @@ export default function VerifyOTP() {
     
     if (!res?.success) {
       setLoading(false);
+      setOtpCorrect(false);
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
       return;
     }
+    setOtpCorrect(true);
     navigate("/staff/reset-password", { state: { resetToken: res.resetToken, email} });
     console.log(res.resetToken);
     setLoading(false);
@@ -94,7 +117,7 @@ export default function VerifyOTP() {
 
         {/* OTP Input */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <div className="flex justify-center gap-3 mb-2">
+          <div className={`flex justify-center gap-3 mb-2 ${shake ? 'animate-shake' : ''}`}>
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -104,30 +127,38 @@ export default function VerifyOTP() {
                 value={digit}
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className="w-16 h-16 text-center text-[#1A73E8] text-2xl font-bold border-2  border-[#1A73E8] rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                onFocus={() => setOtpCorrect(true)}
+                 className={`w-16 h-16 text-center text-2xl font-bold border-2 rounded-2xl focus:outline-none focus:ring-2 transition-all ${
+                  !isOtpCorrect 
+                    ? "border-red-500 text-red-600 focus:ring-red-500 focus:border-red-500" 
+                    : "border-[#1A73E8] text-[#1A73E8] focus:ring-blue-500 focus:border-blue-500"
+                }`}
               />
             ))}
           </div>
 
           {/* Resend Link */}
           <div className="text-center">
-            <button
-              type="button"
-              onClick={handleResend}
-              className="text-sm text-[#1A73E8]  font-medium cursor-pointer"
-            >
-              Click to resend
-            </button>
+              <p className="text-sm text-gray-600">
+              Didn't get any code?{" "}
+              <button
+                type="button"
+                onClick={handleResend}
+                className="text-[#1A73E8] font-medium cursor-pointer hover:underline"
+              >
+                Click to resend
+              </button>
+            </p>
           </div>
 
           {/* Verify Button */}
           <button
             type="submit"
             disabled={loading || otp.join("").length !== 4}
-            className={`w-full font-semibold py-3 rounded-xl transition-all cursor-pointer ${
+            className={`w-full font-semibold py-3 rounded-xl transition-all  ${
               loading || otp.join("").length !== 4
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white"
+                ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
+                : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
             }`}
           >
             {loading ? "Verifying..." : "Verify"}
@@ -145,6 +176,18 @@ export default function VerifyOTP() {
           </button>
         </div>
       </div>
+
+        {/* Shake animation styles */}
+      <style jsx>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+          20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        .animate-shake {
+          animation: shake 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }

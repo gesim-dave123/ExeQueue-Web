@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect,useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export default function SuccessReset({ imageSrc, onLogin }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const inputRefs = [useRef(), useRef(), useRef(), useRef()];
   const message = location.state?.message;
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function SuccessReset({ imageSrc, onLogin }) {
         {/* Login Button */}
         <button
           onClick={() => navigate("/staff/login")}
-          className="w-full bg-[#1A73E8]  hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-2xl transition-colors duration-200 cursor-pointer"
+          className="w-full bg-[#1A73E8]  hover:bg-[#1557B0] text-white font-medium py-3 px-4 rounded-2xl transition-colors duration-200 cursor-pointer"
         >
           Login
         </button>
