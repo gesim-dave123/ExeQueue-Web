@@ -29,8 +29,31 @@ export default function StaffLogin() {
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
+  const validateForm = () => {
+    const newErrors = { username: "", password: "" };
+    let isValid = true;
+
+    if (!formData.username.trim()) {
+      newErrors.username = "Please fill out all required fields";
+      isValid = false;
+    }
+    if (!formData.password.trim()) {
+      newErrors.password = "Please fill out all required fields";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form fields
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
     setLoading(true);
     setLoadingText("Logging In...");
@@ -68,10 +91,10 @@ export default function StaffLogin() {
       }
 
       if (userFound.password !== formData.password) {
-        setErrors({
-          username: "",
-          password: "Invalid password",
-        });
+       setErrors({
+        username: "Invalid Credentials",
+        password: "Invalid Credentials",
+      });
         setIsLoading(false);
         setLoading(false);
         return;
@@ -96,10 +119,21 @@ export default function StaffLogin() {
     }
   };
 
+  const isEmpty = errors.username === "" && errors.password === "";
+
   // Determine if both fields should turn red (for account not found)
   const isAccountNotFound =
     errors.username === "Account not found" &&
     errors.password === "Account not found";
+
+  // Check if both fields are empty for showing the required fields error
+  const showRequiredFieldsError = 
+    errors.username === "Please fill out all required fields" || 
+    errors.password === "Please fill out all required fields";
+
+    const shouldShowRedBorder = 
+  errors.username === "Account not found" && errors.password === "Account not found" ||
+  errors.username === "Invalid Credentials" && errors.password === "Invalid Credentials";
 
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-transparent p-4">
@@ -136,8 +170,8 @@ export default function StaffLogin() {
               className={`peer w-full px-4 py-3 border rounded-2xl bg-white 
                 focus:outline-none transition-all 
                 ${
-                  errors.username || isAccountNotFound
-                    ? "border-red-500 border-2 focus:ring-red-500"
+                  errors.username || shouldShowRedBorder || showRequiredFieldsError
+                    ? "border-red-500 border-1 focus:ring-red-500"
                     : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 }`}
             />
@@ -148,12 +182,12 @@ export default function StaffLogin() {
                 peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
                  -top-2.5  text-xs 
                   ${
-                    errors.username || isAccountNotFound
+                    errors.username || isAccountNotFound || showRequiredFieldsError
                       ? "peer-focus:text-red-500"
                       : "peer-focus:text-blue-500"
                   }
                 ${
-                  errors.username || isAccountNotFound
+                errors.username || isAccountNotFound || showRequiredFieldsError
                     ? "text-red-500 "
                     : formData.username
                     ? "text-blue-500"
@@ -176,8 +210,8 @@ export default function StaffLogin() {
               className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
                 focus:outline-none transition-all
                 ${
-                  errors.password || isAccountNotFound
-                    ? "border-red-500 border-2 focus:ring-red-500"
+                  errors.password || shouldShowRedBorder || showRequiredFieldsError
+                    ? "border-red-500 border-1 focus:ring-red-500"
                     : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 }`}
             />
@@ -188,12 +222,12 @@ export default function StaffLogin() {
                 peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
                 peer-focus:text-blue-500 -top-2.5 text-xs 
                  ${
-                   errors.password || isAccountNotFound
+                   errors.password || isAccountNotFound || showRequiredFieldsError
                      ? "peer-focus:text-red-500"
                      : "peer-focus:text-blue-500"
                  }
                 ${
-                  errors.password || isAccountNotFound
+                  errors.password || isAccountNotFound || showRequiredFieldsError
                     ? "text-red-500"
                     : formData.password
                     ? "text-blue-500"
@@ -212,22 +246,22 @@ export default function StaffLogin() {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             )}
-
-            {/* Show error message below password only */}
           </div>
 
-          {/* Forgot Password */}
+          {/* Error Message and Forgot Password */}
           <div
             className={`flex  -mt-2 ${
-              errors.password || isAccountNotFound
+              errors.password || isAccountNotFound || showRequiredFieldsError
                 ? "justify-between"
                 : "justify-end"
             }`}
           >
-            {(errors.password || isAccountNotFound) && (
+            {(errors.password || isAccountNotFound || showRequiredFieldsError) && (
               <p className="text-red-500 text-left text-xs">
                 {isAccountNotFound
                   ? "Account not found"
+                  : showRequiredFieldsError
+                  ? "Please fill out all required fields"
                   : errors.password || ""}
               </p>
             )}

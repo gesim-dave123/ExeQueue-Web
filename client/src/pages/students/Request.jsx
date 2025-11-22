@@ -241,16 +241,39 @@ useEffect(() => {
 }, [selectedQueue, formData, selectedServices]);
 
 // Handle browser back button
+// Track if user has started filling the form
+const [hasUserInteracted, setHasUserInteracted] = useState(false);
+
+// Check if form has substantial data (not just started typing)
+useEffect(() => {
+  const hasSubstantialData = 
+    selectedQueue || 
+    (formData.lastName && formData.lastName.length > 1) || 
+    (formData.firstName && formData.firstName.length > 1) || 
+    (formData.studentId && formData.studentId.length >= 4) || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasSubstantialData);
+}, [selectedQueue, formData, selectedServices]);
+
+// Improved browser back button handler
 useEffect(() => {
   const handlePopState = (event) => {
     if (isFormDirty) {
       event.preventDefault();
       setShowBrowserBackModal(true);
-      window.history.pushState(null, '', window.location.href);
+      // Use replaceState to avoid adding to history stack
+      window.history.replaceState(null, '', window.location.href);
     }
   };
 
-  window.history.pushState(null, '', window.location.href);
+  // Only push state if form is dirty
+  if (isFormDirty) {
+    window.history.pushState(null, '', window.location.href);
+  }
+
   window.addEventListener('popstate', handlePopState);
 
   return () => {
@@ -258,7 +281,7 @@ useEffect(() => {
   };
 }, [isFormDirty]);
 
-// Handle page refresh/close
+// Improved page refresh/close handler
 useEffect(() => {
   const handleBeforeUnload = (event) => {
     if (isFormDirty) {
@@ -369,7 +392,7 @@ const handleBrowserBackCancel = () => {
         setShowBackConfirmModal(true);
       } else {
         // Navigate back immediately if no queue selected
-        navigate(-1);
+        navigate("/");
       }
     }
   };
@@ -1471,7 +1494,7 @@ const handleBrowserBackCancel = () => {
         <ConfirmModal
           isOpen={showBackConfirmModal}
           onClose={() => setShowBackConfirmModal(false)}
-          onConfirm={handleBackConfirm}
+          onConfirm={handleBrowserBackConfirm}
           loading={loading}
           progress={progress}
           icon="/assets/Caution Icon.png"
@@ -1494,6 +1517,7 @@ const handleBrowserBackCancel = () => {
         isOpen={showBrowserBackModal}
         onClose={handleBrowserBackCancel}
         onConfirm={handleBrowserBackConfirm}
+        showCloseButton={false}
         icon="/assets/Caution Icon.png"
         iconAlt="Warning"
         iconSize="w-12 h-12"

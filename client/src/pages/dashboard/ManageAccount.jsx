@@ -196,7 +196,7 @@ export default function ManageAccount() {
 
   return (
     <div className="min-h-screen pt-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-3 pt-6 xl:pt-9 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
+      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
         {/* Header */}
         <div className="sm:flex flex items-start justify-between mb-7">
           <div>

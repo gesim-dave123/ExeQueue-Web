@@ -117,7 +117,7 @@ export default function Display_Queue() {
         >
           <img src={icon} alt="Exequeue Logo" className="w-[6vh] min-w-[40px]" />
           <h1
-            className="text-xl font-bold ml-2"
+            className="text-xl font-bold"
             style={{ fontFamily: "Montserrat, sans-serif" }}
           >
             ExeQueue

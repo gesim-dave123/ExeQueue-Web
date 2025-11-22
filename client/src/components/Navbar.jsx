@@ -255,7 +255,7 @@ export default function Navbar() {
           </button>
         </div>
 
-        <div className="lg:hidden flex items-center mr-10">
+        <div className="lg:hidden flex items-center mr-6">
           <button
             ref={buttonRef}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
