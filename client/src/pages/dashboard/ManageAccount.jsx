@@ -9,6 +9,7 @@ import {
 } from "../../api/staff";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import InputModal from "../../components/modal/InputModal";
+import { showToast } from "../../components/toast/ShowToast";
 export default function ManageAccount() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,8 +124,8 @@ export default function ManageAccount() {
           updateData
         );
 
-        console.log("✅ Account updated:", result);
-        toast.success(result.message || "Account updated successfully");
+        console.log("Account updated:", result);
+        showToast(result.message || "Account updated successfully", "success");
       } else {
         // Create new account
         const createData = {
@@ -141,7 +142,7 @@ export default function ManageAccount() {
         const result = await createWorkingScholar(createData);
 
         console.log("✅ Account created:", result);
-        toast.success(result.message || "Account created successfully");
+        showToast("Account created successfully", "success");
       }
 
       // Refresh accounts list
@@ -157,7 +158,7 @@ export default function ManageAccount() {
       const errorField = error.response?.data?.field || null;
 
       // ✅ Show toast error
-      toast.error(errorMessage);
+      showToast(errorMessage, "error");
 
       // ✅ Return error info to modal
       return {
@@ -178,13 +179,16 @@ export default function ManageAccount() {
       const result = await deleteWorkingScholar(account.sasStaffId);
 
       console.log("✅ Account deleted:", result);
-      toast.success(result.message || "Account deleted successfully");
+      showToast("Account deleted successfully.", "success");
 
       // Refresh accounts list
       await fetchAccounts();
     } catch (error) {
       console.error("❌ Error deleting account:", error);
-      toast.error(error.response?.data?.message || "Failed to delete account");
+      showToast(
+        error.response?.data?.message || "Failed to delete account",
+        "error"
+      );
     } finally {
       setLoading(false);
       setShowBackConfirmModal(false);
