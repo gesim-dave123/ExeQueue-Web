@@ -185,7 +185,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 const DoughnutChart = ({
   totals = {},
   className = '',
-  height = 300,
+  height = 250,
   width = 300,
 }) => {
   // Get values

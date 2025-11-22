@@ -222,53 +222,69 @@ export default function Request() {
     }
   }, [selectedQueue]);
 
-  // Handle browser back button
-  // useEffect(() => {
-  //   // Push initial state when component mounts
-  //   if (currentStep === 1) {
-  //     window.history.pushState({ step: 1 }, '', window.location.pathname);
-  //   } 
-    
-  //   const handlePopState = (e) => {
-  //     // Prevent default browser behavior
-  //     e.preventDefault();
-      
-  //     if (currentStep > 1) {
-  //       // Go back one step
-  //       isInternalNavigation.current = true;
-  //       setCurrentStep(prev => prev - 1);
-  //       setErrors({});
-  //     } else {
-  //       // On step 1, check if queue is selected
-  //       const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
-        
-  //       if (hasQueueSelected) {
-  //         // Show confirmation modal and push state back
-  //         setShowBackConfirmModal(true);
-  //         window.history.pushState({ step: currentStep }, '', window.location.pathname);
-  //       } else {
-  //         // Allow natural navigation
-  //         navigate(-1);
-  //       }
-  //     }
-  //   };
-    
-  //   // Add event listener
-  //   window.addEventListener('popstate', handlePopState);
+  // Add these states
+const [showBrowserBackModal, setShowBrowserBackModal] = useState(false);
+const [isFormDirty, setIsFormDirty] = useState(false);
 
-  //   // Cleanup
-  //   return () => {
-  //     window.removeEventListener('popstate', handlePopState);
-  //   };
-  // }, [currentStep, navigate]);
+// Check if form has data
+useEffect(() => {
+  const hasData = 
+    selectedQueue || 
+    formData.lastName || 
+    formData.firstName || 
+    formData.studentId || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasData);
+}, [selectedQueue, formData, selectedServices]);
 
-  // // Push new state when step changes (but not when going back)
-  // useEffect(() => {
-  //   if (currentStep > 1 && !isInternalNavigation.current) {
-  //     window.history.pushState({ step: currentStep }, '', window.location.pathname);
-  //   }
-  //   isInternalNavigation.current = false;
-  // }, [currentStep]);
+// Handle browser back button
+useEffect(() => {
+  const handlePopState = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      setShowBrowserBackModal(true);
+      window.history.pushState(null, '', window.location.href);
+    }
+  };
+
+  window.history.pushState(null, '', window.location.href);
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+  };
+}, [isFormDirty]);
+
+// Handle page refresh/close
+useEffect(() => {
+  const handleBeforeUnload = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [isFormDirty]);
+
+// Handle browser back confirmation
+const handleBrowserBackConfirm = () => {
+  sessionStorage.removeItem("hasRequestInProgress");
+  setShowBackConfirmModal(false);
+  setIsFormDirty(false);
+  setShowBrowserBackModal(false);
+  navigate('/');
+};
+
+const handleBrowserBackCancel = () => {
+  setShowBrowserBackModal(false);
+};
+
 
   const validateStep1 = () => {
     if (!selectedQueue) {
@@ -691,7 +707,7 @@ export default function Request() {
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div
-        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col p-5"
+        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col xl:p-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -1357,7 +1373,7 @@ export default function Request() {
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-[#1A73E8] text-white hover:bg-[#1456AE] cursor-pointer transition-colors"
+                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer transition-colors"
             }`}
           >
             {currentStep === 4 ? "Confirm" : "Continue"}
@@ -1473,7 +1489,19 @@ export default function Request() {
             </>
           }
         />
-
+        {/* Browser Back Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showBrowserBackModal}
+        onClose={handleBrowserBackCancel}
+        onConfirm={handleBrowserBackConfirm}
+        icon="/assets/Caution Icon.png"
+        iconAlt="Warning"
+        iconSize="w-12 h-12"
+        title="Leave Request Page?"
+        description="You have unsaved changes. Are you sure you want to leave this page?"
+        confirmText="Confirm"
+        cancelText="Cancel"
+      />
         {/* {showBackConfirmModal && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">

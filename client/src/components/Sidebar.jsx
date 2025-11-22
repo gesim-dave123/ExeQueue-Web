@@ -6,6 +6,7 @@ import ConfirmModal from "../components/modal/ConfirmModal";
 import { useAuth } from "../context/AuthProvider";
 import icon from "/assets/icon.svg";
 import { showToast } from "./toast/ShowToast";
+import { useIsSystemOpen } from "../context/ModalCheckerProvider";
 
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
@@ -23,6 +24,7 @@ export default function Sidebar() {
   const { logoutOperation } = useAuth();
   const location = useLocation();
   const [isHeightSmall, setIsHeightSmall] = useState(false);
+  const [isSystemSOpen, setIsSystemSOpen] = useIsSystemOpen();
 
   const handleCloseModal = () => {
     setShowLogoutModal(false);
@@ -125,6 +127,10 @@ export default function Sidebar() {
     }
   };
 
+  useEffect(() => {
+  setIsSystemSOpen(isSystemSettingsOpen); // true if open, false if closed
+}, [isSystemSettingsOpen]);
+
   // Add this useEffect to handle outside clicks
 useEffect(() => {
   const handleClickOutside = (event) => {
@@ -165,10 +171,14 @@ useEffect(() => {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      const isMobile = width < 1024; // everything below 1024 = mobile
+      const isMobile = width < 768; // everything below 1024 = mobile
       setIsMobileView(isMobile);
       setIsSidebarOpen(!isMobile && width >= 1280);
-      setIsMobileOpen(false);
+      // if(isMobile) {
+      //   setIsLoggedIn(true);
+      // }else {
+      //   setIsLoggedIn(false);
+      // }
     };
 
     handleResize();
@@ -323,7 +333,7 @@ useEffect(() => {
         >
           <button
             onClick={() => setIsMobileOpen(!isMobileOpen)}
-            className="p-2 transform -translate-x-[40%] bg-white rounded-md shadow-md"
+            className="p-2 transform -translate-x-[20%] bg-white rounded-md shadow-md"
           >
             <img
               src="/assets/dashboard/minimize.png"
@@ -425,7 +435,13 @@ useEffect(() => {
                     <button
                       onClick={() => {
                         setIsSidebarOpen(true);
-                        setIsQueueOpen(!isQueueOpen);
+                        setIsQueueOpen(!isQueueOpen); 
+                        //  if (isMobileView) { // example: 768px breakpoint for mobile
+                        //     setIsLoggedIn(false);
+                        //   } else {
+                            setIsSystemSOpen(false);
+                          // }
+
                         setActiveItem("queue");
                       }}
                       className={`w-full flex items-center pr-2 justify-between cursor-pointer py-2.5 rounded-lg transition-colors duration-300
@@ -482,7 +498,9 @@ useEffect(() => {
                             >
                               <Link
                                 to={sub.link}
-                                onClick={() => setSubItem(sub.key)}
+                                onClick={() => {setSubItem(sub.key);
+                                  setIsSystemSOpen(false);
+                                }}
                                 className={`block w-[80%] text-left py-2 text-sm rounded-md transition ${
                                   subItem === sub.key
                                     ? "text-[#1A73E8] font-medium"
@@ -504,7 +522,14 @@ useEffect(() => {
                   <Link
                     key={item.key}
                     to={item.link}
-                    onClick={() => handleItemClick(item.key)}
+                    onClick={() => {handleItemClick(item.key);
+                          // if (isMobileView) { 
+                          //   setIsLoggedIn(true);
+                          // } else {
+                            setIsSystemSOpen(false);
+                          // }
+
+                    }}
                     className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
                     ${
                       activeItem === item.key
@@ -540,7 +565,9 @@ useEffect(() => {
           <div
             className={`flex-1 w-full cursor-pointer 
               ${isHeightSmall ? "hidden" : "flex"} `}
-            onClick={() => setIsSidebarOpen(true)}
+            onClick={() =>{ setIsSidebarOpen(true); 
+
+            }}
           ></div>
         )}
 
@@ -549,7 +576,15 @@ useEffect(() => {
           {/* Profile Button */}
           <div
           data-profile-button
-            onClick={() => handleItemClick("profile")}
+            onClick={() => {
+        handleItemClick("profile"); 
+        //  if (!isMobileView) { 
+        //       setIsLoggedIn(!isLoggedIn);
+        //      } else {   
+        //       setIsLoggedIn(true);  
+        //   }     // your existing action
+           // toggle login
+      }}
             className={`flex items-center justify-start pl-2 gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
               isOpen ? "py-1.5" : "ml-3 mr-3 py-2.5"
             } ${
@@ -618,6 +653,7 @@ useEffect(() => {
                       <div
                         onClick={() => {
                           handleItemClick("profile-settings");
+                          setIsSystemSOpen(false);
                           navigate("/staff/profile/profile-settings", {
                             state: {
                               from: location.pathname,
@@ -679,12 +715,12 @@ useEffect(() => {
                   <AnimatePresence>
                     {isSystemSettingsOpen && (
                       <motion.div
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {e.stopPropagation();}}
                         initial={{ opacity: 0, y: -10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999] -bottom-13  left-60 ml-2"
+                        className={`flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999]  ml-2 ${isMobileView ? '-top-35 left-20' : '-bottom-13  left-60'}`}
                         data-dropdown="profile-dropdown"
                       >
                         {/* PERSONNEL: Show all options */}
@@ -693,6 +729,7 @@ useEffect(() => {
                             <div
                               onClick={() => {
                                 handleItemClick("queue-reset");
+                                setIsSystemSOpen(false);
                                 navigate("/staff/profile/reset-queue", {
                                   state: {
                                     from: location.pathname,
@@ -719,6 +756,7 @@ useEffect(() => {
                             <div
                               onClick={() => {
                                 handleItemClick("release-window");
+                                setIsSystemSOpen(false);
                                 navigate("/staff/profile/release-window", {
                                   state: {
                                     from: location.pathname,
@@ -749,6 +787,7 @@ useEffect(() => {
                             <div
                               onClick={() => {
                                 handleItemClick("profile-settings");
+                                setIsSystemSOpen(false);
                                 navigate("/staff/profile/profile-settings", {
                                   state: {
                                     from: location.pathname,

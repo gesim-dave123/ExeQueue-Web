@@ -44,6 +44,7 @@ import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
 import { useDebounce } from "../../utils/hooks/useDebounce.jsx";
 import ManageQueueHook from "./ManageQueue/ManageQueueHook.jsx";
 
+
 export default function Manage_Queue() {
   const navigate = useNavigate();
   const parentRef = useRef(null);
@@ -57,7 +58,6 @@ export default function Manage_Queue() {
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
   const [statusFilter, setStatusFilter] = useState([]);
   const [tooltipData, setTooltipData] = useState(null);
-
   // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
   const [hoveredRow, setHoveredRow] = useState(null);
 
@@ -715,11 +715,13 @@ export default function Manage_Queue() {
   const openActionPanel = (queue) => {
     setSelectedQueue(queue);
     setShowActionPanel(true);
+    setIsLoggedIn(isLoggedIn);
   };
 
   const closeActionPanel = () => {
     setShowActionPanel(false);
     setSelectedQueue(null);
+    setIsLoggedIn(!isLoggedIn);
   };
 
   const shouldDisableAnnounce = () => {
@@ -756,7 +758,7 @@ export default function Manage_Queue() {
     className:
       window.status === "inactive"
         ? "bg-transparent bg-[#202124] ring-1 cursor-not-allowed w-full"
-        : "bg-[#1A73E8] text-white hover:bg-blue-700 w-full",
+        : "bg-[#1A73E8] text-white hover:bg-[#1557B0] w-full",
     disabled: window.status === "inactive",
   }));
 
@@ -842,7 +844,7 @@ export default function Manage_Queue() {
         />
       ) : (
         currentQueue && (
-          <div className="min-h-screen bg-transparent w-full pr-7 pt-9 md:pl-15 xl:pl-9 xl:pt-11 xl:pr-8 pb-9">
+          <div className="min-h-screen bg-transparent w-full pr-3 pt-9 lg:pr-7 md:pl-15 xl:pl-9 xl:pt-11 xl:pr-7 pb-9">
             <div className="max-w-full mx-auto">
               <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
                 Manage Queue
@@ -1083,7 +1085,7 @@ export default function Manage_Queue() {
                                 (request) => request.status === "In Progress"
                               )
                                 ? "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
-                                : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
+                                : "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
                             }`}
                           >
                             <img
@@ -1360,7 +1362,7 @@ export default function Manage_Queue() {
                                     >
                                       <button
                                         onClick={() => openActionPanel(item)}
-                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-[#1557B0] transition-colors cursor-pointer"
                                       >
                                         View
                                       </button>
@@ -1944,7 +1946,7 @@ export default function Manage_Queue() {
                                   request.status === "Cancelled" ||
                                   request.status === "Skipped"
                               )
-                                ? "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
+                                ? "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
                                 : "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
                             }`}
                           >

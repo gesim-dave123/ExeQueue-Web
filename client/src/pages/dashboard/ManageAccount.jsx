@@ -195,8 +195,8 @@ export default function ManageAccount() {
   }
 
   return (
-    <div className="min-h-screen py-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-8 pt-6 xl:pt-9 md:px-8 md:pl-15 xl:pl-9">
+    <div className="min-h-screen pt-9 flex lg:w-[100%]">
+      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-3 pt-6 xl:pt-9 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
         {/* Header */}
         <div className="sm:flex flex items-start justify-between mb-7">
           <div>
@@ -211,7 +211,7 @@ export default function ManageAccount() {
             <button
               onClick={handleAddAccount}
               disabled={loading}
-              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-[#1557B0] transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
             >
               <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
                 <img
@@ -234,9 +234,9 @@ export default function ManageAccount() {
             </h2>
 
             {/* Search Bar */}
-            <div className="relative w-80 mt-5">
+            <div className="relative w-auto lg:w-80 mt-5 flex justify-start">
               <Search
-                className="absolute left-7 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={20}
               />
               <input
@@ -244,7 +244,7 @@ export default function ManageAccount() {
                 placeholder="Search by username"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-auto lg:w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>

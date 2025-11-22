@@ -10,11 +10,11 @@ export default function Contact() {
         <div className="ml-10 pr-20 sm:pr-0 md:mx-10 lg:mx-20 flex flex-col max-w-md w-full top-1/2 transform -translate-y-[15%] ">
           <div className="flex items-center gap-2">
             {/* Logo */}
-            <div className="w-30 h-30 flex items-center justify-center rounded-full left-1/2 transform -translate-x-[30%] ">
+            <div className=" w-25 h-25 md:w-30 md:h-30 flex items-center justify-center rounded-full left-1/2 transform -translate-x-[30%] ">
               <img
                 src="assets/whitelogo.png"
                 alt="ExeQueue Logo"
-                className=""
+                className="w-9 h-9"
               />
             </div>
             <h1
@@ -45,7 +45,7 @@ export default function Contact() {
         </div>
 
         {/* Middle - Services */}
-        <div className="md:mr-20 lg:mr-40 ml-10 grid grid-cols-2 gap-20">
+        <div className=" ml-10 grid grid-cols-2 gap-8 w-full">
           <div className="text-left w-full sm:w-auto">
             <h2 className="text-white font-medium mb-3">Service</h2>
             <ul className="space-y-2 text-gray-300 text-sm md:text-base">
