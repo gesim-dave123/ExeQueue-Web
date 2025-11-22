@@ -1,9 +1,49 @@
 import React, { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { motion } from "framer-motion";
+import { useInView } from "framer-motion";
+import { useRef } from "react";
+
+// Simplified animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      duration: 0.4,
+      staggerChildren: 0.08 // Reduced stagger
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 }, // Reduced movement
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3, // Faster duration
+      ease: "easeOut"
+    }
+  }
+};
+
+const categoryButtonVariants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.3 }
+  }
+};
+
+// REMOVED complex accordion variants - using simple CSS transitions instead
 
 export default function FAQ() {
   const [activeCategory, setActiveCategory] = useState("General Process");
   const [openIndex, setOpenIndex] = useState(null);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
 
   const categories = [
     "General Process",
@@ -71,27 +111,49 @@ export default function FAQ() {
     setOpenIndex(openIndex === index ? null : index);
   };
 
-  return (
-    <div className="w-full mt-25 sm:mt-0 flex items-center flex-col xl:flex-row lg:gap-16 ">
-      {/* Left side: Categories */}
-      <div className="w-full xl:w-4xl flex flex-col gap-4 mb-8 lg:mb-0 ">
-        <h2 className="text-3xl sm:text-4xl lg:text-4xl text-left font-semibold text-gray-900 mb-2">
-          Frequently Asked Questions
-        </h2>
-        <p className="text-gray-500 text-lg sm:text-xl lg:text-xl mb-6 text-left">
-          All you need to know in one place.
-        </p>
+  const handleCategoryChange = (category) => {
+    setActiveCategory(category);
+    setOpenIndex(null);
+  };
 
-        <div className="flex flex-col gap-4">
+  return (
+    <motion.div
+      ref={ref}
+      variants={containerVariants}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+      className="w-full mt-25 sm:mt-0 flex items-center flex-col xl:flex-row lg:gap-16"
+    >
+      {/* Left side: Categories */}
+      <motion.div 
+        variants={containerVariants}
+        className="w-full xl:w-4xl flex flex-col gap-4 mb-8 lg:mb-0"
+      >
+        <motion.h2 
+          variants={itemVariants}
+          className="text-3xl sm:text-4xl lg:text-4xl text-left font-semibold text-gray-900 mb-2"
+        >
+          Frequently Asked Questions
+        </motion.h2>
+        <motion.p 
+          variants={itemVariants}
+          className="text-gray-500 text-lg sm:text-xl lg:text-xl mb-6 text-left"
+        >
+          All you need to know in one place.
+        </motion.p>
+
+        <motion.div 
+          variants={containerVariants}
+          className="flex flex-col gap-4"
+        >
           {/* Top row with 2 buttons only */}
           <div className="flex gap-4">
-            {categories.slice(0, 2).map((cat) => (
-              <button
+            {categories.slice(0, 2).map((cat, index) => (
+              <motion.button
                 key={cat}
-                onClick={() => {
-                  setActiveCategory(cat);
-                  setOpenIndex(null);
-                }}
+                variants={categoryButtonVariants}
+                custom={index}
+                onClick={() => handleCategoryChange(cat)}
                 className={`p-4 sm:w-50 rounded-full border text-sm font-medium transition-all cursor-pointer
                 ${
                   activeCategory === cat
@@ -100,20 +162,19 @@ export default function FAQ() {
                 }`}
               >
                 {cat}
-              </button>
+              </motion.button>
             ))}
           </div>
 
           {/* Remaining buttons go below */}
           <div className="flex flex-wrap gap-5">
-            {categories.slice(2).map((cat) => (
-              <button
+            {categories.slice(2).map((cat, index) => (
+              <motion.button
                 key={cat}
-                onClick={() => {
-                  setActiveCategory(cat);
-                  setOpenIndex(null);
-                }}
-                className={`p-4 sm:w-65  rounded-full border text-sm font-medium transition-all cursor-pointer
+                variants={categoryButtonVariants}
+                custom={index + 2}
+                onClick={() => handleCategoryChange(cat)}
+                className={`p-4 sm:w-65 rounded-full border text-sm font-medium transition-all cursor-pointer
                 ${
                   activeCategory === cat
                     ? "bg-[#1A73E8] text-white"
@@ -121,43 +182,53 @@ export default function FAQ() {
                 }`}
               >
                 {cat}
-              </button>
+              </motion.button>
             ))}
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      {/* Right side: Accordion */}
-      <div className="w-full xl:w-3xl flex flex-col justify-center">
+      {/* Right side: Accordion - SIMPLIFIED ANIMATIONS */}
+      <motion.div 
+        variants={containerVariants}
+        className="w-full xl:w-3xl flex flex-col justify-center"
+      >
         <div className="flex flex-col gap-4">
           {faqs[activeCategory].map((item, index) => (
-            <div
+            <motion.div
               key={index}
+              variants={itemVariants}
               className="bg-[#DDEAFC]/35 rounded-xl shadow-xs overflow-hidden w-full cursor-pointer"
             >
               <button
-                className="w-full flex justify-between items-center px-4 sm:px-6 py-4 text-left cursor-pointer"
+                className="w-full flex justify-between items-center px-4 sm:px-6 py-4 text-left cursor-pointer hover:bg-[#DDEAFC]/50 transition-colors"
                 onClick={() => toggleFAQ(index)}
               >
                 <span className="font-medium text-gray-800 pr-4 text-sm sm:text-base">
                   {item.q}
                 </span>
-                <ChevronDown
-                  className={`w-5 h-5 text-[#F9AB00] transition-transform flex-shrink-0 ${
-                    openIndex === index ? "rotate-180" : ""
-                  }`}
-                />
+                <motion.div
+                  animate={{ rotate: openIndex === index ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ChevronDown className="w-5 h-5 text-[#F9AB00] flex-shrink-0" />
+                </motion.div>
               </button>
 
-              {openIndex === index && (
+              {/* Simplified accordion content - using CSS transition instead of Framer Motion */}
+              <div 
+                className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                  openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
                 <div className="px-6 pb-4 text-gray-600 text-sm text-left leading-relaxed max-w-4xl">
                   {item.a}
                 </div>
-              )}
-            </div>
+              </div>
+            </motion.div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

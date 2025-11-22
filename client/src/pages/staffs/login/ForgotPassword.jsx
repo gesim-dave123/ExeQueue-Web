@@ -9,6 +9,7 @@ export default function ForgotPassword() {
   const [isEmptyError, setIsEmptyError] = useState(false); 
   const [isInvalidEmail, setIsInvalidEmail] = useState(false); // New state for invalid email
   const [error, setError] = useState("");
+  const [isEmailFound, setIsEmailFound] = useState(true);
   const [reSendCode, setReSendCode] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
@@ -44,9 +45,10 @@ export default function ForgotPassword() {
     if (!res) {
       console.log("Email not found");
       setLoading(false);
+      setIsEmailFound(false);
       return;
     }
-
+    setIsEmailFound(true);
     navigate("/staff/verify-otp", { state: { email } });
     setLoading(false);
     setReSendCode(true); // Show resend option after successful submission
@@ -92,6 +94,7 @@ export default function ForgotPassword() {
             <label
               htmlFor="email"
               className={`absolute left-5 transition-all duration-200 pointer-events-none
+                ${isEmailFound ? "text-[#1A73E8]" : "text-red-500"}
                 ${
                   (isEmptyError || isInvalidEmail) && !isFocused
                     ? "top-3.5 text-base text-gray-500"
@@ -109,7 +112,9 @@ export default function ForgotPassword() {
               type="email"
               id="email"
               value={email}
-              onFocus={() => setIsFocused(true)}
+              onFocus={() => {setIsFocused(true);
+                setIsEmailFound(true)
+               }}
               onBlur={() => setIsFocused(false)}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -118,10 +123,10 @@ export default function ForgotPassword() {
                 setIsInvalidEmail(false);
               }}
               
-              className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all ${
-                (isEmptyError || isInvalidEmail) && !isFocused
-                  ? "border-red-500 border-2" 
-                  : email || isFocused
+              className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all 
+                ${isEmailFound ? "border-[#1A73E8] border-2" : "border-red-500 border-2"}
+               ${
+                email || isFocused
                     ? "border-[#1A73E8] border-2"
                     : "border-[#DDEAFC] border-2 focus:ring-blue-500 focus:border-[#1A73E8]"
               }`}
@@ -144,7 +149,7 @@ export default function ForgotPassword() {
             className={`w-full font-medium py-3 mb-5 rounded-2xl transition-all  ${
               loading || !email
                 ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer"
+                : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
             }`}
           >
             {loading ? "Sending..." : "Send Code"}

@@ -225,6 +225,12 @@ export default function ResetPassword() {
                     {errors.confirmPassword}
                   </p>
                 )}
+
+                 {errors.newPassword && (
+                  <p className="text-red-500 text-left text-xs">
+                    {errors.newPassword}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -238,7 +244,7 @@ export default function ResetPassword() {
                 ${
                 loading || !formData.newPassword || !formData.confirmPassword
                   ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
-                  : "bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer"
+                  : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
               }`}
             >
               {loading ? "Resetting..." : "Reset Password"}

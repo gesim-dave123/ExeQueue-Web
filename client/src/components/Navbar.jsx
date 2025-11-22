@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import icon from "/assets/icon.svg";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import ConfirmModal from "./modal/ConfirmModal";
 
 export default function Navbar() {
@@ -17,6 +17,84 @@ export default function Navbar() {
   const [progress, setProgress] = useState(0);
   const [showModal, setShowModal] = useState(false);
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0, y: -20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut"
+      }
+    }
+  };
+
+  const menuItemVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut"
+      }
+    },
+    hover: {
+      scale: 1.05,
+      transition: {
+        duration: 0.2
+      }
+    },
+    tap: {
+      scale: 0.95
+    }
+  };
+
+  const mobileMenuVariants = {
+    hidden: { 
+      opacity: 0, 
+      scale: 0.9,
+      y: -10
+    },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: {
+        duration: 0.3,
+        ease: "easeOut"
+      }
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.9,
+      y: -10,
+      transition: {
+        duration: 0.2,
+        ease: "easeIn"
+      }
+    }
+  };
+
+  const logoVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.6,
+        ease: "backOut"
+      }
+    },
+    hover: {
+      scale: 1.05,
+      transition: {
+        duration: 0.3
+      }
+    }
+  };
+
   const isRequestPage = location.pathname === "/student/request";
 
   const closeMenu = () => {
@@ -25,18 +103,19 @@ export default function Navbar() {
 
   const getActiveClass = (sectionId) => {
     // If on the Request page, disable active/highlight
-        const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
-      if (
-        location.pathname !== "/"
-      ) {
-        return "text-gray-700 cursor-pointer hover:text-blue-600";
-      }
+    const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+    if (
+      location.pathname !== "/"
+    ) {
+      return "text-gray-700 cursor-pointer hover:text-blue-600";
+    }
 
     // Normal behavior - compare with activeSection
     return activeSection === sectionId
       ? "text-blue-600 cursor-pointer"
       : "text-gray-700 hover:text-blue-600 cursor-pointer";
   };
+
   const handleLinkClick = (link, event) => {
     event.preventDefault();
 
@@ -59,16 +138,16 @@ export default function Navbar() {
   };
 
   const handleNavigation = (link) => {
-  // Check if user has any request in progress (from any page, not just request page)
-  const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
-  
-  if (hasQueueSelected) {
-    setTargetLink(link);
-    setShowModal(true);
-  } else {
-    navigateToLink(link);
-  }
-};
+    // Check if user has any request in progress (from any page, not just request page)
+    const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+    
+    if (hasQueueSelected) {
+      setTargetLink(link);
+      setShowModal(true);
+    } else {
+      navigateToLink(link);
+    }
+  };
   
   const navigateToLink = (link) => {
     if (link === "/#" || link === "/") {
@@ -103,31 +182,29 @@ export default function Navbar() {
     }
   };
 
-  
   const cancelNavigation = () => {
     setShowModal(false);
     // setShowConfirmation(false);
     setTargetLink("");
   };
 
-
   useEffect(() => {
-  const handleBeforeUnload = (event) => {
-    const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
-    
-    if (hasQueueSelected) {
-      event.preventDefault();
-      event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
-      return event.returnValue;
-    }
-  };
+    const handleBeforeUnload = (event) => {
+      const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+      
+      if (hasQueueSelected) {
+        event.preventDefault();
+        event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+        return event.returnValue;
+      }
+    };
 
-  window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
-  return () => {
-    window.removeEventListener("beforeunload", handleBeforeUnload);
-  };
-}, []);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -208,8 +285,16 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="flex justify-between min-h-[10vh] sticky top-0 backdrop-blur-md z-50">
-        <div className="flex items-center lg:ml-20 ml-0 ">
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="flex justify-between min-h-[10vh] sticky top-0 backdrop-blur-md z-50"
+      >
+        <motion.div 
+          variants={logoVariants}
+          className="flex items-center lg:ml-20 ml-0 "
+        >
           <img src={icon} alt="Exequeue Logo" className="w-[10vh]" />
           <h1
             className="text-2xl font-bold "
@@ -217,47 +302,61 @@ export default function Navbar() {
           >
             ExeQueue
           </h1>
-        </div>
+        </motion.div>
 
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center mr-25 pr-10 gap-7 scroll-smooth">
-          <button
+          <motion.button
+            variants={menuItemVariants}
+            whileHover="hover"
+            whileTap="tap"
             onClick={() => handleDesktopNavigation("/#")}
             className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
               "home"
             )}`}
           >
             Home
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            variants={menuItemVariants}
+            whileHover="hover"
+            whileTap="tap"
             onClick={() => handleDesktopNavigation("/#about")}
             className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
               "about"
             )}`}
           >
             Help
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            variants={menuItemVariants}
+            whileHover="hover"
+            whileTap="tap"
             onClick={() => handleDesktopNavigation("/#help")}
             className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
               "help"
             )}`}
           >
             About
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            variants={menuItemVariants}
+            whileHover="hover"
+            whileTap="tap"
             onClick={() => handleDesktopNavigation("/#faq")}
             className={`px-4 py-2 rounded-lg font-medium group relative ${getActiveClass(
               "faq"
             )}`}
           >
             FAQs
-          </button>
+          </motion.button>
         </div>
 
         <div className="lg:hidden flex items-center mr-6">
-          <button
+          <motion.button
             ref={buttonRef}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="w-10 min-h-10 text-gray-700 hover:text-blue-600"
           >
@@ -266,52 +365,66 @@ export default function Navbar() {
             ) : (
               <i className="fas fa-bars text-2xl"></i>
             )}
-          </button>
+          </motion.button>
         </div>
 
         {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div
-            ref={menuRef}
-            className="lg:hidden absolute top-16 right-10 w-40 rounded-xl bg-white shadow-lg border border-gray-100 z-50"
-          >
-            <div className="flex flex-col space-y-4 p-2 font-light">
-              <button
-                onClick={(e) => handleLinkClick("/#", e)}
-                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
-                  "home"
-                )}`}
-              >
-                Home
-              </button>
-              <button
-                onClick={(e) => handleLinkClick("/#about", e)}
-                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
-                  "about"
-                )}`}
-              >
-                About
-              </button>
-              <button
-                onClick={(e) => handleLinkClick("/#help", e)}
-                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
-                  "help"
-                )}`}
-              >
-                Help
-              </button>
-              <button
-                onClick={(e) => handleLinkClick("/#faq", e)}
-                className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
-                  "faq"
-                )}`}
-              >
-                FAQs
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              ref={menuRef}
+              variants={mobileMenuVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="lg:hidden absolute top-16 right-10 w-40 rounded-xl bg-white shadow-lg border border-gray-100 z-50"
+            >
+              <div className="flex flex-col space-y-4 p-2 font-light">
+                <motion.button
+                  variants={menuItemVariants}
+             
+                  onClick={(e) => handleLinkClick("/#", e)}
+                  className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                    "home"
+                  )}`}
+                >
+                  Home
+                </motion.button>
+                <motion.button
+                  variants={menuItemVariants}
+               
+                  onClick={(e) => handleLinkClick("/#about", e)}
+                  className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                    "about"
+                  )}`}
+                >
+                  About
+                </motion.button>
+                <motion.button
+                  variants={menuItemVariants}
+               
+                  onClick={(e) => handleLinkClick("/#help", e)}
+                  className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                    "help"
+                  )}`}
+                >
+                  Help
+                </motion.button>
+                <motion.button
+                  variants={menuItemVariants}
+  
+                  onClick={(e) => handleLinkClick("/#faq", e)}
+                  className={`px-4 py-2 rounded-lg font-medium text-left ${getActiveClass(
+                    "faq"
+                  )}`}
+                >
+                  FAQs
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* Confirmation Modal - Only shows when queue is selected */}
       <ConfirmModal
