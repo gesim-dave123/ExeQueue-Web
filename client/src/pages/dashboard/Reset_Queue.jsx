@@ -4,6 +4,7 @@ import {
   overrideSessionReset,
 } from "../../api/staff.api";
 import ConfirmModal from "../../components/modal/ConfirmModal";
+import { showToast } from "../../components/toast/ShowToast.jsx";
 import { Queue_Type } from "../../constants/queueEnums";
 
 export default function Reset_Queue() {
@@ -14,7 +15,10 @@ export default function Reset_Queue() {
       if (!result) {
         throw new Error(result);
       }
-      console.log("result: ", result);
+      showToast(
+        `${queueType.toUpperCase()} has been reset successfully.`,
+        "success"
+      );
     } catch (error) {
       console.error("Error in resetting queue: ", error);
     }
@@ -25,7 +29,7 @@ export default function Reset_Queue() {
       if (!result) {
         throw new Error(result);
       }
-      console.log("result: ", result);
+      showToast("Session has been reset successfully.", "success");
     } catch (error) {
       console.error("Error in resetting session: ", error);
     }
@@ -39,7 +43,7 @@ export default function Reset_Queue() {
         <>
           Resetting the Priority Queue will set the queue <br />
           number sequence back to one. This action <br />
-          cannot be undone
+          cannot be undone.
           <br />
           <br />
           Are you sure you want to continue?
@@ -57,7 +61,7 @@ export default function Reset_Queue() {
         <>
           Resetting the Regular Queue will set the queue <br />
           number sequence back to one. This action <br />
-          cannot be undone
+          cannot be undone.
           <br />
           <br />
           Are you sure you want to continue?
@@ -75,7 +79,7 @@ export default function Reset_Queue() {
         <>
           Resetting All Queue will set all queue <br />
           number sequence back to one. This action <br />
-          cannot be undone
+          cannot be undone.
           <br />
           <br />
           Are you sure you want to continue?
@@ -99,10 +103,10 @@ export default function Reset_Queue() {
   };
 
   return (
-    <div className="min-h-screen flex items-start xl:items-center py-7 lg:py-20 xl:py-7 px-6 sm:px-10  xl:px-0 xl:pl-1 xl:pr-7">
+    <div className="min-h-screen flex items-start xl:items-center py-7 lg:py-20 xl:py-7 px-3 sm:px-10  xl:px-0 xl:pl-1 xl:pr-7">
       <div className="w-full h-full px-4 sm:px-5 lg:px-8 xl:px-10 flex flex-col items-start py-6 sm:py-12 lg:pt-8 lg:pb-17 xl:pt-9 xl:pb-23 bg-white rounded-2xl sm:rounded-3xl mt-12 lg:mt-0 shadow-xs">
         {/* Page Title */}
-        <h1 className="flex gap-2 w-full text-2xl sm:text-3xl xl:text-4xl font-semibold pb-15">
+        <h1 className="flex gap-2 w-full text-2xl sm:text-3xl xl:text-4xl font-semibold pb-8 md:pb-15">
           Reset Queue
         </h1>
 

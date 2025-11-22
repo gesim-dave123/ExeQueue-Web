@@ -1,5 +1,4 @@
 import { Status } from "@prisma/client";
-import cron from "node-cron";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 
@@ -69,16 +68,7 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
 
     let whereClause = {};
 
-    // STALLED LOGIC: Only show STALLED from previous days (finalized)
-    if (status === Status.STALLED) {
-      whereClause = {
-        transactionStatus: Status.STALLED,
-        requestId: { not: null },
-        createdAt: {
-          lt: todayStart,
-        },
-      };
-    } else if (status === Status.SKIPPED) {
+    if (status === Status.SKIPPED) {
       // Block SKIPPED from being shown
       return res.status(200).json({
         success: true,
@@ -114,9 +104,9 @@ export const getTransactionsWithStalledLogic = async (req, res) => {
         {
           transactionStatus: Status.STALLED,
           requestId: { not: null },
-          createdAt: {
-            lt: todayStart,
-          },
+          // createdAt: {
+          //   lt: todayStart,
+          // },
         },
         {
           transactionStatus: Status.PARTIALLY_COMPLETE,

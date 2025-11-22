@@ -1,17 +1,22 @@
 const generateReferenceNumber = (today, queueType, queueNumber, sessionNo) => {
-  const yy = String(today.getFullYear()).slice(-2); // Get last 2 digits
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
+  const yy = String(today.getFullYear()).slice(2); // last 2 digits of year
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
 
   const formattedDate = `${yy}${mm}${dd}`;
+
   const typeMap = {
-    PRIORITY: 'P',
-    REGULAR: 'R',
+    PRIORITY: "P",
+    REGULAR: "R",
   };
-  const formattedQueueType = typeMap[queueType.toUpperCase()] || 'X';
-  const formattedSession = `${sessionNo}`;
-  const minDigits = queueNumber < 1000 ? 3 : String(queueNumber).length;
-  const formattedNumber = String(queueNumber).padStart(minDigits, '0');
+
+  const formattedQueueType = typeMap[queueType.toUpperCase()] || "X";
+
+  // Example shows no S prefix → just the number
+  const formattedSession = sessionNo;
+
+  // Example shows 3 digits: P001 → change padStart(4) to padStart(3)
+  const formattedNumber = String(queueNumber).padStart(3, "0");
 
   return `${formattedDate}-${formattedSession}-${formattedQueueType}${formattedNumber}`;
 };

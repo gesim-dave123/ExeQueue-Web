@@ -1,12 +1,19 @@
-import { Role } from '@prisma/client'
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import {generateCode,sendCodeToEmail,storeOTP,getOTP,markOTPAsUsed,deleteOTP} from '../services/queue/generateOTP.js'
-import prisma from '../../prisma/prisma.js'
+import { Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import prisma from "../../prisma/prisma.js";
+import {
+  deleteOTP,
+  generateCode,
+  getOTP,
+  markOTPAsUsed,
+  sendCodeToEmail,
+  storeOTP,
+} from "../services/queue/generateOTP.js";
 
-export const loginUser = async (req, res) =>{
-  const {username, password} = req.body
-  console.log("Hereee")
+export const loginUser = async (req, res) => {
+  const { username, password } = req.body;
+  console.log("Hereee");
   try {
     if (!username || !password)
       return res
@@ -25,7 +32,7 @@ export const loginUser = async (req, res) =>{
       },
     });
 
-    if (!user)
+    if (!user || (!user.isActive && user.deletedAt === null))
       return res
         .status(404)
         .json({ success: false, message: "Account not found!" });
@@ -49,8 +56,8 @@ export const loginUser = async (req, res) =>{
 
     res.cookie("access_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: true, // ALWAYS true for tunnels
+      sameSite: "none", // REQUIRED for cross-site
       path: "/",
       maxAge:
         user.role === Role.PERSONNEL
@@ -109,11 +116,10 @@ export const logoutUser = (req, res) => {
   });
 
   return res.status(200).json({
-    success:true,
-    message: "Logged Out Successfully!"
-  })
+    success: true,
+    message: "Logged Out Successfully!",
+  });
 };
-
 
 export const requestPasswordReset = async (req, res) => {
   const correctEmail = (email) => {
@@ -122,44 +128,56 @@ export const requestPasswordReset = async (req, res) => {
 
   const { email } = req.body;
 
-  if (!email) return res.status(400).json({success: false, message: "Email is required"});
-  
-  if (!correctEmail(email)) return res.status(400).json({success: false,message: "Invalid email format. Must be a Gmail address"});
-  
+  if (!email)
+    return res
+      .status(400)
+      .json({ success: false, message: "Email is required" });
+
+  if (!correctEmail(email))
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email format. Must be a Gmail address",
+    });
+
   try {
     const user = await prisma.sasStaff.findUnique({
       where: {
-        email: email
-      }
+        email: email,
+      },
     });
 
-    if (!user) return res.status(404).json({ success: false, message: "Email not found in database"});
-    
-    const OTPcode = generateCode();
-    storeOTP(email,OTPcode);
-    const adminEmail = await prisma.sasStaff.findUnique({
-      where:{
-        username: "admin2"
-      },
-      select:{
-        email:true
-      }
-    })
-    
-    const emailSent = await sendCodeToEmail(email,adminEmail, OTPcode);
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "Email not found in database" });
 
-    if (!emailSent) return res.status(500).json({ success: false,message: "Failed to send verification email"});
-    
+    const OTPcode = generateCode();
+    storeOTP(email, OTPcode);
+    const adminEmail = await prisma.sasStaff.findUnique({
+      where: {
+        username: "admin",
+      },
+      select: {
+        email: true,
+      },
+    });
+
+    const emailSent = await sendCodeToEmail(email, adminEmail, OTPcode);
+
+    if (!emailSent)
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to send verification email" });
+
     return res.status(200).json({
       success: true,
-      message: "Verification code sent successfully", 
+      message: "Verification code sent successfully",
     });
-
   } catch (error) {
-    console.error('Error in requestPasswordReset:', error);
+    console.error("Error in requestPasswordReset:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
@@ -167,101 +185,114 @@ export const requestPasswordReset = async (req, res) => {
 export const verifyEmail = async (req, res) => {
   try {
     const { receivedOTP, email } = req.body;
-    if (!receivedOTP) return res.status(400).json({ success: false, message: "Code is Required"});
-    
-    if (!email) return res.status(400).json({success: false, message: "Email is Required"});
+    if (!receivedOTP)
+      return res
+        .status(400)
+        .json({ success: false, message: "Code is Required" });
+
+    if (!email)
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is Required" });
 
     const OTPcode = getOTP(email);
 
-    if (!OTPcode) return res.status(404).json({success: false,message: "OTP not found or has expired. Please try again"});
-    
+    if (!OTPcode)
+      return res.status(404).json({
+        success: false,
+        message: "OTP not found or has expired. Please try again",
+      });
+
     if (Date.now() > OTPcode.expires_at) {
       deleteOTP(email);
-      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new code"});
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new code",
+      });
     }
 
     if (receivedOTP !== OTPcode.code) {
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP. Please try again"
+        message: "Invalid OTP. Please try again",
       });
     }
 
-    if (OTPcode.is_used) return res.status(400).json({success: false,message: "OTP has already been used"});
-    
+    if (OTPcode.is_used)
+      return res
+        .status(400)
+        .json({ success: false, message: "OTP has already been used" });
+
     markOTPAsUsed(email);
     deleteOTP(email);
 
     const resetToken = jwt.sign(
-      { email, purpose: 'password-reset' },
+      { email, purpose: "password-reset" },
       process.env.JWT_SECRET,
-      { expiresIn: '15m' } 
+      { expiresIn: "15m" }
     );
 
     return res.status(200).json({
       success: true,
       message: "Email verified successfully",
-      resetToken
+      resetToken,
     });
-
   } catch (error) {
-    console.error('Verify email error:', error);
+    console.error("Verify email error:", error);
     return res.status(500).json({
       success: false,
-      message: "An error occurred. Please try again later"
+      message: "An error occurred. Please try again later",
     });
   }
 };
 
 export const resetPassword = async (req, res) => {
   try {
-    
     const { newPassword } = req.body;
     const authHeader = req.headers.authorization;
 
     console.log("Auth Header:", authHeader);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "No authorization token provided" 
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "No authorization token provided",
       });
     }
 
-    const resetToken = authHeader.split(' ')[1];
+    const resetToken = authHeader.split(" ")[1];
     console.log("Token extracted:", resetToken.substring(0, 20) + "...");
 
     let decoded;
     try {
       decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
     } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-          success: false, 
-          message: "Reset token has expired. Please request a new one." 
+      if (error.name === "TokenExpiredError") {
+        return res.status(401).json({
+          success: false,
+          message: "Reset token has expired. Please request a new one.",
         });
       }
-      return res.status(401).json({ 
-        success: false, 
-        message: "Invalid reset token" 
+      return res.status(401).json({
+        success: false,
+        message: "Invalid reset token",
       });
     }
 
-    
-    if (decoded.purpose !== 'password-reset') {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Invalid token purpose" 
+    if (decoded.purpose !== "password-reset") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token purpose",
       });
     }
 
     const { email } = decoded;
 
-    // Validate password
+    // Validate password length
     if (!newPassword || newPassword.length < 8) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 8 characters",
+        message: "Your password must be 8 characters long",
       });
     }
 
@@ -276,17 +307,31 @@ export const resetPassword = async (req, res) => {
         message: "User not found",
       });
     }
-    
+
+    // ✅ NEW: Check if new password is the same as old password
+    const isSamePassword = await bcrypt.compare(
+      newPassword,
+      user.hashedPassword
+    );
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be the same as your old password",
+      });
+    }
+
+    // Hash and update the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
- 
+
     await prisma.sasStaff.update({
       where: { email: email },
       data: {
-        hashedPassword: hashedPassword,  
+        hashedPassword: hashedPassword,
         updatedAt: new Date(),
       },
     });
-  
+
     return res.status(200).json({
       success: true,
       message: "Password reset successfully",
@@ -295,10 +340,10 @@ export const resetPassword = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "An error occurred while resetting password",
-      error: error.message  
+      error: error.message,
     });
   }
-}
+};
 export const verifyUser = (req, res) => {
   try {
     res.status(200).json({ success: true, user: req.user });
@@ -309,7 +354,3 @@ export const verifyUser = (req, res) => {
       .json({ success: false, message: "Internal Server Error!" });
   }
 };
-  
-
-
-

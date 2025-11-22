@@ -22,7 +22,7 @@ export const authenticateToken = async (req, res, next) => {
         sasStaffId: decoded.id,
       },
     });
-    if (!user)
+    if (!user || (!user.isActive && user.deletedAt === null))
       return res
         .status(404)
         .json({ success: false, message: "Account not found!" });

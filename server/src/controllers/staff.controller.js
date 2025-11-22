@@ -5,7 +5,7 @@ import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { getShiftTag } from "../../utils/shiftTag.js";
 import { QueueActions, WindowEvents } from "../services/enums/SocketEvents.js";
 // import { sendDashboardUpdate } from "./sse.controllers.js";
-import { encryptQueueId } from "../../utils/encryptId.js";
+import { scheduleAssignmentTimer } from "../services/Window/windowAssignment.service.js";
 import {
   sendDashboardUpdate,
   sendLiveDisplayUpdate,
@@ -74,12 +74,16 @@ export const assignServiceWindow = async (req, res) => {
 
       return assignment;
     });
-
-    io.emit(WindowEvents.ASSIGN_WINDOW, {
-      windowId,
-      staff: result.staff,
-      message: `Window ${windowId} assigned to ${result.staff.firstName}`,
-    });
+    scheduleAssignmentTimer(
+      result.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      io
+    );
+    // io.emit(WindowEvents.ASSIGN_WINDOW, {
+    //   windowId,
+    //   staff: result.staff,
+    //   message: `Window ${windowId} assigned to ${result.staff.firstName}`,
+    // });
 
     return res.status(201).json({
       success: true,
@@ -87,7 +91,7 @@ export const assignServiceWindow = async (req, res) => {
       assignment: result,
     });
   } catch (error) {
-    console.error("❌ Error assigning staff:", error);
+    console.error("Error assigning staff:", error);
 
     // Handle unique constraint (window already taken)
     if (error.code === "P2002" && error.meta?.target?.includes("windowId")) {
@@ -167,7 +171,7 @@ export const releaseServiceWindow = async (req, res) => {
           },
         });
         io.emit(QueueActions.QUEUE_RESET, {
-          queueId: encryptQueueId(updatedQueue.queueId),
+          queueId: updatedQueue.queueId,
           windowId: updatedQueue.windowId,
           referenceNumber: updatedQueue.referenceNumber,
           previousWindowId: activeAssignment.windowId,
@@ -315,7 +319,6 @@ export const checkAvailableWindow = async (req, res) => {
     }
 
     const shift = getShiftTag(); // returns "MORNING", "AFTERNOON", "EVENING"
-    console.log(shift);
     const assignedWindows = await prisma.windowAssignment.findMany({
       where: {
         windowId: { in: windowIds },
@@ -329,7 +332,6 @@ export const checkAvailableWindow = async (req, res) => {
     });
 
     const assignedIds = assignedWindows.map((a) => a.windowId);
-    console.log(assignedIds);
     const availableWindows = windowIds.filter(
       (id) => !assignedIds.includes(id)
     );
@@ -354,7 +356,15 @@ export const updateWindowHeartbeat = async (req, res) => {
     const { windowId } = req.body;
     const io = req.app.get("io");
     const shift = getShiftTag();
-    const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+    const HEARTBEAT_INTERVAL = 2 * 60 * 1000;
+
+    // Validate windowId
+    if (!windowId) {
+      return res.status(400).json({
+        success: false,
+        message: "windowId is required",
+      });
+    }
 
     const assignment = await prisma.windowAssignment.findFirst({
       where: {
@@ -363,7 +373,10 @@ export const updateWindowHeartbeat = async (req, res) => {
         shiftTag: shift,
         releasedAt: null,
       },
-      select: { lastHeartbeat: true },
+      select: {
+        assignmentId: true,
+        lastHeartbeat: true,
+      },
     });
 
     if (!assignment) {
@@ -374,52 +387,63 @@ export const updateWindowHeartbeat = async (req, res) => {
     }
 
     const now = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
-    const timeSinceLastHeartbeat =
-      now.getTime() - new Date(assignment.lastHeartbeat).getTime();
 
-    // Only update if heartbeat is older than interval
-    if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
-      return res.status(200).json({
-        success: true,
-        message: "Heartbeat still fresh, skipped update",
-        skipped: true,
-      });
+    // Check if heartbeat needs updating
+    if (assignment.lastHeartbeat) {
+      const timeSinceLastHeartbeat =
+        now.getTime() - new Date(assignment.lastHeartbeat).getTime();
+
+      // Only update if heartbeat is older than interval
+      if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
+        return res.status(200).json({
+          success: true,
+          message: "Heartbeat still fresh, skipped update",
+          skipped: true,
+          lastHeartbeat: assignment.lastHeartbeat,
+        });
+      }
     }
 
-    // Update only if needed
-    await prisma.windowAssignment.updateMany({
+    // Update heartbeat using the specific assignmentId
+    const updatedAssignment = await prisma.windowAssignment.update({
       where: {
-        sasStaffId,
-        windowId,
-        shiftTag: shift,
-        releasedAt: null,
+        assignmentId: assignment.assignmentId,
       },
       data: {
         lastHeartbeat: now,
       },
+      select: {
+        assignmentId: true,
+      },
     });
-
-    // Only emit socket event when actually updating
-    io.emit(WindowEvents.HEARTBEAT_UPDATE, {
-      windowId,
-      sasStaffId,
-      timestamp: now,
-    });
+    scheduleAssignmentTimer(
+      updatedAssignment.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      io
+    );
+    // Emit socket event for monitoring/debugging (optional)
+    if (io) {
+      io.emit(WindowEvents.HEARTBEAT_UPDATE, {
+        windowId,
+        sasStaffId,
+        timestamp: now,
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: "Heartbeat updated",
       updated: true,
+      lastHeartbeat: now,
     });
   } catch (error) {
-    console.error("❌ Error updating heartbeat:", error);
+    console.error("Error updating heartbeat:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
     });
   }
 };
-
 export const checkAndReleaseStaleAssignments = async (req, res) => {
   try {
     const io = req.app.get("io");
@@ -564,18 +588,27 @@ export const createWorkingScholar = async (req, res) => {
       !username?.trim() ||
       !firstName?.trim() ||
       !lastName?.trim() ||
-      !email?.trim() ||
-      !password
+      !email?.trim()
     ) {
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields." });
     }
 
+    // ✅ Check if password is provided
+    if (!password || !password.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Password cannot be empty",
+        field: "password", // Add field identifier
+      });
+    }
+
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: "Password and confirmation do not match.",
+        message: "Passwords do not match",
+        field: "password", // Add field identifier
       });
     }
 
@@ -589,13 +622,17 @@ export const createWorkingScholar = async (req, res) => {
 
     if (existing) {
       if (existing.username === username) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Username already exists." });
+        return res.status(409).json({
+          success: false,
+          message: "Username already exists",
+          field: "username",
+        });
       }
-      return res
-        .status(409)
-        .json({ success: false, message: "Email already exists." });
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists",
+        field: "email",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -869,7 +906,6 @@ export const manualWindowRelease = async (req, res) => {
         message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
       });
     }
-    console.log("windowSTr", windowNoStr);
     if (!isIntegerParam(windowNoStr)) {
       return res.status(400).json({
         success: false,
@@ -915,7 +951,7 @@ export const manualWindowRelease = async (req, res) => {
       if (!activeAssignment) {
         return res.status(200).json({
           success: false,
-          messsage: "There is no active staff assigned to this window",
+          message: "There is no active staff assigned to this window",
           wasWindowAssigned: false,
         });
       }
@@ -949,14 +985,12 @@ export const manualWindowRelease = async (req, res) => {
         });
 
         io.emit(QueueActions.QUEUE_RESET, {
-          queueId: encryptQueueId(updatedQueue.queueId),
+          queueId: updatedQueue.queueId,
           windowId: updatedQueue.windowId,
           referenceNumber: updatedQueue.referenceNumber,
           previousWindowId: activeAssignment.windowId,
         });
       }
-      console.log("Current Queue", currentQueue);
-
       const released = await tx.windowAssignment.update({
         where: {
           assignmentId: activeAssignment.assignmentId,
@@ -990,6 +1024,7 @@ export const manualWindowRelease = async (req, res) => {
       windowId: result.windowId,
       previousWindowId: result.windowId,
       sasStaffId,
+      releasedByAdmin: true,
       shift,
       resetQueue: result.resetQueue
         ? {
@@ -1002,6 +1037,8 @@ export const manualWindowRelease = async (req, res) => {
     sendDashboardUpdate({
       windowId: result.windowId,
       previousWindowId: result.windowId,
+      releasedByAdmin: true,
+
       sasStaffId,
       shift,
       resetQueue: result.resetQueue
@@ -1016,6 +1053,8 @@ export const manualWindowRelease = async (req, res) => {
     sendLiveDisplayUpdate({
       windowId: result.windowId,
       previousWindowId: result.windowId,
+      releasedByAdmin: true,
+
       sasStaffId,
       shift,
       resetQueue: result.resetQueue
@@ -1034,6 +1073,7 @@ export const manualWindowRelease = async (req, res) => {
         : "Window released successfully",
       resetQueue: result.resetQueue,
       wasWindowAssigned: true,
+      releasedByAdmin: true,
     });
   } catch (error) {
     console.error("Manual window release error:", error);
@@ -1306,5 +1346,133 @@ export const manualResetSession = async (req, res) => {
       success: false,
       message: "Internal Server Error!" || error.message,
     });
+  }
+};
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const { username, firstName, lastName, middleName, email, newPassword } =
+      req.body;
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+    const account = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: {
+        sasStaffId: true,
+        username: true,
+        email: true,
+        isActive: true,
+        role: true,
+      },
+    });
+
+    if (!account || !account.isActive) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Account not found or inactive." });
+    }
+    let hashedPassword = undefined;
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required to proceed.",
+      });
+    }
+    if (newPassword) {
+      hashedPassword = await bcrypt.hash(newPassword, 10);
+    }
+
+    if (username && username !== account.username) {
+      const existingUsername = await prisma.sasStaff.findFirst({
+        where: { username },
+        select: { sasStaffId: true },
+      });
+      if (existingUsername) {
+        return res
+          .status(409)
+          .json({ success: false, message: "Username already in use." });
+      }
+    }
+    if (email && email !== account.email) {
+      const existingEmail = await prisma.sasStaff.findFirst({
+        where: { email },
+        select: { sasStaffId: true },
+      });
+      if (existingEmail) {
+        return res
+          .status(409)
+          .json({ success: false, message: "Email already in use." });
+      }
+    }
+
+    // Build update payload
+    const updateData = {
+      ...(username ? { username } : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      ...(typeof middleName !== "undefined"
+        ? { middleName: middleName ?? null }
+        : {}),
+      ...(email ? { email } : {}),
+      ...(typeof hashedPassword !== "undefined" ? { hashedPassword } : {}),
+      updatedAt: new Date(),
+    };
+
+    const updated = await prisma.sasStaff.update({
+      where: { sasStaffId },
+      data: updateData,
+      select: {
+        sasStaffId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Account updated successfully.",
+      data: {
+        sasStaffId: updated.sasStaffId,
+        username: updated.username,
+        name: `${updated.firstName} ${updated.lastName}`,
+        email: updated.email,
+        role: updated.role,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating personnel profile:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };

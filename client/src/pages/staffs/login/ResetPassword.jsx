@@ -1,69 +1,58 @@
-import React, { useState, useEffect } from "react";
-import { ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { resetPassword } from "../../../api/auth";
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { resetPassword } from '../../../api/auth';
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isNPasswordFocused, setIsNPasswordFocused] = useState(false);
+  const [isCPasswordFocused, setIsCPasswordFocused] = useState(false);
   const [formData, setFormData] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
   const [errors, setErrors] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
+  const [focusedField, setFocusedField] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email;
   const resetToken = location.state?.resetToken;
 
-  // useEffect(() => {
-  //   inputRefs[0].current?.focus();
-  // }, [otp]);
-
-  // useEffect(() => {
-  //   if (email === undefined || resetToken === undefined) return; 
-  //   if (!email || !resetToken) {
-  //     navigate("/staff/forgot-password", { replace: true });
-  //   }
-  // }, [email, resetToken, navigate]);
-
-    const handleChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    const updatedFormData = {
+
+    setFormData({
       ...formData,
       [name]: value,
     };
     
     setFormData(updatedFormData);
     
-    let newErrors = { ...errors, [name]: "" }; 
-    
-    if (updatedFormData.newPassword && updatedFormData.confirmPassword) {
-      if (updatedFormData.newPassword !== updatedFormData.confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match";
-      } else {
-        newErrors.confirmPassword = "";  
-      }
+    // Clear errors when user types
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: "",
+      });
     }
-
-    setErrors(newErrors);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.newPassword !== formData.confirmPassword) {
-      setErrors({
-        ...errors,
-        confirmPassword: "Passwords do not match",
-      });
-      return;
-    }
+    
+    // Reset errors
+    setErrors({
+      newPassword: "",
+      confirmPassword: "",
+    });
+
+    // Validate on submit only
     if (formData.newPassword.length < 8) {
       setErrors({
         ...errors,
@@ -71,23 +60,30 @@ export default function ResetPassword() {
       });
       return;
     }
-    console.log("Reset Token:", resetToken);
 
-    setLoading(true);
-    const res = await resetPassword(
-      resetToken,                    
-      formData.newPassword           
-    );
-    
-    if (!res?.success) {
+    if (formData.newPassword !== formData.confirmPassword) {
       setErrors({
         ...errors,
-        newPassword: res?.message || "Failed to reset password",
+        confirmPassword: "Passwords do not match",
+      });
+      return;
+    }
+    // console.log("Reset Token:", resetToken);
+    setLoading(true);
+    const res = await resetPassword(resetToken, formData.newPassword);
+
+    if (!res?.success) {
+      setErrors({
+        newPassword: res?.message || 'Failed to reset password',
+        confirmPassword: '',
       });
       setLoading(false);
       return;
-    }   
-    navigate("/staff/success-reset", { state: { message: "Password reset successfully!" } });
+    }
+
+    navigate('/staff/success-reset', {
+      state: { message: 'Password reset successfully!' },
+    });
     setLoading(false);
   };
 
@@ -110,106 +106,149 @@ export default function ResetPassword() {
         </p>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col text-left gap-5">
-          {/* New Password Input */}
-          <div className="relative">
-            <label
-              htmlFor="newPassword"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.newPassword
-                  ? "-top-2.5 text-xs bg-white px-1"
-                  : "top-3 text-base text-gray-500"
-              } ${
-                errors.newPassword
-                  ? "text-red-500"
-                  : formData.newPassword
-                  ? "text-blue-500"
-                  : "text-gray-500"
-              }`}
-            >
-              New Password
-            </label>
-            <input
-              type={showPassword ? "text" : "password"}
-              id="newPassword"
-              name="newPassword"
-              value={formData.newPassword}
-              onChange={handleChange}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
-                errors.newPassword
-                  ? "border-red-500 focus:ring-2 focus:ring-red-500"
-                  : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              }`}
-            />
-            {formData.newPassword && (
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="flex flex-col gap-5">
+            {/* New Password Input */}
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="newPassword"
+                name="newPassword"
+                value={formData.newPassword}
+                onChange={handleChange}
+                onFocus={() => setIsNPasswordFocused(true)}
+                onBlur={() => setIsNPasswordFocused(false)}
+                placeholder=" "
+                className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
+                  focus:outline-none transition-all
+                  ${
+                    errors.newPassword
+                      ? "border-red-500 border-1 focus:ring-red-500"
+                      : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  }`}
+              />
+              <label
+                htmlFor="newPassword"
+                className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none 
+                  text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
+                  peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
+                  -top-2.5 text-xs 
+                  ${
+                    formData.newPassword ? "hidden peer-focus:flex" : ""
+                  }
+                  ${
+                    errors.newPassword
+                      ? "peer-focus:text-red-500 text-red-500"
+                      : "peer-focus:text-blue-500"
+                  }
+                  ${
+                    formData.newPassword && !errors.newPassword
+                      ? "text-blue-500"
+                      : ""
+                  }`}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            )}
+                New Password
+              </label>
+              {isNPasswordFocused && (
+                <button
+                  type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowPassword(!showPassword);
+                    }}
+                  className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+            </div>
+
+            {/* Confirm Password Input */}
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                onFocus={() => setIsCPasswordFocused(true)}
+                onBlur={() => setIsCPasswordFocused(false)}
+                placeholder=" "
+                className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
+                  focus:outline-none transition-all
+                  ${
+                    errors.confirmPassword
+                      ? "border-red-500 border-1 focus:ring-red-500"
+                      : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  }`}
+              />
+              <label
+                htmlFor="confirmPassword"
+                className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none 
+                  text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
+                  peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs
+                  -top-2.5 text-xs 
+                  ${
+                    formData.confirmPassword ? "hidden peer-focus:flex" : ""
+                  }
+                  ${
+                    errors.confirmPassword
+                      ? "peer-focus:text-red-500 text-red-500"
+                      : "peer-focus:text-blue-500"
+                  }
+                  ${
+                    formData.confirmPassword && !errors.confirmPassword
+                      ? "text-blue-500"
+                      : ""
+                  }`}
+              >
+                Confirm New Password
+              </label>
+              {isCPasswordFocused && (
+                <button
+                  type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setShowConfirmPassword(!showConfirmPassword);
+                    }}
+                  className={`absolute right-4 top-6.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              )}
+              
+              {/* Error Message - moved inside the confirm password container */}
+              <div className="h-5 mt-0.5">
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-left text-xs">
+                    {errors.confirmPassword}
+                  </p>
+                )}
+
+                 {errors.newPassword && (
+                  <p className="text-red-500 text-left text-xs">
+                    {errors.newPassword}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Confirm Password Input */}
-          <div className="relative">
-            <label
-              htmlFor="confirmPassword"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                formData.confirmPassword
-                  ? "-top-2.5 text-xs bg-white px-1"
-                  : "top-3 text-base text-gray-500"
-              } ${
-                errors.confirmPassword
-                  ? "text-red-500"
-                  : formData.confirmPassword
-                  ? "text-blue-500"
-                  : "text-gray-500"
+          {/* Reset Button - now with consistent spacing */}
+          <div className="mt-6">
+            <button
+              type="submit"
+              disabled={loading || !formData.newPassword || !formData.confirmPassword}
+              className={`w-full font-semibold py-3 rounded-xl transition-all
+                ${
+                loading || !formData.newPassword || !formData.confirmPassword
+                  ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
+                  : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
               }`}
             >
-              Confirm New Password
-            </label>
-            <input
-              type={showConfirmPassword ? "text" : "password"}
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className={`w-full px-4 py-3 border rounded-xl focus:outline-none transition-all pr-12 ${
-                errors.confirmPassword
-                  ? "border-red-500 focus:ring-2 focus:ring-red-500"
-                  : "border-[#DDEAFC] focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              }`}
-            />
-            {formData.confirmPassword && (
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-6 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
-              >
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            )}
-            {errors.confirmPassword && (
-              <p className="text-red-500 text-xs mt-1 ml-1">
-                {errors.confirmPassword}
-              </p>
-            )}
+              {loading ? "Resetting..." : "Reset Password"}
+            </button>
           </div>
-
-          {/* Reset Button */}
-          <button
-            type="submit"
-            disabled={loading || !formData.newPassword || !formData.confirmPassword}
-            className={`w-full font-semibold py-3 rounded-xl transition-all  ${
-              loading || !formData.newPassword || !formData.confirmPassword
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer"
-            }`}
-          >
-            {loading ? "Resetting..." : "Reset Password"}
-          </button>
         </form>
 
         {/* Back to Login */}
@@ -217,7 +256,7 @@ export default function ResetPassword() {
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
             onClick={() => navigate("/staff/login")}
-            className="text-sm text-gray-700  cursor-pointer"
+            className="text-sm text-gray-700 cursor-pointer"
           >
             Back to Login
           </button>
