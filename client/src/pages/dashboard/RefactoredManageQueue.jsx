@@ -51,8 +51,7 @@ export default function Manage_Queue() {
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
   const [tooltipData, setTooltipData] = useState(null);
-
-  // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
+  const [hasChanges, setHasChanges] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
 
   const [showWindowModal, setShowWindowModal] = useState(false);
@@ -75,7 +74,7 @@ export default function Manage_Queue() {
   const DEFAULT_QUEUE = {
     queueNo: "R000",
     studentId: "N/A",
-    name: "John Doe",
+    name: "N/A",
     course: "N/A",
     type: "N/A",
     time: "N/A",
@@ -149,8 +148,7 @@ export default function Manage_Queue() {
       setAvailableWindows(formattedWindows);
       setShowWindowModal(true);
     } catch (error) {
-      console.error("❌ Error loading windows:", error);
-      showToast("Failed to load windows", "error");
+      console.error("Error loading windows:", error);
       setIsLoading(false);
     }
   };
@@ -178,14 +176,13 @@ export default function Manage_Queue() {
     if (heartbeatRef.current) {
       clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
-      console.log("Heartbeat stopped");
     }
   }
 
   const {
     // Main lists (now conditionally returns search results when in search mode)
-    globalQueueList, // ✅ Contains waiting queue OR search results
-    deferredQueue, // ✅ Contains deferred queue OR search results
+    globalQueueList, // Contains waiting queue OR search results
+    deferredQueue, // Contains deferred queue OR search results
     currentQueue,
     selectedQueue,
     isLoading,
@@ -286,12 +283,7 @@ export default function Manage_Queue() {
         showToast("Please select a window first.", "error");
         return;
       }
-
       if (currentQueue?.queueId) {
-        console.log(
-          `🔖 Marking previous queue ${currentQueue.queueNo} before calling next...`
-        );
-
         try {
           const markResponse = await markQueueStatus(
             currentQueue.queueId,
@@ -299,7 +291,7 @@ export default function Manage_Queue() {
           );
 
           if (!markResponse.success) {
-            console.error(
+            console.warn(
               "BLOCKING: Failed to mark previous queue:",
               markResponse.message
             );
@@ -314,10 +306,7 @@ export default function Manage_Queue() {
             `✅ Previous queue marked as: ${markResponse.queue.queueStatus}`
           );
         } catch (markError) {
-          console.error(
-            "❌ BLOCKING: Error marking previous queue:",
-            markError
-          );
+          console.warn("BLOCKING: Error marking previous queue:", markError);
           showToast(
             "Cannot proceed: Error updating queue status. Please try again.",
             "error"
@@ -331,14 +320,13 @@ export default function Manage_Queue() {
 
       if (response.status === 404 || !response.success) {
         if (response?.message?.includes("No queues left")) {
-          showToast("🎉 No more queues left for today!", "info");
+          showToast("No more queues left for today!", "info");
           setCurrentQueue(getDefaultQueue());
           setWasQueueEmpty(true);
           setHasCurrentServedQueue(false);
           return;
         }
-
-        showToast(response?.message || "Failed to call next queue.", "error");
+        showToast("Failed to call next queue. Try Again", "error");
         return;
       }
 
@@ -347,7 +335,6 @@ export default function Manage_Queue() {
       // setHasCurrentServedQueue(true);
 
       setCurrentQueue(formattedQueue);
-      console.log("Current Queue:", formattedQueue);
 
       // ✅ The hook automatically removes from globalQueueList via socket
       // But we can also do it locally for instant feedback
@@ -359,9 +346,8 @@ export default function Manage_Queue() {
       //   windowId: activeWindow.id,
       // });
 
-      console.log("Formatted Queue:", formattedQueue.queueNo);
       AnnounceQueue(formattedQueue.queueNo, activeWindow.name);
-      showToast(`Now serving ${formattedQueue.queueNo}`, "success");
+      showToast(`Now serving ${formattedQueue.queueNo}`, "info");
     } catch (error) {
       console.error("Error in handleCallNext:", error);
       showToast("Error calling next queue.", "error");
@@ -451,7 +437,7 @@ export default function Manage_Queue() {
 
       if (!response.success) throw new Error(response.message);
 
-      showToast(`Request ${requestStatus.toLowerCase()}`, "success");
+      showToast(`Request ${normalizeStatusForDisplay(requestStatus)}`, "info");
     } catch (error) {
       console.error("❌ Action failed:", error);
       setCurrentQueue(snapshot); // Rollback
@@ -495,8 +481,8 @@ export default function Manage_Queue() {
           r.id === requestId ? { ...r, status: requestStatus } : r
         ),
       }));
-
-      showToast(`Request updated to ${requestStatus}`, "success");
+      setHasChanges(true);
+      showToast(`Request updated to ${requestStatus}`, "info");
     } catch (error) {
       console.error("❌ Error updating deferred request:", error);
       setSelectedQueue(snapshot.selectedQueue);
@@ -532,17 +518,16 @@ export default function Manage_Queue() {
             markResponse?.message || "Failed to finalize queue status"
           );
         }
-
-        // showToast(
-        //   `Queue ${selectedQueue.queueNo} has been finalized and removed.`,
-        //   "success"
-        // );
+        showToast(
+          `Queue ${selectedQueue.queueNo} has been finalized.`,
+          "success"
+        );
       } else {
         updateQueueInMaps(selectedQueue);
-        // showToast(
-        //   `Queue ${selectedQueue.queueNo} cannot be finalized - has unresolved requests.`,
-        //   "warning"
-        // );
+        showToast(
+          `Queue ${selectedQueue.queueNo} has unresolved requests.`,
+          "warning"
+        );
       }
     } catch (error) {
       console.error("Error finalizing queue status:", error);
@@ -656,7 +641,7 @@ export default function Manage_Queue() {
         localStorage.setItem("selectedWindow", JSON.stringify(windowData));
         await startHeartbeatInterval(windowData.id);
         setShowWindowModal(false);
-        // showToast(`Now managing ${window.name}`, "success");
+        showToast(`Now managing ${window.name}`, "info");
 
         try {
           const currentQueueResponse = await currentServedQueue(windowData.id);
@@ -763,6 +748,7 @@ export default function Manage_Queue() {
         if (hasTerminalRequest) {
           // Trigger the done handler if at least one request is completed/cancelled
           await handleDonePanel();
+          setHasChanges(false);
           return; // handleDonePanel will close the panel
         }
       }
@@ -770,6 +756,7 @@ export default function Manage_Queue() {
       // Otherwise, just close normally
       setShowActionPanel(false);
       setSelectedQueue(null);
+      setHasChanges(false);
     } catch (error) {
       console.warn(
         "Warning, there is an unprecedented error in closing the deferred modal!",
@@ -2001,21 +1988,9 @@ export default function Manage_Queue() {
                         <div className="flex gap-4 mt-6 md:mt-12 justify-end">
                           <button
                             onClick={handleDonePanel}
-                            disabled={
-                              !selectedQueue.requests.every(
-                                (request) =>
-                                  request.status === "Completed" ||
-                                  request.status === "Cancelled" ||
-                                  request.status === "Skipped"
-                              )
-                            }
+                            disabled={!hasChanges}
                             className={`flex items-center justify-center text-md gap-2 px-3 py-3 sm:px-4 sm:py-4 w-full md:w-auto rounded-xl transition-colors ${
-                              selectedQueue.requests.every(
-                                (request) =>
-                                  request.status === "Completed" ||
-                                  request.status === "Cancelled" ||
-                                  request.status === "Skipped"
-                              )
+                              hasChanges
                                 ? "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
                                 : "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
                             }`}
