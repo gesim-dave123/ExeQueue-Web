@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function InputModal({
   title,
@@ -9,7 +10,6 @@ export default function InputModal({
   onSave,
   submitType,
   details,
-  errors = {},
 }) {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -19,8 +19,13 @@ export default function InputModal({
     newPassword: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] = useState(false);
 
-  const [localErrors, setLocalErrors] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
+  const isEditMode = !!accountData;
 
   useEffect(() => {
     if (accountData) {
@@ -32,8 +37,20 @@ export default function InputModal({
         newPassword: '',
         confirmPassword: '',
       });
+    } else {
+      // Reset form for new account
+      setFormData({
+        firstName: '',
+        lastName: '',
+        username: '',
+        email: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
     }
-  }, [accountData]);
+    // Clear errors when modal opens/closes
+    setFieldErrors({});
+  }, [accountData, isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,61 +60,150 @@ export default function InputModal({
       [name]: value,
     });
 
-    // Clear password errors when user types
-    if (name === 'newPassword' || name === 'confirmPassword') {
-      setLocalErrors({
-        ...localErrors,
-        passwordLength: '',
-        passwordMatch: '',
+    // Clear error for this field when user types
+    if (fieldErrors[name]) {
+      setFieldErrors({
+        ...fieldErrors,
+        [name]: '',
       });
     }
   };
 
-  const handleSubmit = () => {
+  // ✅ Email validation function
+  const validateEmail = (email) => {
+    // Check for spaces
+    if (email.includes(' ')) {
+      return false;
+    }
+
+    // Count @ symbols (must be exactly 1)
+    const atCount = (email.match(/@/g) || []).length;
+    if (atCount !== 1) {
+      return false;
+    }
+
+    // Check if email ends with @gmail.com
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      return false;
+    }
+
+    // Check if there's a username before @gmail.com (not just @gmail.com)
+    const username = email.split('@')[0];
+    if (username.length === 0) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async () => {
     // Clear previous errors
-    setLocalErrors({});
+    setFieldErrors({});
     let errors = {};
 
-    // Check password length (only if password fields are filled)
-    if (formData.newPassword || formData.confirmPassword) {
-      if (formData.newPassword.length < 8) {
-        errors.passwordLength =
-          'Your password must be at least 8 characters long.';
-      }
+    // Validate required fields
+    if (!formData.firstName.trim()) {
+      errors.firstName = 'First name is required';
+    }
+    if (!formData.lastName.trim()) {
+      errors.lastName = 'Last name is required';
+    }
+    if (!formData.username.trim()) {
+      errors.username = 'Username is required';
+    }
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!validateEmail(formData.email)) {
+      // ✅ Email format validation
+      errors.email = 'Invalid email format';
+    }
 
-      // Check if passwords match
-      if (formData.newPassword !== formData.confirmPassword) {
-        errors.passwordMatch = 'Passwords do not match';
+    // ✅ Password validation for NEW accounts only
+    if (!isEditMode) {
+      if (!formData.newPassword || !formData.newPassword.trim()) {
+        errors.newPassword = 'Password cannot be empty';
+        errors.confirmPassword = 'Password cannot be empty';
+      } else if (
+        !formData.confirmPassword ||
+        !formData.confirmPassword.trim()
+      ) {
+        errors.newPassword = 'Password cannot be empty';
+        errors.confirmPassword = 'Password cannot be empty';
+      } else if (formData.newPassword.length < 8) {
+        errors.newPassword =
+          'Your password must be at least 8 characters long.';
+      } else if (formData.newPassword !== formData.confirmPassword) {
+        errors.newPassword = 'Passwords do not match';
+        errors.confirmPassword = 'Passwords do not match';
       }
     }
 
-    // If there are errors, set them and don't submit
+    // ✅ Password validation for EDIT mode (only if passwords are provided)
+    if (isEditMode && (formData.newPassword || formData.confirmPassword)) {
+      if (formData.newPassword.length < 8) {
+        errors.newPassword =
+          'Your password must be at least 8 characters long.';
+      }
+      if (formData.newPassword !== formData.confirmPassword) {
+        errors.newPassword = 'Passwords do not match';
+        errors.confirmPassword = 'Passwords do not match';
+      }
+    }
+
+    // If there are validation errors, show them
     if (Object.keys(errors).length > 0) {
-      setLocalErrors(errors);
+      setFieldErrors(errors);
       return;
     }
 
-    // Call onSave callback - it will handle validation
+    // Call onSave callback
     if (onSave) {
-      const success = onSave(formData);
-      // Only close if validation passed (onSave returns true)
-      if (success !== false) {
-        onClose();
+      const result = await onSave(formData);
+
+      // ✅ Handle backend errors (username/email exists, etc.)
+      if (result && result.success === false) {
+        // Set error on specific field
+        if (result.field) {
+          setFieldErrors({
+            [result.field]: result.message,
+          });
+        }
+        return; // Keep modal open
       }
+
+      // ✅ Success - close modal
+      onClose();
     }
   };
 
   // Check if all required fields are filled
   const isFormValid = () => {
-    return (
-      formData.firstName.trim() !== '' &&
-      formData.lastName.trim() !== '' &&
-      formData.username.trim() !== '' &&
-      formData.email.trim() !== ''
-    );
+    if (isEditMode) {
+      // Edit mode: only basic fields required
+      return (
+        formData.firstName.trim() !== '' &&
+        formData.lastName.trim() !== '' &&
+        formData.username.trim() !== '' &&
+        formData.email.trim() !== ''
+      );
+    } else {
+      // Add mode: passwords also required
+      return (
+        formData.firstName.trim() !== '' &&
+        formData.lastName.trim() !== '' &&
+        formData.username.trim() !== '' &&
+        formData.email.trim() !== '' &&
+        formData.newPassword.trim() !== '' &&
+        formData.confirmPassword.trim() !== ''
+      );
+    }
   };
 
   if (!isOpen) return null;
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+   const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
+
+
 
   return (
     <>
@@ -141,14 +247,14 @@ export default function InputModal({
                   onChange={handleChange}
                   placeholder="First Name"
                   className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                    errors.firstName
+                    fieldErrors.firstName
                       ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
                       : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                   }`}
                 />
-                {errors.firstName && (
+                {fieldErrors.firstName && (
                   <p className="text-red-500 text-xs mt-1">
-                    {errors.firstName}
+                    {fieldErrors.firstName}
                   </p>
                 )}
               </div>
@@ -163,13 +269,15 @@ export default function InputModal({
                   onChange={handleChange}
                   placeholder="Last Name"
                   className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                    errors.lastName
+                    fieldErrors.lastName
                       ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
                       : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                   }`}
                 />
-                {errors.lastName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
+                {fieldErrors.lastName && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {fieldErrors.lastName}
+                  </p>
                 )}
               </div>
             </div>
@@ -186,13 +294,15 @@ export default function InputModal({
                 onChange={handleChange}
                 placeholder="Username"
                 className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  errors.username
+                  fieldErrors.username
                     ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
                     : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                 }`}
               />
-              {errors.username && (
-                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+              {fieldErrors.username && (
+                <p className="text-red-500 text-xs mt-1">
+                  {fieldErrors.username}
+                </p>
               )}
             </div>
 
@@ -208,13 +318,13 @@ export default function InputModal({
                 onChange={handleChange}
                 placeholder="Email"
                 className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  errors.email
+                  fieldErrors.email
                     ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
                     : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                 }`}
               />
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+              {fieldErrors.email && (
+                <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
               )}
             </div>
 
@@ -222,46 +332,84 @@ export default function InputModal({
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 New Password
+                {!isEditMode && <span className="text-red-500">*</span>}
               </label>
-              <input
-                type="password"
-                name="newPassword"
-                value={formData.newPassword}
-                onChange={handleChange}
-                placeholder="New Password"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordLength
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
-                }`}
-              />
-              {localErrors.passwordLength && (
-                <p className="text-red-500 text-xs mt-1">
-                  {localErrors.passwordLength}
-                </p>
-              )}
+                <div className="relative">  {/* Add this wrapper */}
+                  <input
+                    type={showPassword ? "text" : "password"} 
+                    name="newPassword"
+                    value={formData.newPassword}
+                    onChange={handleChange}
+                    onFocus={() => setIsPasswordFocused(true)}
+                    onBlur={() => setIsPasswordFocused(false)}
+                    placeholder="New Password"
+                    className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
+                      localErrors.passwordLength
+                        ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                        : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                    }`}
+                  />
+                  {/* <button 
+                  
+                    type="button"  
+                    className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={togglePasswordVisibility}>
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button> */}
+                    {isPasswordFocused && (
+                        <button 
+                          type="button"
+                          className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          onMouseDown={(e) => {e.preventDefault();
+                                    togglePasswordVisibility();
+                          }}>
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                    )}
+                </div>  {/* Close wrapper */}
+                  {localErrors.passwordLength && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {localErrors.passwordLength}
+                    </p>
+                  )}
             </div>
 
+            {/* Confirm Password */}
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Confirm Password
+                {!isEditMode && <span className="text-red-500">*</span>}
               </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirm Password"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordMatch
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
-                }`}
-              />
+              <div className="relative"> 
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onFocus={() => setIsConfirmPasswordFocused(true)}
+                  onBlur={() => setIsConfirmPasswordFocused(false)}
+                  placeholder="Confirm Password"
+                  className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
+                    localErrors.passwordMatch
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                  }`}
+                />
+                {isConfirmPasswordFocused && (
+                  <button 
+                    type="button"
+                    className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                     onMouseDown={(e) => {e.preventDefault();
+                                    toggleConfirmPasswordVisibility();
+                          }}>
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                )}
+              </div>  {/* Close the relative wrapper here */}
               {localErrors.passwordMatch && (
                 <p className="text-red-500 text-xs mt-1">
-                  {localErrors.passwordMatch}
+                  {fieldErrors.confirmPassword}
                 </p>
               )}
             </div>
@@ -274,7 +422,7 @@ export default function InputModal({
               disabled={!isFormValid()}
               className={`px-6 py-3 rounded-xl transition font-medium ${
                 isFormValid()
-                  ? 'bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer'
+                  ? 'bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >

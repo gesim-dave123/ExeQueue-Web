@@ -17,8 +17,6 @@ import transactionRoutes from "./routes/transaction.route.js";
 import { START_SCHEDULERS } from "./scheduler/scheduler.js";
 import { socketAuthentication } from "./socket/socket.auth.js";
 import { socketHandler } from "./socket/socketHandler.js";
-// import io from 'io'
-// import { initializeScheduledJobs } from './controllers/transaction.controller.js';
 dotenv.config();
 
 validateAccess();
@@ -27,14 +25,19 @@ import "../utils/cron.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+function corsOrigin(origin, callback) {
+  const cloudflareRegex = /\.trycloudflare\.com$|\.cfargotunnels\.com$/;
+  if (!origin) return callback(null, true);
+  if (origin.includes("localhost")) return callback(null, true);
+  if (cloudflareRegex.test(origin)) return callback(null, true);
+  if (process.env.CORS_ORIGIN && origin === process.env.CORS_ORIGIN)
+    return callback(null, true);
+  return callback(new Error("CORS Blocked: " + origin));
+}
 app.use(express.json());
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.CORS_ORIGIN
-        : process.env.CORS_ORIGIN, // React dev server
+    origin: corsOrigin,
     credentials: true,
   })
 );
@@ -54,11 +57,7 @@ app.use("/api/staff/session", SessionRoute);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.CORS_ORIGIN
-        : process.env.CORS_ORIGIN, // React dev server
-    methods: ["GET", "POST"],
+    origin: corsOrigin,
     credentials: true,
   },
 });
@@ -67,17 +66,7 @@ app.set("io", io);
 socketAuthentication(io);
 socketHandler(io);
 
-// Monitor SKIPPED requests and auto-cancel after 1 hour
-// startSkippedRequestMonitor();
-// Finalize STALLED requests at end of day (11:59 PM)
-// startStalledRequestFinalizer();
-// await initializeScheduledJobs();
-
 server.listen(PORT, () => {
   console.log("Server is running on port ", PORT);
-  START_SCHEDULERS();
+  START_SCHEDULERS(io);
 });
-// app.listen(PORT, '0.0.0.0', () => {
-//   console.log(`Server running on http://0.0.0.0:${PORT}`);
-// //   console.log(`Accessible from network: http://YOUR-IP:${PORT}`);
-// });

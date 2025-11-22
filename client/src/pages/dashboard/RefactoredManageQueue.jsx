@@ -1,19 +1,13 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Pause,
-  SkipForward,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   assignServiceWindow,
   checkAvailableWindow,
   getMyWindowAssignment,
   getWindowData,
+  updateHeartbeatInterval,
 } from "../../api/staff.api.js";
 import DynamicModal from "../../components/modal/DynamicModal.jsx";
 import { showToast } from "../../components/toast/ShowToast.jsx";
@@ -44,9 +38,11 @@ import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
 import { useDebounce } from "../../utils/hooks/useDebounce.jsx";
 import ManageQueueHook from "./ManageQueue/ManageQueueHook.jsx";
 
+
 export default function Manage_Queue() {
   const navigate = useNavigate();
   const parentRef = useRef(null);
+  const heartbeatRef = useRef(null);
   const deferredParentRef = useRef(null);
   const autoCallInProgressRef = useRef(false);
   const [deferredOpen, setDeferredOpen] = useState(true);
@@ -55,35 +51,33 @@ export default function Manage_Queue() {
   const [deferredSearchTerm, setDeferredSearchTerm] = useState("");
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [hasCurrentServedQueue, setHasCurrentServedQueue] = useState(false);
-  const [statusFilter, setStatusFilter] = useState([]);
   const [tooltipData, setTooltipData] = useState(null);
-
-  // const [selectedQueue, setSelectedQueue] = useState(null); // ✅ Now from hook
+  const [hasChanges, setHasChanges] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [activeButtons, setActiveButtons] = useState({});
+  const [activeDeferredButtons, setActiveDeferredButtons] = useState({});
 
   const [showWindowModal, setShowWindowModal] = useState(false);
   const [selectedWindow, setSelectedWindow] = useState({});
   const [availableWindows, setAvailableWindows] = useState([]);
   const [callingNext, setCallingNext] = useState(false);
-  const { socket, isConnected } = useSocket();
   const [wasQueueEmpty, setWasQueueEmpty] = useState(false);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedDeferredSearchTerm = useDebounce(deferredSearchTerm, 500);
   const isNumeric = (val) => /^\d+$/.test(val);
 
-  // Status filter toggle handler
-  const toggleStatusFilter = (status) => {
-    setStatusFilter(prev =>
-      prev.includes(status)
-        ? prev.filter(s => s !== status)   // remove if already selected
-        : [...prev, status]                // add if not selected
-    );
+  const onDisconnectOrCleanUp = () => {
+    stopHeartbeat();
   };
+
+  const { socket, isConnected } = useSocket(onDisconnectOrCleanUp);
+
+  // Status filter toggle handler
 
   const DEFAULT_QUEUE = {
     queueNo: "R000",
     studentId: "N/A",
-    name: "John Doe",
+    name: "N/A",
     course: "N/A",
     type: "N/A",
     time: "N/A",
@@ -157,15 +151,41 @@ export default function Manage_Queue() {
       setAvailableWindows(formattedWindows);
       setShowWindowModal(true);
     } catch (error) {
-      console.error("❌ Error loading windows:", error);
-      showToast("Failed to load windows", "error");
+      console.error("Error loading windows:", error);
       setIsLoading(false);
     }
   };
+  const startHeartbeatInterval = async (windowId) => {
+    try {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+      }
+
+      await updateHeartbeatInterval(windowId);
+      heartbeatRef.current = setInterval(async () => {
+        await updateHeartbeatInterval(windowId);
+        console.log("Updating heartbeat...");
+      }, 2 * 60 * 1000);
+
+      console.log("Heartbeat interval activated for window Id no: ", windowId);
+    } catch (error) {
+      console.error(
+        "Error occurred in start heartbeat interval function: ",
+        error
+      );
+    }
+  };
+  function stopHeartbeat() {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+  }
+
   const {
     // Main lists (now conditionally returns search results when in search mode)
-    globalQueueList, // ✅ Contains waiting queue OR search results
-    deferredQueue, // ✅ Contains deferred queue OR search results
+    globalQueueList, // Contains waiting queue OR search results
+    deferredQueue, // Contains deferred queue OR search results
     currentQueue,
     selectedQueue,
     isLoading,
@@ -192,8 +212,10 @@ export default function Manage_Queue() {
     // Load more functions (automatically use correct function based on search mode)
     loadMoreWaitingQueues, // Loads more waiting OR search results
     loadMoreDeferredQueues, // Loads more deferred OR search results
-
+    statusFilter,
+    toggleStatusFilter,
     fetchQueueList, // Manual refresh
+    updateQueueInMaps,
 
     // 🆕 Search functions
     handleWaitingSearch, // NEW: Trigger waiting queue search
@@ -202,6 +224,7 @@ export default function Manage_Queue() {
     socket,
     isConnected,
     showWindowModal,
+    stopHeartbeat,
     setShowWindowModal,
     loadWindows,
     showToast,
@@ -240,6 +263,21 @@ export default function Manage_Queue() {
     return queue && queue.queueNo === "R000" && queue.studentId === "N/A";
   };
   const nextInLine = (globalQueueList || []).slice(0);
+
+  const getMajorityStatus = (requests) => {
+    if (!requests || requests.length === 0) return "Stalled";
+
+    const statusCounts = requests.reduce((acc, request) => {
+      const status = request.status;
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const stalledCount = statusCounts["Stalled"] || 0;
+    const skippedCount = statusCounts["Skipped"] || 0;
+
+    return stalledCount >= skippedCount ? "Stalled" : "Skipped";
+  };
   const handleCallNext = async (overrideWindow) => {
     const activeWindow = overrideWindow || selectedWindow;
     setCallingNext(true);
@@ -248,12 +286,7 @@ export default function Manage_Queue() {
         showToast("Please select a window first.", "error");
         return;
       }
-
       if (currentQueue?.queueId) {
-        console.log(
-          `🔖 Marking previous queue ${currentQueue.queueNo} before calling next...`
-        );
-
         try {
           const markResponse = await markQueueStatus(
             currentQueue.queueId,
@@ -261,7 +294,7 @@ export default function Manage_Queue() {
           );
 
           if (!markResponse.success) {
-            console.error(
+            console.warn(
               "BLOCKING: Failed to mark previous queue:",
               markResponse.message
             );
@@ -276,10 +309,7 @@ export default function Manage_Queue() {
             `✅ Previous queue marked as: ${markResponse.queue.queueStatus}`
           );
         } catch (markError) {
-          console.error(
-            "❌ BLOCKING: Error marking previous queue:",
-            markError
-          );
+          console.warn("BLOCKING: Error marking previous queue:", markError);
           showToast(
             "Cannot proceed: Error updating queue status. Please try again.",
             "error"
@@ -293,14 +323,13 @@ export default function Manage_Queue() {
 
       if (response.status === 404 || !response.success) {
         if (response?.message?.includes("No queues left")) {
-          showToast("🎉 No more queues left for today!", "info");
+          showToast("No more queues left for today!", "info");
           setCurrentQueue(getDefaultQueue());
           setWasQueueEmpty(true);
           setHasCurrentServedQueue(false);
           return;
         }
-
-        showToast(response?.message || "Failed to call next queue.", "error");
+        showToast("Failed to call next queue. Try Again", "error");
         return;
       }
 
@@ -309,7 +338,6 @@ export default function Manage_Queue() {
       // setHasCurrentServedQueue(true);
 
       setCurrentQueue(formattedQueue);
-      console.log("Current Queue:", formattedQueue);
 
       // ✅ The hook automatically removes from globalQueueList via socket
       // But we can also do it locally for instant feedback
@@ -321,9 +349,8 @@ export default function Manage_Queue() {
       //   windowId: activeWindow.id,
       // });
 
-      console.log("Formatted Queue:", formattedQueue.queueNo);
       AnnounceQueue(formattedQueue.queueNo, activeWindow.name);
-      showToast(`Now serving ${formattedQueue.queueNo}`, "success");
+      showToast(`Now serving ${formattedQueue.queueNo}`, "info");
     } catch (error) {
       console.error("Error in handleCallNext:", error);
       showToast("Error calling next queue.", "error");
@@ -413,7 +440,7 @@ export default function Manage_Queue() {
 
       if (!response.success) throw new Error(response.message);
 
-      showToast(`Request ${requestStatus.toLowerCase()}`, "success");
+      showToast(`Request ${normalizeStatusForDisplay(requestStatus)}`, "info");
     } catch (error) {
       console.error("❌ Action failed:", error);
       setCurrentQueue(snapshot); // Rollback
@@ -457,8 +484,8 @@ export default function Manage_Queue() {
           r.id === requestId ? { ...r, status: requestStatus } : r
         ),
       }));
-
-      showToast(`Request updated to ${requestStatus}`, "success");
+      setHasChanges(true);
+      showToast(`Request updated to ${requestStatus}`, "info");
     } catch (error) {
       console.error("❌ Error updating deferred request:", error);
       setSelectedQueue(snapshot.selectedQueue);
@@ -468,7 +495,8 @@ export default function Manage_Queue() {
 
   const handleDonePanel = async () => {
     if (!selectedQueue) {
-      closeActionPanel();
+      setShowActionPanel(false);
+      setSelectedQueue(null);
       return;
     }
 
@@ -493,14 +521,14 @@ export default function Manage_Queue() {
             markResponse?.message || "Failed to finalize queue status"
           );
         }
-
         showToast(
-          `Queue ${selectedQueue.queueNo} has been finalized and removed.`,
+          `Queue ${selectedQueue.queueNo} has been finalized.`,
           "success"
         );
       } else {
+        updateQueueInMaps(selectedQueue);
         showToast(
-          `Queue ${selectedQueue.queueNo} cannot be finalized - has unresolved requests.`,
+          `Queue ${selectedQueue.queueNo} has unresolved requests.`,
           "warning"
         );
       }
@@ -509,7 +537,8 @@ export default function Manage_Queue() {
       setSelectedQueue(snapshot.selectedQueue);
       showToast(error.message || "Error finalizing queue status", "error");
     } finally {
-      closeActionPanel();
+      setShowActionPanel(false);
+      setSelectedQueue(null);
     }
   };
 
@@ -546,6 +575,8 @@ export default function Manage_Queue() {
           socket.emit(WindowEvents.WINDOW_JOINED, {
             windowId: restoredWindow.id,
           });
+
+          await startHeartbeatInterval(restoredWindow.id);
           setShowWindowModal(false);
 
           try {
@@ -595,11 +626,12 @@ export default function Manage_Queue() {
     try {
       const window = availableWindows.find((w) => w.id === windowId);
       if (window.status === "inactive") {
-        showToast("This window is currently occupied/inactive", "error");
+        // showToast("This window is currently occupied/inactive", "error");
         return;
       }
 
       const response = await assignServiceWindow(windowId);
+      console.log("Response: Window Select", response);
       if (response?.success) {
         const window = availableWindows.find((w) => w.id === windowId);
         const windowData = {
@@ -607,13 +639,12 @@ export default function Manage_Queue() {
           name: window.name,
           status: "active",
         };
-
         socket.emit(WindowEvents.WINDOW_JOINED, { windowId });
         setSelectedWindow(windowData);
         localStorage.setItem("selectedWindow", JSON.stringify(windowData));
-
+        await startHeartbeatInterval(windowData.id);
         setShowWindowModal(false);
-        showToast(`Now managing ${window.name}`, "success");
+        showToast(`Now managing ${window.name}`, "info");
 
         try {
           const currentQueueResponse = await currentServedQueue(windowData.id);
@@ -649,7 +680,6 @@ export default function Manage_Queue() {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
     if (
       !isLoading && // or your equivalent "queues finished loading" flag
@@ -661,13 +691,6 @@ export default function Manage_Queue() {
       setWasQueueEmpty(true);
     }
   }, [isLoading, globalQueueList.length, selectedWindow, currentQueue]);
-  console.log({
-    globalList: globalQueueList.length,
-    window: selectedWindow,
-    default: isDefaultQueue(currentQueue),
-    hasCurrent: hasCurrentServedQueue === false,
-    autoCall: !autoCallInProgressRef.current,
-  });
   useEffect(() => {
     if (
       globalQueueList.length > 0 &&
@@ -715,11 +738,35 @@ export default function Manage_Queue() {
   const openActionPanel = (queue) => {
     setSelectedQueue(queue);
     setShowActionPanel(true);
+    setIsLoggedIn(isLoggedIn);
   };
 
-  const closeActionPanel = () => {
-    setShowActionPanel(false);
-    setSelectedQueue(null);
+  const closeActionPanel = async () => {
+    try {
+      // Check if there's a selected queue and if it has at least one terminal request
+      if (selectedQueue && selectedQueue.requests.length > 0) {
+        const hasTerminalRequest = selectedQueue.requests.some(
+          (req) => req.status === "Completed" || req.status === "Cancelled"
+        );
+
+        if (hasTerminalRequest) {
+          // Trigger the done handler if at least one request is completed/cancelled
+          await handleDonePanel();
+          setHasChanges(false);
+          return; // handleDonePanel will close the panel
+        }
+      }
+
+      // Otherwise, just close normally
+      setShowActionPanel(false);
+      setSelectedQueue(null);
+      setHasChanges(false);
+    } catch (error) {
+      console.warn(
+        "Warning, there is an unprecedented error in closing the deferred modal!",
+        error
+      );
+    }
   };
 
   const shouldDisableAnnounce = () => {
@@ -756,7 +803,7 @@ export default function Manage_Queue() {
     className:
       window.status === "inactive"
         ? "bg-transparent bg-[#202124] ring-1 cursor-not-allowed w-full"
-        : "bg-[#1A73E8] text-white hover:bg-blue-700 w-full",
+        : "bg-[#1A73E8] text-white hover:bg-[#1557B0] w-full",
     disabled: window.status === "inactive",
   }));
 
@@ -778,16 +825,16 @@ export default function Manage_Queue() {
       loadMoreWaitingQueues();
     }
   };
-  
+
   // const filteredDeferredQueue = useMemo(() => {
   // if (statusFilter.length === 0) {
   //   return deferredQueue; // No filters = show all
   // }
-  
+
   // return deferredQueue.filter(queue => {
   //   // Check if any request in this queue matches any selected status
-  //   return queue.requests?.some(request => 
-  //     statusFilter.some(filter => 
+  //   return queue.requests?.some(request =>
+  //     statusFilter.some(filter =>
   //       request.status?.toLowerCase() === filter.toLowerCase()
   //     )
   //   );
@@ -842,7 +889,7 @@ export default function Manage_Queue() {
         />
       ) : (
         currentQueue && (
-          <div className="min-h-screen bg-transparent w-full pr-7 pt-9  lg:pl-15 xl:pl-9 xl:pt-12 xl:pr-8 pb-9">
+          <div className="min-h-screen bg-transparent w-full pr-3 pt-9 lg:pr-7 md:pl-15 xl:pl-9 xl:pt-11 xl:pr-7 pb-9">
             <div className="max-w-full mx-auto">
               <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
                 Manage Queue
@@ -863,12 +910,12 @@ export default function Manage_Queue() {
                     </div>
 
                     {/* container */}
-                    <div className="flex md:flex-row flex-col  items-center justify-between gap-6 h-full">
+                    <div className="flex lg:flex-row flex-col  items-start justify-between gap-6 h-full">
                       {/* left side */}
-                      <div className="border w-full md:w-auto flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
+                      <div className="border w-full md:flex-1 flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
                         <div className=" text-left mb-4 ">
                           <div
-                            className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
+                            className={`text-7xl text-center ring-1 rounded-xl py-4 px-1 font-bold mb-2 text-[#1A73E8] ${
                               currentQueue.type === "Priority"
                                 ? "text-[#F9AB00] border-[#F9AB00]"
                                 : "text-[#1A73E8] border-[#1A73E8]"
@@ -970,17 +1017,21 @@ export default function Manage_Queue() {
                                           <div className="flex gap-2 items-center justify-center">
                                             {/* Done Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "done"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors cursor-pointer"
-                                              >
-                                                <Check className="w-4 h-4" />
-                                              </button>
+                                              {/* Done Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "done" }));
+        handleRequestAction(request.id, "done");
+    }}
+    disabled={activeButtons[request.id] === "done"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors ${
+        activeButtons[request.id] === "done" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <Check className="w-4 h-4" />
+</button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Done
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -989,20 +1040,22 @@ export default function Manage_Queue() {
 
                                             {/* Stall Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "stall"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
-                                              >
-                                                <img
-                                                  src="/assets/manage_queue/pause.png"
-                                                  alt="Edit"
-                                                />
-                                              </button>
+                                              {/* Stall Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "stall" }));
+        handleRequestAction(request.id, "stall");
+    }}
+    disabled={activeButtons[request.id] === "stall"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors ${
+        activeButtons[request.id] === "stall" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <img src="/assets/manage_queue/pause.png" alt="Edit" />
+</button>
+
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Stall
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1011,20 +1064,21 @@ export default function Manage_Queue() {
 
                                             {/* Skip Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "skip"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors cursor-pointer"
-                                              >
-                                                <img
-                                                  src="/assets/manage_queue/forward.png"
-                                                  alt="Edit"
-                                                />
-                                              </button>
+                                              {/* Skip Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "skip" }));
+        handleRequestAction(request.id, "skip");
+    }}
+    disabled={activeButtons[request.id] === "skip"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors ${
+        activeButtons[request.id] === "skip" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <img src="/assets/manage_queue/forward.png" alt="Edit" />
+</button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Skip
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1033,17 +1087,21 @@ export default function Manage_Queue() {
 
                                             {/* Cancel Button with Top Tooltip */}
                                             <div className="relative group">
-                                              <button
-                                                onClick={() =>
-                                                  handleRequestAction(
-                                                    request.id,
-                                                    "cancel"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"
-                                              >
-                                                <X className="w-4 h-4" />
-                                              </button>
+                                              {/* Cancel Button */}
+<button
+    onClick={() => {
+        setActiveButtons(prev => ({ ...prev, [request.id]: "cancel" }));
+        handleRequestAction(request.id, "cancel");
+    }}
+    disabled={activeButtons[request.id] === "cancel"}
+    className={`w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors ${
+        activeButtons[request.id] === "cancel" 
+            ? "opacity-50 cursor-not-allowed" 
+            : "cursor-pointer"
+    }`}
+>
+    <X className="w-4 h-4" />
+</button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Cancel
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1060,7 +1118,7 @@ export default function Manage_Queue() {
                           </div>
                         </div>
 
-                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-15 justify-end">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-3 mt-8 md:mt-14 justify-end">
                           <button
                             onClick={() =>
                               handleButtonClick(
@@ -1077,13 +1135,13 @@ export default function Manage_Queue() {
                                 (request) => request.status === "In Progress"
                               )
                             }
-                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-lg transition-colors w-full sm:w-auto ${
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-4 rounded-2xl transition-colors w-full sm:w-auto ${
                               disabledForSeconds ||
                               currentQueue.requests.some(
                                 (request) => request.status === "In Progress"
                               )
                                 ? "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
-                                : "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
+                                : "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
                             }`}
                           >
                             <img
@@ -1091,7 +1149,9 @@ export default function Manage_Queue() {
                               alt="Edit"
                               className="w-5 h-5 sm:w-6 sm:h-6"
                             />
-                            <span className="text-sm sm:text-base">Call Next</span>
+                            <span className="text-sm sm:text-base">
+                              Call Next
+                            </span>
                           </button>
                           <button
                             onClick={() =>
@@ -1108,7 +1168,7 @@ export default function Manage_Queue() {
                               )
                             }
                             disabled={shouldDisableAnnounce()}
-                            className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-lg transition-colors w-full sm:w-auto ${
+                            className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-4 rounded-2xl transition-colors w-full sm:w-auto ${
                               shouldDisableAnnounce()
                                 ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
                                 : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
@@ -1119,7 +1179,9 @@ export default function Manage_Queue() {
                               alt="Announce"
                               className="w-5 h-5 sm:w-6 sm:h-6"
                             />
-                            <span className="text-sm sm:text-base">Announce</span>
+                            <span className="text-sm sm:text-base">
+                              Announce
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -1179,22 +1241,21 @@ export default function Manage_Queue() {
                         />
                       </div>
 
-                      <div className="flex gap-2">
-                        {['stalled', 'skipped'].map((status) => (
+                      <div className="flex rounded-2xl bg-[#F4F8FE] px-3 py-2 gap-2">
+                        {["stalled", "skipped"].map((status) => (
                           <button
                             key={status}
                             onClick={() => toggleStatusFilter(status)}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors cursor-pointer ${
+                            className={`px-4 py-2 rounded-xl font-medium text-sm transition-colors cursor-pointer ${
                               statusFilter.includes(status)
-                                ? 'bg-gray-900 text-white'
-                                : 'bg-white text-gray-700 hover:bg-gray-100'
+                                ? "bg-gray-900 text-white"
+                                : " text-gray-700 hover:bg-gray-100"
                             }`}
                           >
                             {status.charAt(0).toUpperCase() + status.slice(1)}
                           </button>
                         ))}
                       </div>
-
                     </div>
 
                     {/* Virtualized Table */}
@@ -1207,7 +1268,10 @@ export default function Manage_Queue() {
                         <table className="text-sm  w-full text-gray-900 table-fixed">
                           <thead className="sticky top-0 bg-white z-10">
                             <tr className="border-b  border-[#E2E3E4]">
-                              <th className="text-left py-3 px-4 font-semibold text-[#686969]" style={{width: '150px'}}>
+                              <th
+                                className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                style={{ width: "150px" }}
+                              >
                                 Student ID
                               </th>
                               <th
@@ -1300,22 +1364,23 @@ export default function Manage_Queue() {
                                               <>
                                                 <span
                                                   className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                   onMouseEnter={(e) => {
-                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                  onMouseEnter={(e) => {
+                                                    const rect =
+                                                      e.currentTarget.getBoundingClientRect();
                                                     setTooltipData({
                                                       id: `deferred-${virtualRow.index}`,
-                                                      requests: item.requests.slice(1),
+                                                      requests:
+                                                        item.requests.slice(1),
                                                       position: {
                                                         top: rect.top - 10,
-                                                        left: rect.left
-                                                      }
+                                                        left: rect.left,
+                                                      },
                                                     });
                                                   }}
-                                                  onMouseLeave={() =>{
-                                                    setHoveredRow(null)
-                                                    setTooltipData(null)
-                                                  }
-                                                  }
+                                                  onMouseLeave={() => {
+                                                    setHoveredRow(null);
+                                                    setTooltipData(null);
+                                                  }}
                                                 >
                                                   +{item.requests.length - 1}
                                                 </span>
@@ -1349,8 +1414,15 @@ export default function Manage_Queue() {
                                       className="text-left py-3 px-4"
                                       style={{ width: "120px" }}
                                     >
-                                      <span className="text-gray-600">
-                                        {item.status || "Stalled"}
+                                      <span
+                                        className={`text-${
+                                          getMajorityStatus(item.requests) ===
+                                          "Stalled"
+                                            ? "gray-600"
+                                            : "[#F9AB00]"
+                                        }`}
+                                      >
+                                        {getMajorityStatus(item.requests)}
                                       </span>
                                     </td>
 
@@ -1360,7 +1432,7 @@ export default function Manage_Queue() {
                                     >
                                       <button
                                         onClick={() => openActionPanel(item)}
-                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-[#1557B0] transition-colors cursor-pointer"
                                       >
                                         View
                                       </button>
@@ -1392,26 +1464,26 @@ export default function Manage_Queue() {
                           </tbody>
                         </table>
                       </div>
-                       {/* Render tooltip outside the table */}
-                        {tooltipData && (
-                          <div 
-                            className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
-                            style={{
-                              top: `${tooltipData.position.top}px`,
-                              left: `${tooltipData.position.left}px`,
-                              transform: 'translateY(-100%)'
-                            }}
-                          >
-                            {tooltipData.requests.map((req) => (
-                              <div
-                                key={req.id}
-                                className="text-xs text-left break-words"
-                              >
-                                {req.name}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                      {/* Render tooltip outside the table */}
+                      {tooltipData && (
+                        <div
+                          className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
+                          style={{
+                            top: `${tooltipData.position.top}px`,
+                            left: `${tooltipData.position.left}px`,
+                            transform: "translateY(-100%)",
+                          }}
+                        >
+                          {tooltipData.requests.map((req) => (
+                            <div
+                              key={req.id}
+                              className="text-xs text-left break-words"
+                            >
+                              {req.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Empty state */}
@@ -1608,23 +1680,23 @@ export default function Manage_Queue() {
                                             <>
                                               <span
                                                 className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                 onMouseEnter={(e) => {
-                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                    setTooltipData({
-                                                      id: `deferred-${virtualRow.index}`,
-                                                      requests: item.requests.slice(1),
-                                                      position: {
-                                                        top: rect.top - 10,
-                                                        left: rect.left
-                                                      }
-                                                    });
-                                                  }}
-                                                  onMouseLeave={() =>{
-                                                    setHoveredRow(null)
-                                                    setTooltipData(null)
-                                                  }
-                                                  }
-                                             
+                                                onMouseEnter={(e) => {
+                                                  const rect =
+                                                    e.currentTarget.getBoundingClientRect();
+                                                  setTooltipData({
+                                                    id: `deferred-${virtualRow.index}`,
+                                                    requests:
+                                                      item.requests.slice(1),
+                                                    position: {
+                                                      top: rect.top - 10,
+                                                      left: rect.left,
+                                                    },
+                                                  });
+                                                }}
+                                                onMouseLeave={() => {
+                                                  setHoveredRow(null);
+                                                  setTooltipData(null);
+                                                }}
                                               >
                                                 +{item.requests.length - 1}
                                               </span>
@@ -1684,12 +1756,12 @@ export default function Manage_Queue() {
                         </table>
                       </div>
                       {tooltipData && (
-                        <div 
+                        <div
                           className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
                           style={{
                             top: `${tooltipData.position.top}px`,
                             left: `${tooltipData.position.left}px`,
-                            transform: 'translateY(-100%)'
+                            transform: "translateY(-100%)",
                           }}
                         >
                           {tooltipData.requests.map((req) => (
@@ -1732,15 +1804,27 @@ export default function Manage_Queue() {
                     </button>
                   </div>
 
-                  <div className="p-6">
-                    <div className="w-full flex flex-col lg:flex-row items-center justify-between gap-6">
+                  <div className="px-6 md:pb-6 pb-4 pt-2 xl:pt-0">
+                    <div className="w-full flex flex-col md:flex-row items-start justify-between gap-6">
                       {/* left side */}
-                      <div className="w-full lg:w-auto border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
+                      <div className="w-full lg:w-auto border-1 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
                         <div className="text-left mb-4">
-                          <div className="text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold text-blue-600 mb-2">
+                          <div
+                            className={`text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold mb-2 ${
+                              selectedQueue.type === "Priority"
+                                ? "text-[#F9AB00] border-[#F9AB00]"
+                                : "text-[#1A73E8] border-[#1A73E8]"
+                            }`}
+                          >
                             {selectedQueue.queueNo}
                           </div>
-                          <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full">
+                          <span
+                            className={`text-sm px-3 py-1 rounded-full ${
+                              selectedQueue.type === "Priority"
+                                ? "bg-[#FEF2D9] text-[#F9AB00]"
+                                : "bg-[#DDEAFC] text-[#1A73E8]"
+                            }`}
+                          >
                             {selectedQueue.type}
                           </span>
                         </div>
@@ -1776,7 +1860,7 @@ export default function Manage_Queue() {
                       </div>
 
                       {/* right side */}
-                      <div className="w-full flex flex-col flex-5 justify-between ">
+                      <div className="w-full flex flex-col  flex-4 justify-between ">
                         <div className="flex-1">
                           <div className="space-y-3">
                             <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1827,13 +1911,16 @@ export default function Manage_Queue() {
                                             {/* Done Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "done"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "done" }));
+                                                  handleDeferredAction(request.id, "done");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "done"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-green-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "done" 
+                                                    ? "bg-green-100 text-green-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-green-100 text-green-600 cursor-pointer"
+                                                }`}
                                               >
                                                 <Check className="w-4 h-4" />
                                               </button>
@@ -1846,15 +1933,21 @@ export default function Manage_Queue() {
                                             {/* Stall Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "stall"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "stall" }));
+                                                  handleDeferredAction(request.id, "stall");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "stall"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "stall" 
+                                                    ? "bg-gray-100 text-gray-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-gray-100 text-gray-600 cursor-pointer"
+                                                }`}
                                               >
-                                                <Pause className="w-4 h-4" />
+                                                <img
+                                                  src="/assets/manage_queue/pause.png"
+                                                  alt="Edit"
+                                                />
                                               </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Stall
@@ -1865,15 +1958,21 @@ export default function Manage_Queue() {
                                             {/* Skip Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "skip"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "skip" }));
+                                                  handleDeferredAction(request.id, "skip");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "skip"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-orange-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "skip" 
+                                                    ? "bg-orange-100 text-orange-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-orange-100 text-orange-600 cursor-pointer"
+                                                }`}
                                               >
-                                                <SkipForward className="w-4 h-4" />
+                                                <img
+                                                  src="/assets/manage_queue/forward.png"
+                                                  alt="Edit"
+                                                />
                                               </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Skip
@@ -1884,13 +1983,16 @@ export default function Manage_Queue() {
                                             {/* Cancel Button with Top Tooltip */}
                                             <div className="relative group">
                                               <button
-                                                onClick={() =>
-                                                  handleDeferredAction(
-                                                    request.id,
-                                                    "cancel"
-                                                  )
-                                                }
-                                                className="w-8 h-8 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors cursor-pointer"
+                                                onClick={() => {
+                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "cancel" }));
+                                                  handleDeferredAction(request.id, "cancel");
+                                                }}
+                                                disabled={activeDeferredButtons[request.id] === "cancel"}
+                                                className={`w-8 h-8 flex items-center justify-center rounded hover:bg-red-200 transition-colors ${
+                                                  activeDeferredButtons[request.id] === "cancel" 
+                                                    ? "bg-red-100 text-red-600 opacity-50 cursor-not-allowed" 
+                                                    : "bg-red-100 text-red-600 cursor-pointer"
+                                                }`}
                                               >
                                                 <X className="w-4 h-4" />
                                               </button>
@@ -1910,29 +2012,16 @@ export default function Manage_Queue() {
                           </div>
                         </div>
 
-                        <div className="flex gap-3 mt-8 justify-end">
+                        <div className="flex gap-4 mt-6 md:mt-12 justify-end">
                           <button
                             onClick={handleDonePanel}
-                            disabled={
-                              !selectedQueue.requests.every(
-                                (request) =>
-                                  request.status === "Completed" ||
-                                  request.status === "Cancelled" ||
-                                  request.status === "Skipped"
-                              )
-                            }
-                            className={`flex items-center justify-center gap-2 px-6 py-3 w-full lg:w-auto rounded-lg transition-colors ${
-                              selectedQueue.requests.every(
-                                (request) =>
-                                  request.status === "Completed" ||
-                                  request.status === "Cancelled" ||
-                                  request.status === "Skipped"
-                              )
+                            disabled={!hasChanges}
+                            className={`flex items-center justify-center text-md gap-2 px-3 py-3 sm:px-4 sm:py-4 w-full md:w-auto rounded-xl transition-colors ${
+                              hasChanges
                                 ? "bg-[#1A73E8] text-white hover:bg-blue-600 cursor-pointer"
                                 : "bg-[#1A73E8]/50 text-gray-200 cursor-not-allowed"
                             }`}
                           >
-                            <Check className="w-4 h-4" />
                             Done
                           </button>
                         </div>

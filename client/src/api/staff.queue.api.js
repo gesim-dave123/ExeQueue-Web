@@ -103,7 +103,7 @@ export const getCallNextQueue = async (windowId) => {
         withCredentials: true,
       }
     );
-    
+
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
@@ -149,9 +149,9 @@ export const setRequestStatus = async (
     if (error.response?.data) {
       return error.response.data;
     }
-    return { 
-      success: false, 
-      message: error.message || "Failed to update request status" 
+    return {
+      success: false,
+      message: error.message || "Failed to update request status",
     };
   }
 };
@@ -186,9 +186,9 @@ export const setDeferredRequestStatus = async (
     if (error.response?.data) {
       return error.response.data;
     }
-    return { 
-      success: false, 
-      message: error.message || "Failed to update deferred request status" 
+    return {
+      success: false,
+      message: error.message || "Failed to update deferred request status",
     };
   }
 };
@@ -205,9 +205,9 @@ export const markQueueStatus = async (queueId, windowId) => {
         withCredentials: true,
       }
     );
-    
+
     console.log("Response from api", response);
-    
+
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
@@ -219,9 +219,9 @@ export const markQueueStatus = async (queueId, windowId) => {
     if (error.response?.data) {
       return error.response.data;
     }
-    return { 
-      success: false, 
-      message: error.message || "Failed to mark queue status" 
+    return {
+      success: false,
+      message: error.message || "Failed to mark queue status",
     };
   }
 };
@@ -237,9 +237,9 @@ export const currentServedQueue = async (windowId) => {
         withCredentials: true,
       }
     );
-    
+
     console.log("Response from api", response);
-    
+
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
@@ -251,9 +251,9 @@ export const currentServedQueue = async (windowId) => {
     if (error.response?.data) {
       return error.response.data;
     }
-    return { 
-      success: false, 
-      message: error.message || "Failed to get current served queue" 
+    return {
+      success: false,
+      message: error.message || "Failed to get current served queue",
     };
   }
 };
@@ -269,7 +269,7 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
         withCredentials: true,
       }
     );
-    
+
     if (response.status === 200 && response.data.success) {
       console.log("Queue List:", response.data.queueList);
       return response.data.queueList;
@@ -294,7 +294,7 @@ export const getDeferredQueue = async (status) => {
         withCredentials: true,
       }
     );
-    
+
     if (response.status === 200 && response.data.success) {
       console.log("Deferred Response Api", response.data.queueList);
       return response.data.queueList;
@@ -308,20 +308,24 @@ export const getDeferredQueue = async (status) => {
   }
 };
 
-export const getSingleQueue = async (queueId, options = {}) => {
+export const getSingleQueue = async (
+  queueId,
+  referenceNumber,
+  options = {}
+) => {
   try {
-    const { status, windowId, requestStatus, referenceNumber } = options;
+    const { status, windowId, requestStatus } = options;
 
     // Build query parameters
     const params = new URLSearchParams({
-      ...(referenceNumber && { referenceNumber: referenceNumber }),
+      // ...(referenceNumber && { referenceNumber: referenceNumber }),
       ...(status && { status: status }),
       ...(windowId && { windowId: windowId.toString() }),
       ...(requestStatus && { requestStatus }),
     });
 
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/one/${queueId}/?${params.toString()}`,
+      `${backendConnection()}/api/staff/queue/get/${queueId}/${referenceNumber}/?${params.toString()}`,
       {
         headers: {
           "Content-Type": "application/json",

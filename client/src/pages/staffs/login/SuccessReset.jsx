@@ -1,5 +1,4 @@
-// import { useEffect } from "react";
-// import { useLocation, useNavigate } from "react-router-dom";
+
 
 // export default function SuccessReset({ imageSrc, onLogin }) {
 //   const navigate = useNavigate();
@@ -47,13 +46,14 @@
 //     </div>
 //   );
 // }
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Loading from '../../../components/Loading';
 
 export default function SuccessReset({ imageSrc }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const inputRefs = [useRef(), useRef(), useRef(), useRef()];
   const message = location.state?.message;
 
   const [isLoading, setIsLoading] = useState(false);

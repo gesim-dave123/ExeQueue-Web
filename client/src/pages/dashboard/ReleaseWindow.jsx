@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { overrideWindowRelease } from "../../api/staff.api.js";
 import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
+import { showToast } from "../../components/toast/ShowToast.jsx";
 
 export default function ReleaseWindow() {
   const [showModal, setShowModal] = useState(false);
@@ -12,7 +13,14 @@ export default function ReleaseWindow() {
       if (!result) {
         throw new Error(result);
       }
-      console.log("Result: ", result);
+      if (!result?.success && !result?.wasWindowAssigned) {
+        showToast(`${result.message}`, "info");
+      } else {
+        showToast(
+          `Window ${windowNum} has been released successfully.`,
+          "success"
+        );
+      }
     } catch (error) {
       console.error(`Error in releaseing window number ${windowNum}: `, error);
     }
@@ -24,14 +32,12 @@ export default function ReleaseWindow() {
   };
 
   const confirmRelease = async () => {
-    console.log("Selected Window: ", selectedWindow);
     await handleWindowRelease(selectedWindow);
-    console.log(`Released Window ${selectedWindow}`);
     setShowModal(false);
   };
 
   return (
-    <div className="min-h-screen flex items-start xl:items-center py-19 xl:py-7 px-6 sm:px-10  xl:px-0 xl:pl-1 xl:pr-7">
+    <div className="min-h-screen flex items-start xl:items-center py-19 xl:py-7 px-3 sm:px-10  xl:px-0 xl:pl-1 xl:pr-7">
       <div className="h-full w-full p-5 sm:p-8 lg:p-8 xl:pt-9 xl:p-10 bg-white rounded-2xl sm:rounded-3xl shadow-xs  lg:pb-[39vh] xl:pb-[56vh]">
         {/* Title */}
         <h1 className="text-2xl sm:text-3xl xl:text-4xl font-semibold mb-8 sm:mb-12 lg:mt-1 xl:mt-0 text-left">

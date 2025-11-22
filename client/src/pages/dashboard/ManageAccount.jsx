@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from "react";
-import { Search, Plus, Pencil, Trash2 } from "lucide-react";
-import InputModal from "../../components/modal/InputModal";
-import ConfirmModal from "../../components/modal/ConfirmModal";
-import {
-  getWorkingScholars,
-  createWorkingScholar,
-  updateWorkingScholar,
-  deleteWorkingScholar,
-} from "../../api/staff";
+import { Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  createWorkingScholar,
+  deleteWorkingScholar,
+  getWorkingScholars,
+  updateWorkingScholar,
+} from "../../api/staff";
+import ConfirmModal from "../../components/modal/ConfirmModal";
+import InputModal from "../../components/modal/InputModal";
+import { showToast } from "../../components/toast/ShowToast";
 export default function ManageAccount() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,8 +124,8 @@ export default function ManageAccount() {
           updateData
         );
 
-        console.log("✅ Account updated:", result);
-        toast.success(result.message || "Account updated successfully");
+        console.log("Account updated:", result);
+        showToast(result.message || "Account updated successfully", "success");
       } else {
         // Create new account
         const createData = {
@@ -141,7 +142,7 @@ export default function ManageAccount() {
         const result = await createWorkingScholar(createData);
 
         console.log("✅ Account created:", result);
-        toast.success(result.message || "Account created successfully");
+        showToast("Account created successfully", "success");
       }
 
       // Refresh accounts list
@@ -154,8 +155,17 @@ export default function ManageAccount() {
       console.error("❌ Error saving account:", error);
       const errorMessage =
         error.response?.data?.message || "Failed to save account";
-      toast.error(errorMessage);
-      return false; // Validation failed, keep modal open
+      const errorField = error.response?.data?.field || null;
+
+      // ✅ Show toast error
+      showToast(errorMessage, "error");
+
+      // ✅ Return error info to modal
+      return {
+        success: false,
+        field: errorField,
+        message: errorMessage,
+      };
     } finally {
       setLoading(false);
     }
@@ -169,18 +179,43 @@ export default function ManageAccount() {
       const result = await deleteWorkingScholar(account.sasStaffId);
 
       console.log("✅ Account deleted:", result);
-      toast.success(result.message || "Account deleted successfully");
+      showToast("Account deleted successfully.", "success");
 
       // Refresh accounts list
       await fetchAccounts();
     } catch (error) {
       console.error("❌ Error deleting account:", error);
-      toast.error(error.response?.data?.message || "Failed to delete account");
+      showToast(
+        error.response?.data?.message || "Failed to delete account",
+        "error"
+      );
     } finally {
       setLoading(false);
       setShowBackConfirmModal(false);
       setAccountToDelete(null);
     }
+  };
+  const SmartTooltipCell = ({ text, maxWidth = "200px" }) => {
+    const textRef = useRef(null);
+    const [isTruncated, setIsTruncated] = useState(false);
+
+    useEffect(() => {
+      if (textRef.current) {
+        const element = textRef.current;
+        setIsTruncated(element.scrollWidth > element.clientWidth);
+      }
+    }, [text]);
+
+    return (
+      <td
+        ref={textRef}
+        className="py-4 px-4 text-[#202124] text-left truncate"
+        style={{ maxWidth }}
+        title={isTruncated ? text : undefined}
+      >
+        {text}
+      </td>
+    );
   };
 
   if (fetchLoading) {
@@ -195,8 +230,8 @@ export default function ManageAccount() {
   }
 
   return (
-    <div className="min-h-screen py-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-8 pt-6 xl:pt-9 md:px-8 md:pl-15 xl:pl-9">
+    <div className="min-h-screen pt-9 flex lg:w-[100%]">
+      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
         {/* Header */}
         <div className="sm:flex flex items-start justify-between mb-7">
           <div>
@@ -211,7 +246,7 @@ export default function ManageAccount() {
             <button
               onClick={handleAddAccount}
               disabled={loading}
-              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-blue-700 transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-[#1557B0] transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
             >
               <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
                 <img
@@ -234,9 +269,9 @@ export default function ManageAccount() {
             </h2>
 
             {/* Search Bar */}
-            <div className="relative w-80 mt-5">
+            <div className="relative w-auto lg:w-80 mt-5 flex justify-start">
               <Search
-                className="absolute left-7 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                 size={20}
               />
               <input
@@ -244,7 +279,7 @@ export default function ManageAccount() {
                 placeholder="Search by username"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-auto lg:w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -277,18 +312,16 @@ export default function ManageAccount() {
                     key={account.sasStaffId}
                     className="border-b text-left border-gray-100 hover:bg-gray-50 transition"
                   >
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.username}
-                    </td>
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.fullName}
-                    </td>
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.role}
-                    </td>
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.email}
-                    </td>
+                    <SmartTooltipCell
+                      text={account.username}
+                      maxWidth="150px"
+                    />
+                    <SmartTooltipCell
+                      text={account.fullName}
+                      maxWidth="200px"
+                    />
+                    <SmartTooltipCell text={account.role} maxWidth="120px" />
+                    <SmartTooltipCell text={account.email} maxWidth="200px" />
                     <td className="py-4 pr-4">
                       <div className="flex gap-2">
                         <button
@@ -297,8 +330,14 @@ export default function ManageAccount() {
                           className="p-2 bg-[#1A73E8]/23 text-[#1A73E8] rounded-lg hover:bg-[#1A73E8]/30 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
                         >
                           <div className="flex items-center">
-                            <img src="/assets/manage_acc/pen-blue.png" alt="" className="w-5 h-5" />
-                            <span className="ml-2 font-medium hidden sm:inline">Edit</span>
+                            <img
+                              src="/assets/manage_acc/pen-blue.png"
+                              alt=""
+                              className="w-5 h-5"
+                            />
+                            <span className="ml-2 font-medium hidden sm:inline">
+                              Edit
+                            </span>
                           </div>
                         </button>
 
@@ -310,7 +349,11 @@ export default function ManageAccount() {
                           disabled={loading}
                           className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
                         >
-                          <img src="/assets/manage_acc/trashcan.png" alt="" className="w-5 h-5" />
+                          <img
+                            src="/assets/manage_acc/trashcan.png"
+                            alt=""
+                            className="w-5 h-5"
+                          />
                         </button>
                       </div>
                     </td>
