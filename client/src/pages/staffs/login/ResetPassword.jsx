@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { resetPassword } from "../../../api/auth";
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { resetPassword } from '../../../api/auth';
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
@@ -10,13 +10,14 @@ export default function ResetPassword() {
   const [isNPasswordFocused, setIsNPasswordFocused] = useState(false);
   const [isCPasswordFocused, setIsCPasswordFocused] = useState(false);
   const [formData, setFormData] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
   const [errors, setErrors] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    newPassword: '',
+    confirmPassword: '',
   });
+  const [focusedField, setFocusedField] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,8 +26,8 @@ export default function ResetPassword() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    const updatedFormData = {
+
+    setFormData({
       ...formData,
       [name]: value,
     };
@@ -67,24 +68,22 @@ export default function ResetPassword() {
       });
       return;
     }
-
-    console.log("Reset Token:", resetToken);
-
+    // console.log("Reset Token:", resetToken);
     setLoading(true);
-    const res = await resetPassword(
-      resetToken,                    
-      formData.newPassword           
-    );
-    
+    const res = await resetPassword(resetToken, formData.newPassword);
+
     if (!res?.success) {
       setErrors({
-        ...errors,
-        newPassword: res?.message || "Failed to reset password",
+        newPassword: res?.message || 'Failed to reset password',
+        confirmPassword: '',
       });
       setLoading(false);
       return;
-    }   
-    navigate("/staff/success-reset", { state: { message: "Password reset successfully!" } });
+    }
+
+    navigate('/staff/success-reset', {
+      state: { message: 'Password reset successfully!' },
+    });
     setLoading(false);
   };
 
