@@ -91,10 +91,10 @@ export default function StaffLogin() {
       }
 
       if (userFound.password !== formData.password) {
-        setErrors({
-          username: "",
-          password: "Invalid password",
-        });
+       setErrors({
+        username: "Invalid Credentials",
+        password: "Invalid Credentials",
+      });
         setIsLoading(false);
         setLoading(false);
         return;
@@ -131,6 +131,10 @@ export default function StaffLogin() {
     errors.username === "Please fill out all required fields" || 
     errors.password === "Please fill out all required fields";
 
+    const shouldShowRedBorder = 
+  errors.username === "Account not found" && errors.password === "Account not found" ||
+  errors.username === "Invalid Credentials" && errors.password === "Invalid Credentials";
+
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-transparent p-4">
       <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-lg">
@@ -166,7 +170,7 @@ export default function StaffLogin() {
               className={`peer w-full px-4 py-3 border rounded-2xl bg-white 
                 focus:outline-none transition-all 
                 ${
-                  errors.username || isAccountNotFound || showRequiredFieldsError
+                  errors.username || shouldShowRedBorder || showRequiredFieldsError
                     ? "border-red-500 border-1 focus:ring-red-500"
                     : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 }`}
@@ -183,7 +187,7 @@ export default function StaffLogin() {
                       : "peer-focus:text-blue-500"
                   }
                 ${
-                  errors.username || isAccountNotFound || showRequiredFieldsError
+                errors.username || isAccountNotFound || showRequiredFieldsError
                     ? "text-red-500 "
                     : formData.username
                     ? "text-blue-500"
@@ -206,7 +210,7 @@ export default function StaffLogin() {
               className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
                 focus:outline-none transition-all
                 ${
-                  errors.password || isAccountNotFound || showRequiredFieldsError
+                  errors.password || shouldShowRedBorder || showRequiredFieldsError
                     ? "border-red-500 border-1 focus:ring-red-500"
                     : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 }`}
