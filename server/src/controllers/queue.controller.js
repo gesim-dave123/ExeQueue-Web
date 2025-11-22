@@ -387,17 +387,13 @@ export const getQueue = async (req, res) => {
       "Asia/Manila"
     );
 
-    const {
-      status,
-      windowId: windowIdStr,
-      requestStatus,
-      referenceNumber: referenceNumberStr,
-    } = req.query;
+    const { status, windowId: windowIdStr, requestStatus } = req.query;
 
-    const { queueId: queueIdStr } = req.params;
+    const { queueId: queueIdStr, referenceNumber: referenceNumberStr } =
+      req.params;
     const { role } = req.user;
 
-    // 🔒 Role validation
+    // Role validation
     if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
       return res.status(403).json({
         success: false,
@@ -405,26 +401,26 @@ export const getQueue = async (req, res) => {
       });
     }
 
-    // 🧩 Validate queueId
+    // Validate queueId
     if (!queueIdStr) {
       return res.status(400).json({
         success: false,
         message: "Missing required param: queueId",
       });
     }
-
     if (!isIntegerParam(queueIdStr)) {
       return res.status(400).json({
         success: false,
         message: "Invalid param. 'queueId' must be an integer.",
       });
     }
-
     const queueId = Number(queueIdStr);
+    const referenceNumber = referenceNumberStr.trim();
 
     // 🎯 Base where clause
     const whereClause = {
       queueId,
+      referenceNumber,
       isActive: true,
       session: {
         isActive: true,
@@ -476,7 +472,7 @@ export const getQueue = async (req, res) => {
       whereClause.windowId = Number(windowIdStr);
     }
 
-    // 🧩 Handle requestStatus filter
+    // Handle requestStatus filter
     const requestStatuses = Array.isArray(requestStatus)
       ? requestStatus
       : requestStatus
@@ -488,7 +484,7 @@ export const getQueue = async (req, res) => {
         ? { requestStatus: { in: requestStatuses } }
         : { isActive: true };
 
-    // 🧠 Query database
+    // Query database
     const newQueue = await prisma.queue.findFirst({
       where: whereClause,
       select: {
@@ -519,7 +515,7 @@ export const getQueue = async (req, res) => {
       },
     });
 
-    console.log("Fetched Queue:", newQueue);
+    // console.log("Fetched Queue:", newQueue);
 
     if (!newQueue) {
       return res.status(404).json({
@@ -790,18 +786,18 @@ export const getQueueListByQuery = async (req, res) => {
       });
 
       totalCount = filteredQueues.length;
-      console.log("filtered Queues: ", filteredQueues);
-      // Apply pagination
-      console.log("Filtered Queues Length:", filteredQueues.length);
-      console.log("Offset:", offsetNum);
-      console.log("Limit:", limitNum);
-      console.log("Slicing from", offsetNum, "to", offsetNum + limitNum);
+      // console.log("filtered Queues: ", filteredQueues);
+      // // Apply pagination
+      // console.log("Filtered Queues Length:", filteredQueues.length);
+      // console.log("Offset:", offsetNum);
+      // console.log("Limit:", limitNum);
+      // console.log("Slicing from", offsetNum, "to", offsetNum + limitNum);
 
       // Apply pagination
       queues = filteredQueues.slice(offsetNum, offsetNum + limitNum);
 
-      console.log("Paginated Queues Length:", queues.length);
-      console.log("Paginated Queues:", queues);
+      // console.log("Paginated Queues Length:", queues.length);
+      // console.log("Paginated Queues:", queues);
     } else {
       // No request status filtering - use direct Prisma query with pagination
       queues = await prisma.queue.findMany({
@@ -1008,13 +1004,13 @@ export const setRequestStatus = async (req, res) => {
       return { requestUpdate };
     });
 
-    io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
-      queueId: queueId,
-      requestId: updated.requestUpdate.requestId,
-      requestStatus: updated.requestUpdate.requestStatus,
-      updatedRequest: updated.requestUpdate,
-      updatedBy: sasStaffId,
-    });
+    // io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+    //   queueId: queueId,
+    //   requestId: updated.requestUpdate.requestId,
+    //   requestStatus: updated.requestUpdate.requestStatus,
+    //   updatedRequest: updated.requestUpdate,
+    //   updatedBy: sasStaffId,
+    // });
 
     return res.status(200).json({
       success: true,
@@ -1635,8 +1631,8 @@ export const callNextQueue = async (req, res) => {
 
     if (result === null)
       return res
-        .status(404)
-        .json({ success: false, message: "No queues left." });
+        .status(200)
+        .json({ success: false, noQueues: true, message: "No queues left." });
 
     if (result === "TAKEN")
       return res.status(409).json({
@@ -1673,7 +1669,10 @@ export const currentServedQueue = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
     const { windowId: windowIdStr } = req.params;
-
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
     if (!isIntegerParam(windowIdStr)) {
       return res.status(400).json({
         success: false,
