@@ -258,8 +258,9 @@ export default function InputModal({
                         <button 
                           type="button"
                           className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                          onMouseDown={(e) => e.preventDefault()} // Prevents blur when clicking
-                          onClick={togglePasswordVisibility}>
+                          onMouseDown={(e) => {e.preventDefault();
+                                    togglePasswordVisibility();
+                          }}>
                           {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
                     )}
@@ -296,8 +297,9 @@ export default function InputModal({
                   <button 
                     type="button"
                     className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={toggleConfirmPasswordVisibility}>
+                     onMouseDown={(e) => {e.preventDefault();
+                                    toggleConfirmPasswordVisibility();
+                          }}>
                     {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 )}
