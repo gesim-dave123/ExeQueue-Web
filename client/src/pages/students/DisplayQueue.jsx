@@ -87,6 +87,7 @@
 import { ArrowLeft, Camera, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import DateAndTimeFormatter, {
   FORMATS,
 } from '../../../../server/utils/DateAndTimeFormatter';
@@ -190,15 +191,25 @@ export default function DisplayQueue() {
   return (
     <div className="min-h-[90vh] w-full flex justify-center items-center flex-col px-4 py-6">
       {/* Note */}
-      <div className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-[#1A73E8] text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-[#1A73E8] text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2"
+      >
         <Camera size={18} className="flex-shrink-0" />
         <span className="text-center">
           Take a picture to keep note of your queue
         </span>
-      </div>
+      </motion.div>
 
       {/* Main Card */}
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col p-6 sm:p-8 items-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col p-6 sm:p-8 items-center"
+      >
         {/* Header */}
         <div className="w-full flex justify-between items-center mb-6">
          <span
@@ -279,17 +290,22 @@ export default function DisplayQueue() {
           <Clock size={15} />
           <span>Issued on {issuedAt}</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Footer Button */}
-      <div className="w-full max-w-md flex justify-center">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+        className="w-full max-w-md flex justify-center"
+      >
         <button
           onClick={() => navigate("/")}
           className="mt-10 w-full bg-[#1A73E8] hover:bg-[#1456AE] cursor-pointer text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center justify-center gap-2"
         >
           <ArrowLeft size={17} /> Back to Homepage
         </button>
-      </div>
+      </motion.div>
     </div>
   );
 }

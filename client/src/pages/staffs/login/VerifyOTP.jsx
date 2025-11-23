@@ -10,6 +10,7 @@ export default function VerifyOTP() {
   const inputRefs = [useRef(), useRef(), useRef(), useRef()];
   const [isOtpCorrect, setOtpCorrect] = useState(true);
   const [shake, setShake] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email;
@@ -37,6 +38,16 @@ export default function VerifyOTP() {
   useEffect(() => {
     inputRefs[0].current?.focus();
   }, []);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => {
+        setResendCountdown(resendCountdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCountdown]);
 
   const handleChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -79,8 +90,12 @@ export default function VerifyOTP() {
   };
 
   const handleResend = async () => {
+    if (resendCountdown > 0) return;
+    
     setOtp(['', '', '', '']);
     inputRefs[0].current?.focus();
+    setResendCountdown(30);
+    
     try {
       const res = await sendOTPtoEmail(email);
       if (res?.success) {
@@ -141,9 +156,15 @@ export default function VerifyOTP() {
               <button
                 type="button"
                 onClick={handleResend}
-                className="text-[#1A73E8] font-medium cursor-pointer hover:underline"
+                disabled={resendCountdown > 0}
+                className={`font-medium ${
+                  resendCountdown > 0
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-[#1A73E8] cursor-pointer hover:underline"
+                }`}
               >
                 Click to resend
+                {resendCountdown > 0 && ` (${resendCountdown}s)`}
               </button>
             </p>
           </div>

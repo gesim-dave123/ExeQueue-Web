@@ -185,8 +185,8 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 const DoughnutChart = ({
   totals = {},
   className = '',
-  height = 250,
-  width = 300,
+  height = 350,
+  width = 350,
 }) => {
   // Get values
   const totalAll = totals.totalQueueToday || 0;

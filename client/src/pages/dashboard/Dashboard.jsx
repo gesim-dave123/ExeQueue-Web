@@ -401,7 +401,7 @@ export default function Dashboard() {
                         className={`w-3 h-3 rounded-full ${item.color}`}
                       ></div>
                       <span className="text-gray-600">{item.name}</span>
-                      <span className="font-medium text-[#202124]">
+                      <span className="font-medium text-xl text-[#202124]">
                         {percentage}%
                       </span>
                     </div>
