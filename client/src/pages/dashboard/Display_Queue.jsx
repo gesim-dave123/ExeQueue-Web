@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SSE } from "../../api/sseApi";
 import { fetchLiveDataStats } from "../../api/statistics";
+import { InlineLoading } from "../../components/InLineLoader";
 import icon from "/assets/icon.svg";
 
 export default function Display_Queue() {
@@ -26,8 +27,9 @@ export default function Display_Queue() {
       });
     }
   };
-  
+
   const getStats = async () => {
+    setLoading(true);
     try {
       const response = await fetchLiveDataStats();
       console.log("Live Data Stats Response:", response);
@@ -97,16 +99,26 @@ export default function Display_Queue() {
         ? "Regular"
         : "Unknown",
   }));
-  
+
   const totalRegularWaiting = totals.totalRegularWaiting || 0;
   const totalPriorityWaiting = totals.totalPriorityWaiting || 0;
 
-  return (
+  return loading ? (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
+      <InlineLoading
+        text="Fetching display queue data..."
+        isVisible={loading}
+        size="largest"
+      />
+    </div>
+  ) : (
     <div className="h-screen w-full overflow-hidden flex flex-col bg-[#F5F5F5]">
       <div
         ref={containerRef}
         className={`flex flex-col h-full w-full bg-[#F5F5F5] overflow-hidden ${
-          isFullscreen ? "p-5" : "pb-10 pt-15 xl:pt-17 xl:px-9 xl:pr-7 lg:pr-7 md:pl-15 pr-3"
+          isFullscreen
+            ? "p-5"
+            : "pb-10 pt-15 xl:pt-17 xl:px-9 xl:pr-7 lg:pr-7 md:pl-15 pr-3"
         }`}
       >
         {/* Fullscreen Logo Header */}
@@ -115,7 +127,11 @@ export default function Display_Queue() {
             isFullscreen ? "flex" : "hidden"
           }`}
         >
-          <img src={icon} alt="Exequeue Logo" className="w-[6vh] min-w-[40px]" />
+          <img
+            src={icon}
+            alt="Exequeue Logo"
+            className="w-[6vh] min-w-[40px]"
+          />
           <h1
             className="text-xl font-bold"
             style={{ fontFamily: "Montserrat, sans-serif" }}
@@ -138,7 +154,11 @@ export default function Display_Queue() {
             className="flex items-center bg-white rounded-xl sm:rounded-2xl gap-1 sm:gap-2 px-2 sm:px-3 md:px-4 py-1 sm:py-2 text-gray-700 hover:text-gray-900 transition cursor-pointer text-xs sm:text-sm"
           >
             <div className="inline-block bg-white w-3 h-3 sm:w-4 sm:h-4">
-              <img src="/assets/display_queue/Full Screen.png" alt="Fullscreen" className="w-full h-full" />
+              <img
+                src="/assets/display_queue/Full Screen.png"
+                alt="Fullscreen"
+                className="w-full h-full"
+              />
             </div>
             <span className="font-medium hidden xs:flex">Fullscreen</span>
           </button>
@@ -218,42 +238,46 @@ export default function Display_Queue() {
                 Next in Line
               </h2>
 
-               <div className="h-full overflow-hidden min-h-0">
-                        {mappedNextInLine.length > 0 ? (
-                          <div className={`flex flex-col gap-1 xs:gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3 
-                          ${
-                          mappedNextInLine.length === 1 ? "h-auto" : ""
-                          }  
+              <div className="h-full overflow-hidden min-h-0">
+                {mappedNextInLine.length > 0 ? (
+                  <div
+                    className={`flex flex-col gap-1 xs:gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3 
+                          ${mappedNextInLine.length === 1 ? "h-auto" : ""}  
                             ${
-                          mappedNextInLine.length > 2 ? "h-full" : "h-1/2"
-                        }`}>
-                            {mappedNextInLine.map((item, index) => (
-                              <div
-                                key={index}
-                                className={`rounded-md xs:rounded-lg sm:rounded-xl md:rounded-2xl 
+                              mappedNextInLine.length > 2 ? "h-full" : "h-1/2"
+                            }`}
+                  >
+                    {mappedNextInLine.map((item, index) => (
+                      <div
+                        key={index}
+                        className={`rounded-md xs:rounded-lg sm:rounded-xl md:rounded-2xl 
                                           p-1.5 xs:p-2 sm:p-2.5 md:p-3 lg:p-4 xl:p-5 
                                           flex items-center justify-center text-center 
                                           flex-1 min-h-0 ${
-                                  item.type === "Regular" ? "bg-[#B8D4F8]" : "bg-[#FDE5B0]"
-                                }`}
-                              >
-                                <span
-                                  className={`text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${
-                                    item.type === "Regular" ? "text-[#1A73E8]" : "text-[#F9A825]"
-                                  }`}
-                                >
-                                  {item.number}
-                                </span>
-                              </div>
-                            ))}
-                    </div>
-                  ) : (
-                    // Empty state when no next in line
-                    <div className="h-full flex items-center justify-center text-gray-400 text-xs xs:text-sm sm:text-base md:text-lg">
-                      No one in line
-                    </div>
-                  )}
-                </div>
+                                            item.type === "Regular"
+                                              ? "bg-[#B8D4F8]"
+                                              : "bg-[#FDE5B0]"
+                                          }`}
+                      >
+                        <span
+                          className={`text-sm xs:text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold ${
+                            item.type === "Regular"
+                              ? "text-[#1A73E8]"
+                              : "text-[#F9A825]"
+                          }`}
+                        >
+                          {item.number}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // Empty state when no next in line
+                  <div className="h-full flex items-center justify-center text-gray-400 text-xs xs:text-sm sm:text-base md:text-lg">
+                    No one in line
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Waiting Counts */}
