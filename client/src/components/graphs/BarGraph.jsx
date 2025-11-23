@@ -355,8 +355,8 @@ const CustomTooltip = ({ active, payload }) => {
       </div>
 
       {/* Selected day display */}
-      {selectedDay && (
-        <div className="text-center mt-4">
+      {/* {selectedDay && (
+        <div className="text-center mt-4"> */}
           {/* <p className="text-sm text-blue-600 font-medium">
             Showing data for {selectedDay} • Click chart to change or{' '}
             <button
@@ -366,8 +366,8 @@ const CustomTooltip = ({ active, payload }) => {
               reset
             </button>
           </p> */}
-        </div>
-      )}
+        {/* </div>
+      )} */}
     </div>
   );
 };
