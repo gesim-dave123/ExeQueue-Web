@@ -7,9 +7,11 @@ import {
   getWorkingScholars,
   updateWorkingScholar,
 } from "../../api/staff";
+import { InlineLoading } from "../../components/InLineLoader";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import InputModal from "../../components/modal/InputModal";
 import { showToast } from "../../components/toast/ShowToast";
+
 export default function ManageAccount() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,6 +22,7 @@ export default function ManageAccount() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false); // New state for table operations
 
   useEffect(() => {
     fetchAccounts();
@@ -96,6 +99,7 @@ export default function ManageAccount() {
   const handleSave = async (formData) => {
     try {
       setLoading(true);
+      setTableLoading(true); // Start table loading
       console.log("💾 Saving account...", formData);
 
       if (isEditMode) {
@@ -157,10 +161,8 @@ export default function ManageAccount() {
         error.response?.data?.message || "Failed to save account";
       const errorField = error.response?.data?.field || null;
 
-      // ✅ Show toast error
       showToast(errorMessage, "error");
 
-      // ✅ Return error info to modal
       return {
         success: false,
         field: errorField,
@@ -168,12 +170,14 @@ export default function ManageAccount() {
       };
     } finally {
       setLoading(false);
+      setTableLoading(false); // Stop table loading
     }
   };
 
   const handleDelete = async (account) => {
     try {
       setLoading(true);
+      setTableLoading(true);
       console.log("🗑️ Deleting account:", account.sasStaffId);
 
       const result = await deleteWorkingScholar(account.sasStaffId);
@@ -181,7 +185,6 @@ export default function ManageAccount() {
       console.log("✅ Account deleted:", result);
       showToast("Account deleted successfully.", "success");
 
-      // Refresh accounts list
       await fetchAccounts();
     } catch (error) {
       console.error("❌ Error deleting account:", error);
@@ -191,10 +194,12 @@ export default function ManageAccount() {
       );
     } finally {
       setLoading(false);
+      setTableLoading(false); // Stop table loading
       setShowBackConfirmModal(false);
       setAccountToDelete(null);
     }
   };
+
   const SmartTooltipCell = ({ text, maxWidth = "200px" }) => {
     const textRef = useRef(null);
     const [isTruncated, setIsTruncated] = useState(false);
@@ -218,18 +223,97 @@ export default function ManageAccount() {
     );
   };
 
-  if (fetchLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading accounts...</p>
+  // Table Loading Component
+  const TableLoader = () => (
+    <tr>
+      <td colSpan="5" className="py-8 text-center">
+        <div className="flex flex-col items-center justify-center gap-3">
+          <InlineLoading
+            text="Updating accounts data..."
+            isVisible={tableLoading}
+            textSize={"text-md"}
+            size="medium"
+          />
         </div>
-      </div>
-    );
-  }
+      </td>
+    </tr>
+  );
 
-  return (
+  // Table Rows Component
+  const TableRows = () => {
+    if (tableLoading) {
+      return <TableLoader />;
+    }
+
+    if (filteredAccounts.length === 0) {
+      return (
+        <tr>
+          <td colSpan="5" className="py-8 text-center">
+            <p className="text-gray-500">
+              {searchQuery
+                ? "No accounts found matching your search."
+                : "No accounts available."}
+            </p>
+          </td>
+        </tr>
+      );
+    }
+
+    return filteredAccounts.map((account) => (
+      <tr
+        key={account.sasStaffId}
+        className="border-b text-left border-gray-100 hover:bg-gray-50 transition"
+      >
+        <SmartTooltipCell text={account.username} maxWidth="150px" />
+        <SmartTooltipCell text={account.fullName} maxWidth="200px" />
+        <SmartTooltipCell text={account.role} maxWidth="120px" />
+        <SmartTooltipCell text={account.email} maxWidth="200px" />
+        <td className="py-4 pr-4">
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleEdit(account)}
+              disabled={loading || tableLoading}
+              className="p-2 bg-[#1A73E8]/23 text-[#1A73E8] rounded-lg hover:bg-[#1A73E8]/30 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
+            >
+              <div className="flex items-center">
+                <img
+                  src="/assets/manage_acc/pen-blue.png"
+                  alt=""
+                  className="w-5 h-5"
+                />
+                <span className="ml-2 font-medium hidden sm:inline">Edit</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setAccountToDelete(account);
+                setShowBackConfirmModal(true);
+              }}
+              disabled={loading || tableLoading}
+              className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
+            >
+              <img
+                src="/assets/manage_acc/trashcan.png"
+                alt=""
+                className="w-5 h-5"
+              />
+            </button>
+          </div>
+        </td>
+      </tr>
+    ));
+  };
+
+  return fetchLoading && !tableLoading ? (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
+      <InlineLoading
+        text="Fetching accounts data..."
+        isVisible={fetchLoading}
+        size="largest"
+      />
+    </div>
+  ) : (
     <div className="min-h-screen pt-9 flex lg:w-[100%]">
       <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
         {/* Header */}
@@ -245,7 +329,7 @@ export default function ManageAccount() {
           <div className="mt-4 sm:mt-0 flex items-center justify-end">
             <button
               onClick={handleAddAccount}
-              disabled={loading}
+              disabled={loading || tableLoading}
               className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-[#1557B0] transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
             >
               <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
@@ -261,117 +345,65 @@ export default function ManageAccount() {
         </div>
 
         {/* Personnel Accounts Card */}
-     <div className="bg-white rounded-2xl shadow-xs p-6 flex-6">
-  {/* Card Header */}
-  <div className="sm:flex items-center justify-between mb-6">
-    <h2 className="text-xl text-left font-medium text-[#202124]">
-      Personnel Accounts
-    </h2>
-
-    {/* Search Bar */}
-    <div className="relative w-auto lg:w-80 mt-5 flex justify-start">
-      <Search
-        className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-        size={20}
-      />
-      <input
-        type="text"
-        placeholder="Search by username"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-    </div>
-  </div>
-
-  {/* Table Container with Scroll */}
-  <div className="overflow-x-auto w-full text-left overflow-y-scroll custom-scrollbar max-h-[65vh]">
-    <table className="w-full">
-      <thead className="sticky top-0 bg-white z-10">
-        <tr className=" border-gray-100"> {/* Removed border-t here */}
-          <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
-            Username
-          </th>
-          <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
-            Name
-          </th>
-          <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
-            Role
-          </th>
-          <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
-            Email
-          </th>
-          <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
-            Actions
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {filteredAccounts.map((account) => (
-          <tr
-            key={account.sasStaffId}
-            className="border-b text-left border-gray-100 hover:bg-gray-50 transition"
+        <div className="bg-white rounded-2xl shadow-xs p-6 flex-6">
+          <div className="sm:flex items-center justify-between mb-6">
+            <h2 className="text-xl text-left font-medium text-[#202124]">
+              Personnel Accounts
+            </h2>
+            <div className="relative w-auto lg:w-80 mt-5 flex justify-start">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="Search by username"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          {/* Table Container with Scroll */}
+          <div
+            className={`overflow-x-auto w-full text-left ${
+              filteredAccounts.length > 7
+                ? "overflow-y-scroll custom-scrollbar max-h-[65vh]"
+                : ""
+            }`}
           >
-            <SmartTooltipCell
-              text={account.username}
-              maxWidth="150px"
-            />
-            <SmartTooltipCell
-              text={account.fullName}
-              maxWidth="200px"
-            />
-            <SmartTooltipCell text={account.role} maxWidth="120px" />
-            <SmartTooltipCell text={account.email} maxWidth="200px" />
-            <td className="py-4 pr-4">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(account)}
-                  disabled={loading}
-                  className="p-2 bg-[#1A73E8]/23 text-[#1A73E8] rounded-lg hover:bg-[#1A73E8]/30 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
-                >
-                  <div className="flex items-center">
-                    <img
-                      src="/assets/manage_acc/pen-blue.png"
-                      alt=""
-                      className="w-5 h-5"
-                    />
-                    <span className="ml-2 font-medium hidden sm:inline">
-                      Edit
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setAccountToDelete(account);
-                    setShowBackConfirmModal(true);
-                  }}
-                  disabled={loading}
-                  className="p-2 bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition cursor-pointer disabled:opacity-50 flex-shrink-0"
-                >
-                  <img
-                    src="/assets/manage_acc/trashcan.png"
-                    alt=""
-                    className="w-5 h-5"
-                  />
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-
-    {/* No Results */}
-    {filteredAccounts.length === 0 && (
-      <div className="text-center py-12">
-        <p className="text-gray-500">
-          No accounts found matching your search.
-        </p>
-      </div>
-    )}
-  </div>
-</div>
+            <table className="w-full">
+              <thead
+                className={`${
+                  filteredAccounts.length > 7
+                    ? "sticky top-0 bg-white z-10"
+                    : ""
+                }`}
+              >
+                <tr className=" border-gray-100 border-b">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
+                    Username
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
+                    Name
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
+                    Role
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
+                    Email
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-[#686969]">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <TableRows />
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* Input Modal */}
         <InputModal
@@ -393,13 +425,14 @@ export default function ManageAccount() {
           onConfirm={() => {
             if (accountToDelete) {
               handleDelete(accountToDelete);
+              setShowBackConfirmModal(false);
             }
           }}
-          loading={loading}
+          loading={false}
           icon="/assets/manage_acc/caution.png"
           iconAlt="Warning"
           iconSize="w-12 h-12"
-          showLoading={true}
+          showLoading={false}
           title="Delete Account"
           cancelText="Cancel"
           confirmText="Remove"
