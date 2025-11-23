@@ -250,11 +250,29 @@ export default function Transactions() {
     }
   }, [searchQuery]);
 
-  const handleFilterChange = (filterType, value) => {
-    setFilters((prev) => ({ ...prev, [filterType]: value }));
-    setCurrentPage(1);
-    setOpenDropdown(null);
-  };
+const isStatusSearch = (query) => {
+  if (!query.trim()) return false;
+  
+  const normalizedSearch = query.trim().toUpperCase();
+  const statusTerms = [
+    "COMPLETED", "CANCELLED", "STALLED", 
+    "COMPLETE", "CANCEL", "STALL"
+  ];
+  
+  return statusTerms.some(
+    (term) => normalizedSearch === term || normalizedSearch.includes(term)
+  );
+};
+
+const handleFilterChange = (filterType, value) => {
+  setFilters((prev) => ({ ...prev, [filterType]: value }));
+  setCurrentPage(1);
+  setOpenDropdown(null);
+  
+  if (filterType === "status" && isStatusSearch(searchQuery)) {
+    setSearchQuery("");
+  }
+};
 
   const clearFilters = () => {
     setFilters({ course: "", request: "", status: "", date: "" });
@@ -374,178 +392,152 @@ export default function Transactions() {
   };
 
   const CustomDropdown = ({ label, filterType, options, displayFn }) => (
-    <div ref={dropdownRefs[filterType]} className="relative">
-      <div className="relative">
+  <div ref={dropdownRefs[filterType]} className="relative">
+    <div className="relative">
+      <button
+       onClick={() => {
+        if (filterType === "status" && isStatusSearch(searchQuery)) {
+          setSearchQuery("");
+        }
+        setOpenDropdown(openDropdown === filterType ? null : filterType);
+      }}
+        className={`w-full cursor-pointer flex items-center justify-between rounded-lg py-2.5 text-sm text-gray-700 transition-colors min-h-[42px]
+        ${filters[filterType] ? "pl-10 pr-4" : "px-4"}
+        ${
+          openDropdown === filterType || filters[filterType]
+            ? "border border-[#F9AB00]/40 bg-white"
+            : "bg-gray-50 hover:bg-gray-100 border border-transparent"
+        }`}
+      >
+        <span className="truncate mr-2 flex items-center gap-1">
+          {filterType === "course" && filters[filterType] ? (
+            <>
+              <span className="text-[#88898A] font-light">Course</span>
+              <span className="text-[#88898A]">|</span>
+              <span className="text-[#1A73E8] font-normal">
+                {
+                  filterOptions.courses.find(
+                    (c) => c.courseId === filters[filterType]
+                  )?.courseCode
+                }
+              </span>
+            </>
+          ) : (
+            <span
+              className={`${
+                filters[filterType]
+                  ? "text-[#1A73E8] font-normal"
+                  : "text-gray-500"
+              }`}
+            >
+              {displayFn && filters[label]
+                ? displayFn(filters[filterType])
+                : filters[label] || label}
+            </span>
+          )}
+        </span>
+
+        <ChevronDown
+          className={`w-4 h-4 flex-shrink-0 transition-transform ${
+            openDropdown === filterType
+              ? "rotate-180 text-yellow-500"
+              : "text-gray-500"
+          }`}
+        />
+      </button>
+
+      {filters[filterType] && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      handleFilterChange(filterType, "");
+      if (filterType === "status" && isStatusSearch(searchQuery)) {
+        setSearchQuery("");
+      }
+    }}
+    className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors ${
+      filters[filterType]
+        ? "bg-[#88898A] hover:bg-gray-700"
+        : "hover:bg-gray-200"
+    }`}
+  >
+    <svg
+      className="w-3 h-3 text-white"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M6 18L18 6M6 6l12 12"
+      />
+    </svg>
+  </button>
+)}
+    </div>
+
+    {openDropdown === filterType && (
+      <div className="absolute z-50 mt-2 w-full bg-white px-1 py-1 rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
         <button
-          onClick={() =>
-            setOpenDropdown(openDropdown === filterType ? null : filterType)
-          }
-          className={`w-full cursor-pointer flex items-center justify-between rounded-lg py-2.5 text-sm text-gray-700 transition-colors min-h-[42px]
-          ${filters[filterType] ? "pl-10 pr-4" : "px-4"}
-          ${
-            openDropdown === filterType || filters[filterType]
-              ? "border border-[#F9AB00]/40 bg-white"
-              : "bg-gray-50 hover:bg-gray-100 border border-transparent"
+          onClick={() => handleFilterChange(filterType, "")}
+          className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
+            filters[filterType] === ""
+              ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+              : "border-transparent text-gray-700"
           }`}
         >
-          <span className="truncate mr-2 flex items-center gap-1">
-            {filterType === "course" && filters[filterType] ? (
-              <>
-                <span className="text-[#88898A] font-light">Course</span>
-                <span className="text-[#88898A]">|</span>
-                <span className="text-[#1A73E8] font-normal">
-                  {
-                    filterOptions.courses.find(
-                      (c) => c.courseId === filters[filterType]
-                    ).courseCode
-                  }
-                </span>
-              </>
-            ) : (
-              <span
-                className={`${
-                  filters[filterType]
-                    ? "text-[#1A73E8] font-normal"
-                    : "text-gray-500"
-                }`}
-              >
-                {displayFn && filters[label]
-                  ? displayFn(filters[filterType])
-                  : filters[label] || label}
-              </span>
-            )}
-          </span>
-
-          <ChevronDown
-            className={`w-4 h-4 flex-shrink-0 transition-transform ${
-              openDropdown === filterType
-                ? "rotate-180 text-yellow-500"
-                : "text-gray-500"
-            }`}
-          />
+          All
         </button>
+        {options.map((option) => {
+          const id =
+            option.courseId ??
+            option.requestTypeId ?? 
+            option;
 
-        {filters[filterType] && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFilterChange(filterType, "");
-            }}
-            className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors ${
-              filters[filterType]
-                ? "bg-[#88898A] hover:bg-gray-700"
-                : "hover:bg-gray-200"
-            }`}
-          >
-            <svg
-              className="w-3 h-3 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          let label = option.courseName ?? option.requestName ?? option;
+          if (filterType === "status") {
+            label = formatStatusLabel(option);
+          }
+          
+          const isSelected = filters[filterType] === id;
+          
+          return (
+            <button
+              key={id}
+              onClick={() => handleFilterChange(filterType, id)}
+              className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
+                isSelected
+                  ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+                  : "border-transparent text-gray-700"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        )}
+              {label}
+            </button>
+          );
+        })}
       </div>
+    )}
 
-      {openDropdown === filterType && (
-        <div className="absolute z-50 mt-2 w-full bg-white px-1 py-1 rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
-          <button
-            onClick={() => handleFilterChange(filterType, "")}
-            className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
-              filters[filterType] === ""
-                ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
-                : "border-transparent text-gray-700"
-            }`}
-          >
-            All
-          </button>
-          {options.map((option) => {
-            const id =
-              option.courseId ??
-              option.requestTypeId ?? // ✅ handles both course + request
-              option;
-
-            let label = option.courseName ?? option.requestName ?? option;
-            if (filterType === "status") {
-              label = formatStatusLabel(option);
-            }
-            return (
-              <button
-                key={option}
-                onClick={() => handleFilterChange(filterType, id)}
-                className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
-                  filters[filterType] === option
-                    ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
-                    : "border-transparent text-gray-700"
-                }`}
-              >
-                {/* {displayFn ? displayFn(option) : option} */}
-                {label}
-              </button>
-            );
-          })}
-          {/* {options.map((option) => {
-            const id =
-              option.courseId ??
-              option.requestTypeId ?? // ✅ handles both course + request
-              option;
-
-            const label =
-              option.courseName ??
-              option.requestName ?? 
-              option;
-
-            const hoverCode = option.courseCode ?? null;
-
-            return (
-              <button
-                key={id}
-                onClick={() => handleFilterChange(filterType, id)} // ✅ stores only the ID
-                title={hoverCode || ""}
-                className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
-                  filters[filterType] === id
-                    ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
-                    : "border-transparent text-gray-700"
-                }`}
-              >
-                {label}
-                {hoverCode && (
-                  <span className="text-xs text-gray-400 ml-2">
-                    ({hoverCode})
-                  </span>
-                )}
-              </button>
-            );
-          })} */}
-        </div>
-      )}
-
-      <style jsx>{`
-        .scrollbar-custom::-webkit-scrollbar {
-          width: 8px;
-        }
-        .scrollbar-custom::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        .scrollbar-custom::-webkit-scrollbar-thumb {
-          background: #3b82f6;
-          border-radius: 10px;
-        }
-        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-          background: #2563eb;
-        }
-      `}</style>
-    </div>
-  );
-
+    <style jsx>{`
+      .scrollbar-custom::-webkit-scrollbar {
+        width: 8px;
+      }
+      .scrollbar-custom::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+      .scrollbar-custom::-webkit-scrollbar-thumb {
+        background: #3b82f6;
+        border-radius: 10px;
+      }
+      .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+        background: #2563eb;
+      }
+    `}</style>
+  </div>
+);
   const CalendarPicker = () => {
     const { daysInMonth, startingDayOfWeek, year, month } =
       getDaysInMonth(calendarDate);
