@@ -28,7 +28,6 @@ export const loginUser = async (req, res) => {
         hashedPassword: true,
         role: true,
         isActive: true,
-        // serviceWindowId: true
       },
     });
 
@@ -52,27 +51,27 @@ export const loginUser = async (req, res) => {
         id: user.sasStaffId,
         role: user.role,
         isActive: user.isActive,
-        // serviceWindowId: user.serviceWindowId
       },
       process.env.JWT_SECRET,
-      { expiresIn: user.role === Role.PERSONNEL ? "10h" : "5h" }
+      { expiresIn: user.role === Role.PERSONNEL ? "12h" : "12h" }
     );
 
     res.cookie("access_token", token, {
       httpOnly: true,
-      secure: true, // ALWAYS true for tunnels
-      sameSite: "none", // REQUIRED for cross-site
+      secure: process.env.NODE_ENV === "production", 
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
       maxAge:
         user.role === Role.PERSONNEL
-          ? 1000 * 60 * 60 * 20
-          : 1000 * 60 * 60 * 10,
+          ? 1000 * 60 * 60 * 12
+          : 1000 * 60 * 60 * 12,
     });
 
     return res.status(200).json({
       success: true,
       message: "Logged In Successfully!",
       role: user.role,
+      token: token,
     });
   } catch (error) {
     console.error("Error in Login: ", error);

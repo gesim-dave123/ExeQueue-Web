@@ -90,6 +90,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import ConfirmModal from '../../components/modal/ConfirmModal';
 import { searchQueue } from '../../api/student';
 
@@ -148,7 +149,12 @@ export default function SearchQueue() {
   return (
     <div className="min-h-[90vh] w-full flex justify-center items-center flex-col px-4 py-6">
       {/* Title and instruction */}
-      <div className="w-full max-w-lg flex flex-col text-start mb-6 lg:mb-10 lg:ml-10 lg:pr-5">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="w-full max-w-lg flex flex-col text-start mb-6 lg:mb-10 lg:ml-10 lg:pr-5"
+      >
         <h1 className="text-4xl sm:text-5xl font-bold text-[#1A73E8]   mb-2">
           Search Queue
         </h1>
@@ -157,47 +163,57 @@ export default function SearchQueue() {
           or <span className="text-[#1A73E8]">Queue Reference Number</span> to
           view your queue ticket.
         </span>
-      </div>
+      </motion.div>
 
       {/* Input */}
-     <div className="flex w-full max-w-xl rounded-full overflow-hidden border border-blue-600 bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-6 sm:mb-10 lg:mb-15">
-  {/* Input Field */}
-  <input
-    type="text"
-    value={query}
-    onChange={(e) => setQuery(e.target.value)}
-    placeholder="e.g., 23785371 or 0019-142-323"
-    className="flex-1 px-3 sm:px-4 py-2 sm:py-3 outline-none text-sm bg-white placeholder-gray-400"
-    disabled={loading}
-  />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        className="flex w-full max-w-xl rounded-full overflow-hidden border border-blue-600 bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-6 sm:mb-10 lg:mb-15"
+      >
+        {/* Input Field */}
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="e.g., 23785371 or 0019-142-323"
+          className="flex-1 px-3 sm:px-4 py-2 sm:py-3 outline-none text-sm bg-white placeholder-gray-400"
+          disabled={loading}
+        />
 
-  {/* Search Button / Icon */}
-  <button
-    onClick={checkQueue}
-    disabled={loading}
-    className="w-16 sm:w-20 md:w-23 h-12 sm:h-14 bg-[#1A73E8] hover:bg-[#1557B0] flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    {loading ? (
-      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-    ) : (
-      <img
-        src="/assets/Search icon.png"
-        alt="search"
-        className="w-4 h-4 sm:w-5 sm:h-5"
-      />
-    )}
-  </button>
-</div>
+        {/* Search Button / Icon */}
+        <button
+          onClick={checkQueue}
+          disabled={loading}
+          className="w-16 sm:w-20 md:w-23 h-12 cursor-pointer sm:h-14 bg-[#1A73E8] hover:bg-[#1557B0] flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <img
+              src="/assets/Search icon.png"
+              alt="search"
+              className="w-4 h-4 sm:w-5 sm:h-5"
+            />
+          )}
+        </button>
+      </motion.div>
 
       {/* Button */}
-      <div className="w-full max-w-xl flex justify-end">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.4, ease: "easeOut" }}
+        className="w-full max-w-xl flex justify-end"
+      >
         <button
           onClick={() => (window.location.href = '/')}
-          className="mt-6 mb-20 bg-[#1A73E8] hover:bg-[#1557B0] text-sm  text-white font-medium px-5 py-4 rounded-2xl flex items-center gap-2"
+          className="mt-6 mb-20 bg-[#1A73E8] cursor-pointer hover:bg-[#1557B0] text-sm  text-white font-medium px-5 py-4 rounded-2xl flex items-center gap-2"
         >
           <ArrowLeft size={17} /> Back to Homepage
         </button>
-      </div>
+      </motion.div>
 
       {/* Modal */}
       <ConfirmModal

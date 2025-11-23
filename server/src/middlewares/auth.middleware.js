@@ -4,15 +4,22 @@ import prisma from "../../prisma/prisma.js";
 // const prisma = new PrismaClient();
 
 export const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token =
-    req.cookies?.access_token ||
-    (req.headers["authorization"] &&
-      req.headers["authorization"].split(" ")[1]);
-  if (!token)
+  // Try cookie first
+  let token = req.cookies.access_token;
+
+  // Fallback to Authorization header for mobile
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    }
+  }
+
+  if (!token) {
     return res
       .status(401)
-      .json({ success: true, message: "Access Denied, No token provided!" });
+      .json({ success: false, message: "Not authenticated" });
+  }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

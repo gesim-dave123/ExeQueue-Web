@@ -37,7 +37,10 @@ function corsOrigin(origin, callback) {
 app.use(express.json());
 app.use(
   cors({
-    origin: corsOrigin,
+    origin:
+      process.env.NODE_ENV === "production"
+        ? process.env.CORS_ORIGIN
+        : process.env.CORS_ORIGIN, // React dev server
     credentials: true,
   })
 );
@@ -57,7 +60,11 @@ app.use("/api/staff/session", SessionRoute);
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: corsOrigin,
+    origin:
+      process.env.NODE_ENV === "production"
+        ? process.env.CORS_ORIGIN
+        : process.env.CORS_ORIGIN, // React dev server
+    methods: ["GET", "POST"],
     credentials: true,
   },
 });
