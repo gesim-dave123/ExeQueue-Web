@@ -68,7 +68,6 @@ export default function Transactions() {
       );
     }
 
-    // Fallback spinner if GIF fails to load
     return (
       <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
     );
@@ -110,11 +109,7 @@ export default function Transactions() {
 
   const fetchFilterOptions = async () => {
     try {
-      // console.log("🔄 Fetching filter options...");
       const result = await getTransactionStats();
-
-      // console.log("✅ Filter options received:", result);
-
       if (!result) {
         throw new Error("Filter Options was null");
       }
@@ -137,17 +132,31 @@ export default function Transactions() {
         page: currentPage,
         limit: itemsPerPage,
         ...filters,
-        search: searchQuery,
       });
 
+      if (searchQuery) {
+        const normalizedSearch = searchQuery.trim().toUpperCase();
+        const statusTerms = [
+          "COMPLETED",
+          "CANCELLED",
+          "STALLED",
+          "COMPLETE",
+          "CANCEL",
+          "STALL",
+        ];
+        const isStatusSearch = statusTerms.some(
+          (term) => normalizedSearch === term || normalizedSearch.includes(term)
+        );
+        if (!isStatusSearch) {
+          params.set("search", searchQuery);
+        }
+      }
       Object.keys(filters).forEach((key) => {
         if (!filters[key]) {
           params.delete(key);
         }
       });
-      if (!searchQuery) {
-        params.delete("search");
-      }
+
       const result = await getTransactionHistory(params);
 
       console.log("✅ Transactions received:", result);
@@ -191,6 +200,55 @@ export default function Transactions() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
+
+  useEffect(() => {
+    const detectStatusFromSearch = () => {
+      if (searchQuery.trim()) {
+        const normalizedSearch = searchQuery.trim().toUpperCase();
+
+        const statusMap = {
+          COMPLETED: "COMPLETED",
+          CANCELLED: "CANCELLED",
+          STALLED: "STALLED",
+          COMPLETE: "COMPLETED",
+          CANCEL: "CANCELLED",
+          STALL: "STALLED",
+        };
+
+        const matchedStatus = statusMap[normalizedSearch];
+
+        if (matchedStatus) {
+          setFilters((prev) => ({ ...prev, status: matchedStatus }));
+        }
+      }
+    };
+
+    detectStatusFromSearch();
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilters((prev) => ({ ...prev, status: "" }));
+    } else {
+      const normalizedSearch = searchQuery.trim().toUpperCase();
+      const statusTerms = [
+        "COMPLETED",
+        "CANCELLED",
+        "STALLED",
+        "COMPLETE",
+        "CANCEL",
+        "STALL",
+      ];
+
+      const isStatusSearch = statusTerms.some(
+        (term) => normalizedSearch === term || normalizedSearch.includes(term)
+      );
+
+      if (!isStatusSearch && filters.status) {
+        setFilters((prev) => ({ ...prev, status: "" }));
+      }
+    }
+  }, [searchQuery]);
 
   const handleFilterChange = (filterType, value) => {
     setFilters((prev) => ({ ...prev, [filterType]: value }));
@@ -547,7 +605,7 @@ export default function Transactions() {
             />
           </button>
 
-          {/* ❌ Clear Button */}
+          {/* Clear Button */}
           {selectedDate && (
             <button
               onClick={(e) => {

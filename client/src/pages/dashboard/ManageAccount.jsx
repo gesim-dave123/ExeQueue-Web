@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
-import InputModal from '../../components/modal/InputModal';
-import ConfirmModal from '../../components/modal/ConfirmModal';
+import { Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
-  getWorkingScholars,
   createWorkingScholar,
-  updateWorkingScholar,
   deleteWorkingScholar,
-} from '../../api/staff';
-import { toast } from 'sonner';
+  getWorkingScholars,
+  updateWorkingScholar,
+} from "../../api/staff";
+import ConfirmModal from "../../components/modal/ConfirmModal";
+import InputModal from "../../components/modal/InputModal";
+import { showToast } from "../../components/toast/ShowToast";
 export default function ManageAccount() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -27,11 +28,11 @@ export default function ManageAccount() {
   const fetchAccounts = async () => {
     try {
       setFetchLoading(true);
-      console.log('🔄 Fetching working scholars...');
+      console.log("🔄 Fetching working scholars...");
 
       const result = await getWorkingScholars();
 
-      console.log('✅ Accounts fetched:', result.data);
+      console.log("✅ Accounts fetched:", result.data);
 
       const transformedAccounts = result.data.map((scholar) => ({
         id: scholar.sasStaffId,
@@ -40,14 +41,14 @@ export default function ManageAccount() {
         fullName: scholar.name,
         firstName: scholar.firstName,
         lastName: scholar.lastName,
-        role: 'Working Scholar',
+        role: "Working Scholar",
         email: scholar.email,
       }));
 
       setAccounts(transformedAccounts);
     } catch (error) {
-      console.error('❌ Error fetching accounts:', error);
-      toast.error(error.response?.data?.message || 'Failed to fetch accounts');
+      console.error("❌ Error fetching accounts:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch accounts");
     } finally {
       setFetchLoading(false);
     }
@@ -56,9 +57,9 @@ export default function ManageAccount() {
   const capitalizeWords = (string) => {
     if (!string) return string;
     return string
-      .split(' ')
+      .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
+      .join(" ");
   };
 
   const filteredAccounts = accounts.filter(
@@ -81,12 +82,12 @@ export default function ManageAccount() {
 
   const handleAddAccount = () => {
     setSelectedAccount({
-      firstName: '',
-      lastName: '',
-      username: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
+      firstName: "",
+      lastName: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
     });
     setIsEditMode(false);
     setIsModalOpen(true);
@@ -95,7 +96,7 @@ export default function ManageAccount() {
   const handleSave = async (formData) => {
     try {
       setLoading(true);
-      console.log('💾 Saving account...', formData);
+      console.log("💾 Saving account...", formData);
 
       if (isEditMode) {
         // Update existing account
@@ -113,7 +114,7 @@ export default function ManageAccount() {
         }
 
         console.log(
-          '📤 Updating account:',
+          "📤 Updating account:",
           selectedAccount.sasStaffId,
           updateData
         );
@@ -123,8 +124,8 @@ export default function ManageAccount() {
           updateData
         );
 
-        console.log('✅ Account updated:', result);
-        toast.success(result.message || 'Account updated successfully');
+        console.log("Account updated:", result);
+        showToast(result.message || "Account updated successfully", "success");
       } else {
         // Create new account
         const createData = {
@@ -136,12 +137,12 @@ export default function ManageAccount() {
           confirmPassword: formData.confirmPassword,
         };
 
-        console.log('📤 Creating account:', createData);
+        console.log("📤 Creating account:", createData);
 
         const result = await createWorkingScholar(createData);
 
-        console.log('✅ Account created:', result);
-        toast.success(result.message || 'Account created successfully');
+        console.log("✅ Account created:", result);
+        showToast("Account created successfully", "success");
       }
 
       // Refresh accounts list
@@ -151,13 +152,13 @@ export default function ManageAccount() {
       setIsModalOpen(false);
       return true; // Success
     } catch (error) {
-      console.error('❌ Error saving account:', error);
+      console.error("❌ Error saving account:", error);
       const errorMessage =
-        error.response?.data?.message || 'Failed to save account';
+        error.response?.data?.message || "Failed to save account";
       const errorField = error.response?.data?.field || null;
 
       // ✅ Show toast error
-      toast.error(errorMessage);
+      showToast(errorMessage, "error");
 
       // ✅ Return error info to modal
       return {
@@ -173,23 +174,48 @@ export default function ManageAccount() {
   const handleDelete = async (account) => {
     try {
       setLoading(true);
-      console.log('🗑️ Deleting account:', account.sasStaffId);
+      console.log("🗑️ Deleting account:", account.sasStaffId);
 
       const result = await deleteWorkingScholar(account.sasStaffId);
 
-      console.log('✅ Account deleted:', result);
-      toast.success(result.message || 'Account deleted successfully');
+      console.log("✅ Account deleted:", result);
+      showToast("Account deleted successfully.", "success");
 
       // Refresh accounts list
       await fetchAccounts();
     } catch (error) {
-      console.error('❌ Error deleting account:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete account');
+      console.error("❌ Error deleting account:", error);
+      showToast(
+        error.response?.data?.message || "Failed to delete account",
+        "error"
+      );
     } finally {
       setLoading(false);
       setShowBackConfirmModal(false);
       setAccountToDelete(null);
     }
+  };
+  const SmartTooltipCell = ({ text, maxWidth = "200px" }) => {
+    const textRef = useRef(null);
+    const [isTruncated, setIsTruncated] = useState(false);
+
+    useEffect(() => {
+      if (textRef.current) {
+        const element = textRef.current;
+        setIsTruncated(element.scrollWidth > element.clientWidth);
+      }
+    }, [text]);
+
+    return (
+      <td
+        ref={textRef}
+        className="py-4 px-4 text-[#202124] text-left truncate"
+        style={{ maxWidth }}
+        title={isTruncated ? text : undefined}
+      >
+        {text}
+      </td>
+    );
   };
 
   if (fetchLoading) {
@@ -286,18 +312,16 @@ export default function ManageAccount() {
                     key={account.sasStaffId}
                     className="border-b text-left border-gray-100 hover:bg-gray-50 transition"
                   >
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.username}
-                    </td>
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.fullName}
-                    </td>
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.role}
-                    </td>
-                    <td className="py-4 px-4 text-[#202124] text-left">
-                      {account.email}
-                    </td>
+                    <SmartTooltipCell
+                      text={account.username}
+                      maxWidth="150px"
+                    />
+                    <SmartTooltipCell
+                      text={account.fullName}
+                      maxWidth="200px"
+                    />
+                    <SmartTooltipCell text={account.role} maxWidth="120px" />
+                    <SmartTooltipCell text={account.email} maxWidth="200px" />
                     <td className="py-4 pr-4">
                       <div className="flex gap-2">
                         <button
@@ -351,14 +375,14 @@ export default function ManageAccount() {
 
         {/* Input Modal */}
         <InputModal
-          title={isEditMode ? 'Update Account' : 'Add Account'}
+          title={isEditMode ? "Update Account" : "Add Account"}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           accountData={selectedAccount}
           onSave={handleSave}
-          submitType={isEditMode ? 'Update Account' : 'Add Account'}
+          submitType={isEditMode ? "Update Account" : "Add Account"}
           details={
-            isEditMode ? 'Edit account details for' : 'Add a new account for'
+            isEditMode ? "Edit account details for" : "Add a new account for"
           }
         />
 

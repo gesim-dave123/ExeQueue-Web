@@ -4,6 +4,7 @@ import {
   overrideSessionReset,
 } from "../../api/staff.api";
 import ConfirmModal from "../../components/modal/ConfirmModal";
+import { showToast } from "../../components/toast/ShowToast.jsx";
 import { Queue_Type } from "../../constants/queueEnums";
 
 export default function Reset_Queue() {
@@ -14,7 +15,21 @@ export default function Reset_Queue() {
       if (!result) {
         throw new Error(result);
       }
-      console.log("result: ", result);
+      if (result?.success === false && result?.noActiveQueue) {
+        showToast(`${result?.message}`, "info");
+        return;
+      } else if (
+        result?.success === false &&
+        !result?.noActiveQueue &&
+        !result?.activeSessionFound
+      ) {
+        showToast(`${result?.messsage}`, "warning");
+      } else {
+        showToast(
+          `${queueType.toUpperCase()} has been reset successfully.`,
+          "success"
+        );
+      }
     } catch (error) {
       console.error("Error in resetting queue: ", error);
     }
@@ -25,7 +40,7 @@ export default function Reset_Queue() {
       if (!result) {
         throw new Error(result);
       }
-      console.log("result: ", result);
+      showToast("Session has been reset successfully.", "success");
     } catch (error) {
       console.error("Error in resetting session: ", error);
     }

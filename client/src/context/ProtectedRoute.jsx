@@ -4,31 +4,48 @@ import { useAuth } from "../context/AuthProvider.jsx";
 import { useLoading } from "./LoadingProvider.jsx";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshAuth } = useAuth();
   const { setIsLoading, setProgress, setLoadingText } = useLoading();
   const location = useLocation();
 
   // Animate the loading overlay while checking auth
   useEffect(() => {
+    let interval;
+    let timeout;
+
     if (isLoading) {
       setIsLoading(true);
       setLoadingText("Authenticating...");
       setProgress(0);
 
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         setProgress((prev) => (prev < 90 ? prev + 10 : 90));
       }, 200);
 
-      return () => clearInterval(interval);
-    } else {
-      setProgress(100);
-      setTimeout(() => setIsLoading(false), 500); // smooth fade-out
-    }
-  }, [isLoading, setIsLoading, setProgress, setLoadingText]);
+      const handleAuth = async () => {
+        try {
+          await refreshAuth();
+          // Authentication complete - finish loading
+          setProgress(100);
+          timeout = setTimeout(() => setIsLoading(false), 500);
+        } catch (error) {
+          // Handle auth error
+          console.error("Authentication failed:", error);
+          setIsLoading(false);
+        }
+      };
 
-  // Block rendering of route while loading
+      handleAuth();
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [isLoading, setIsLoading, setProgress, setLoadingText, refreshAuth]);
+
   if (isLoading) {
-    return null; // overlay is global, so nothing else renders
+    return null;
   }
 
   // Now we can safely redirect if user is not logged in

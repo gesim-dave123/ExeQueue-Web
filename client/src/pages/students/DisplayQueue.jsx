@@ -84,13 +84,13 @@
 //     </div>
 //   );
 // }
-import { ArrowLeft, Camera, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Camera, Clock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import DateAndTimeFormatter, {
   FORMATS,
-} from "../../../../server/utils/DateAndTimeFormatter";
-import { getQueueDisplay } from "../../api/student";
+} from '../../../../server/utils/DateAndTimeFormatter';
+import { getQueueDisplay } from '../../api/student';
 
 export default function DisplayQueue() {
   const navigate = useNavigate();
@@ -98,7 +98,7 @@ export default function DisplayQueue() {
   const location = useLocation();
   const [queueData, setQueueData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   const referenceNumber = location.state?.referenceNumber || null;
   // Get ref from query string (/display?ref=xxxxx)
@@ -109,7 +109,7 @@ export default function DisplayQueue() {
     const fetchQueueData = async () => {
       try {
         if (!queueId) {
-          setError("No Queue Id provided.");
+          setError('No Queue Id provided.');
           setLoading(false);
           return;
         }
@@ -119,7 +119,7 @@ export default function DisplayQueue() {
           } || undefined;
         const response = await getQueueDisplay(queueId, options);
         if (response?.success) {
-          console.log("Queue: ", response);
+          console.log('Queue: ', response);
           const payload = response.data ?? response;
           const details =
             payload.queueDetails ?? payload?.data?.queueDetails ?? payload;
@@ -128,15 +128,15 @@ export default function DisplayQueue() {
           setQueueData(payload.queueDetails ? payload.queueDetails : payload);
 
           console.log(
-            "📦 Queue data from backend:",
+            '📦 Queue data from backend:',
             payload.queueDetails ?? payload
           );
         } else {
-          setError(response?.message || "Queue not found.");
+          setError(response?.message || 'Queue not found.');
         }
       } catch (err) {
-        console.error("Error fetching queue:", err);
-        setError("Failed to fetch queue details.");
+        console.error('Error fetching queue:', err);
+        setError('Failed to fetch queue details.');
       } finally {
         setLoading(false);
       }
@@ -146,13 +146,13 @@ export default function DisplayQueue() {
   }, [queueId]);
 
   const yearLevelMap = {
-    "1st": "First Year",
-    "2nd": "Second Year",
-    "3rd": "Third Year",
-    "4th": "Fourth Year",
-    "5th": "Fifth Year",
-    "6th": "Sixth Year",
-    Irregular: "Irregular",
+    '1st': 'First Year',
+    '2nd': 'Second Year',
+    '3rd': 'Third Year',
+    '4th': 'Fourth Year',
+    '5th': 'Fifth Year',
+    '6th': 'Sixth Year',
+    Irregular: 'Irregular',
   };
 
   if (loading)

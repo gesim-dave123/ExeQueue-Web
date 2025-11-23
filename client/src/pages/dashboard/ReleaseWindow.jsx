@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { overrideWindowRelease } from "../../api/staff.api.js";
 import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
+import { showToast } from "../../components/toast/ShowToast.jsx";
 
 export default function ReleaseWindow() {
   const [showModal, setShowModal] = useState(false);
@@ -12,7 +13,14 @@ export default function ReleaseWindow() {
       if (!result) {
         throw new Error(result);
       }
-      console.log("Result: ", result);
+      if (!result?.success && !result?.wasWindowAssigned) {
+        showToast(`${result.message}`, "info");
+      } else {
+        showToast(
+          `Window ${windowNum} has been released successfully.`,
+          "success"
+        );
+      }
     } catch (error) {
       console.error(`Error in releaseing window number ${windowNum}: `, error);
     }
@@ -24,9 +32,7 @@ export default function ReleaseWindow() {
   };
 
   const confirmRelease = async () => {
-    console.log("Selected Window: ", selectedWindow);
     await handleWindowRelease(selectedWindow);
-    console.log(`Released Window ${selectedWindow}`);
     setShowModal(false);
   };
 

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { resetPassword } from '../../../api/auth';
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { resetPassword } from "../../../api/auth";
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
@@ -10,12 +10,12 @@ export default function ResetPassword() {
   const [isNPasswordFocused, setIsNPasswordFocused] = useState(false);
   const [isCPasswordFocused, setIsCPasswordFocused] = useState(false);
   const [formData, setFormData] = useState({
-    newPassword: '',
-    confirmPassword: '',
+    newPassword: "",
+    confirmPassword: "",
   });
   const [errors, setErrors] = useState({
-    newPassword: '',
-    confirmPassword: '',
+    newPassword: "",
+    confirmPassword: "",
   });
   const [focusedField, setFocusedField] = useState(null);
 
@@ -27,13 +27,13 @@ export default function ResetPassword() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData({
+    const updatedFormData = {
       ...formData,
       [name]: value,
     };
-    
+
     setFormData(updatedFormData);
-    
+
     // Clear errors when user types
     if (errors[name]) {
       setErrors({
@@ -45,7 +45,7 @@ export default function ResetPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Reset errors
     setErrors({
       newPassword: "",
@@ -74,15 +74,15 @@ export default function ResetPassword() {
 
     if (!res?.success) {
       setErrors({
-        newPassword: res?.message || 'Failed to reset password',
-        confirmPassword: '',
+        newPassword: res?.message || "Failed to reset password",
+        confirmPassword: "",
       });
       setLoading(false);
       return;
     }
 
-    navigate('/staff/success-reset', {
-      state: { message: 'Password reset successfully!' },
+    navigate("/staff/success-reset", {
+      state: { message: "Password reset successfully!" },
     });
     setLoading(false);
   };
@@ -133,9 +133,7 @@ export default function ResetPassword() {
                   text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
                   peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
                   -top-2.5 text-xs 
-                  ${
-                    formData.newPassword ? "hidden peer-focus:flex" : ""
-                  }
+                  ${formData.newPassword ? "hidden peer-focus:flex" : ""}
                   ${
                     errors.newPassword
                       ? "peer-focus:text-red-500 text-red-500"
@@ -152,10 +150,10 @@ export default function ResetPassword() {
               {isNPasswordFocused && (
                 <button
                   type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setShowPassword(!showPassword);
-                    }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowPassword(!showPassword);
+                  }}
                   className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -188,9 +186,7 @@ export default function ResetPassword() {
                   text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
                   peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs
                   -top-2.5 text-xs 
-                  ${
-                    formData.confirmPassword ? "hidden peer-focus:flex" : ""
-                  }
+                  ${formData.confirmPassword ? "hidden peer-focus:flex" : ""}
                   ${
                     errors.confirmPassword
                       ? "peer-focus:text-red-500 text-red-500"
@@ -207,16 +203,20 @@ export default function ResetPassword() {
               {isCPasswordFocused && (
                 <button
                   type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setShowConfirmPassword(!showConfirmPassword);
-                    }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowConfirmPassword(!showConfirmPassword);
+                  }}
                   className={`absolute right-4 top-6.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
                 >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showConfirmPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
                 </button>
               )}
-              
+
               {/* Error Message - moved inside the confirm password container */}
               <div className="h-5 mt-0.5">
                 {errors.confirmPassword && (
@@ -225,7 +225,7 @@ export default function ResetPassword() {
                   </p>
                 )}
 
-                 {errors.newPassword && (
+                {errors.newPassword && (
                   <p className="text-red-500 text-left text-xs">
                     {errors.newPassword}
                   </p>
@@ -238,13 +238,15 @@ export default function ResetPassword() {
           <div className="mt-6">
             <button
               type="submit"
-              disabled={loading || !formData.newPassword || !formData.confirmPassword}
+              disabled={
+                loading || !formData.newPassword || !formData.confirmPassword
+              }
               className={`w-full font-semibold py-3 rounded-xl transition-all
                 ${
-                loading || !formData.newPassword || !formData.confirmPassword
-                  ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
-                  : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
-              }`}
+                  loading || !formData.newPassword || !formData.confirmPassword
+                    ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
+                    : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
+                }`}
             >
               {loading ? "Resetting..." : "Reset Password"}
             </button>

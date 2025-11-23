@@ -161,6 +161,35 @@ export const DeferredTableSkeleton = () => (
     </div>
   </div>
 );
+// New component - just the table part
+export const DeferredTableOnlySkeleton = ({ rows = 4, cols = 4 }) => (
+  <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="overflow-y-scroll custom-scrollbar max-h-96">
+      <table className="w-full min-w-[700px]">
+        <thead className="bg-white sticky top-0 z-10">
+          <tr className="border-b border-[#E2E3E4]">
+            {[...Array(cols)].map((_, col) => (
+              <th key={col} className="text-left py-3 px-4">
+                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(rows)].map((_, row) => (
+            <tr key={row} className="border-b border-[#E2E3E4]">
+              {[...Array(cols)].map((_, cell) => (
+                <td key={cell} className="py-3 px-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 export const NextInLineTableSkeleton = () => (
   <div className="bg-white rounded-xl shadow-xs overflow-hidden">
@@ -196,6 +225,34 @@ export const NextInLineTableSkeleton = () => (
           </table>
         </div>
       </div>
+    </div>
+  </div>
+);
+export const NextInLineTableOnlySkeleton = ({ rows = 5, cols = 5 }) => (
+  <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="overflow-y-auto custom-scrollbar max-h-96 relative">
+      <table className="w-full min-w-[700px]">
+        <thead className="sticky top-0 z-10 bg-white">
+          <tr>
+            {[...Array(cols)].map((_, col) => (
+              <th key={col} className="text-left py-3 px-4">
+                <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(rows)].map((_, row) => (
+            <tr key={row} className="border-b border-[#E2E3E4]">
+              {[...Array(cols)].map((_, cell) => (
+                <td key={cell} className="py-4 px-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   </div>
 );
