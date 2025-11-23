@@ -1,11 +1,9 @@
-import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
-import { updateAdminProfile } from "../../api/staff.api.js";
-import { showToast } from "../../components/toast/ShowToast.jsx";
 import { useAuth } from "../../context/AuthProvider"; // adjust path if needed
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function Profile() {
-  const { user, refreshAuth } = useAuth();
+  const { user, userFullName, setUserFullName } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -25,10 +23,8 @@ export default function Profile() {
   });
   const [showErrors, setShowErrors] = useState(false);
 
-  const toggleNewPasswordVisibility = () =>
-    setShowNewPassword(!showNewPassword);
-  const toggleConfirmPasswordVisibility = () =>
-    setShowConfirmPassword(!showConfirmPassword);
+  const toggleNewPasswordVisibility = () => setShowNewPassword(!showNewPassword);
+  const toggleConfirmPasswordVisibility = () => setShowConfirmPassword(!showConfirmPassword);
 
   // separated saved vs editable states
   const [savedData, setSavedData] = useState({
@@ -61,32 +57,28 @@ export default function Profile() {
   // Parse full name into components
   const parseFullName = (fullName) => {
     if (!fullName) return { firstName: "", middleName: "", lastName: "" };
-
+    
     // Handle format "LastName, FirstName MiddleName" or "LastName, FirstName"
-    const parts = fullName.split(",");
+    const parts = fullName.split(',');
     if (parts.length === 2) {
       const lastName = parts[0].trim();
-      const firstMiddleParts = parts[1].trim().split(" ");
+      const firstMiddleParts = parts[1].trim().split(' ');
       const firstName = firstMiddleParts[0] || "";
-      const middleName = firstMiddleParts.slice(1).join(" ") || "";
-
+      const middleName = firstMiddleParts.slice(1).join(' ') || "";
+      
       return { firstName, middleName, lastName };
     }
-
+    
     // Fallback: try to split by spaces
-    const nameParts = fullName.split(" ");
+    const nameParts = fullName.split(' ');
     if (nameParts.length === 1) {
       return { firstName: nameParts[0], middleName: "", lastName: "" };
     } else if (nameParts.length === 2) {
-      return {
-        firstName: nameParts[0],
-        middleName: "",
-        lastName: nameParts[1],
-      };
+      return { firstName: nameParts[0], middleName: "", lastName: nameParts[1] };
     } else {
       const lastName = nameParts.pop() || "";
       const firstName = nameParts[0] || "";
-      const middleName = nameParts.slice(1).join(" ") || "";
+      const middleName = nameParts.slice(1).join(' ') || "";
       return { firstName, middleName, lastName };
     }
   };
@@ -101,22 +93,24 @@ export default function Profile() {
 
   const handleFormatSaveData = () => {
     try {
-      const formattedFullName = combineFullName(
-        user?.firstName,
-        user?.middleName,
-        user?.lastName
-      );
+      const formattedFullName = user?.middleName
+        ? `${user?.lastName}, ${user?.firstName} ${user?.middleName}`
+        : `${user?.lastName}, ${user?.firstName}`;
+
+      const nameComponents = parseFullName(formattedFullName);
+
       const initData = {
         fullName: formattedFullName || "Default Name",
-        firstName: user?.firstName,
-        middleName: user?.middleName || "",
-        lastName: user?.lastName,
+        firstName: nameComponents.firstName,
+        middleName: nameComponents.middleName,
+        lastName: nameComponents.lastName,
         username: user?.username || "defaultUser",
         email: user?.email || "default@example.com",
         password: "*******************",
         newPassword: "",
         confirmPassword: "",
       };
+      console.log("Saved Data from user: ", initData);
       return initData;
     } catch (error) {
       console.error("Error occurred: ", error);
@@ -154,10 +148,7 @@ export default function Profile() {
     }
 
     // Email format validation
-    if (
-      formData.email.trim() &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
-    ) {
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address";
       isValid = false;
     }
@@ -171,7 +162,7 @@ export default function Profile() {
         newErrors.newPassword = "Password must be at least 8 characters";
         isValid = false;
       }
-
+      
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = "Please confirm your password";
         isValid = false;
@@ -188,22 +179,16 @@ export default function Profile() {
 
   // Check if any required field is empty
   const hasEmptyRequiredFields = () => {
-    return (
-      !formData.firstName.trim() ||
-      !formData.lastName.trim() ||
-      !formData.username.trim() ||
-      !formData.email.trim()
-    );
+    return !formData.firstName.trim() || 
+           !formData.lastName.trim() || 
+           !formData.username.trim() || 
+           !formData.email.trim();
   };
 
   // Check if password fields have validation errors
   const hasPasswordErrors = () => {
-    return (
-      (formData.newPassword || formData.confirmPassword) &&
-      (!formData.newPassword ||
-        !formData.confirmPassword ||
-        formData.newPassword !== formData.confirmPassword)
-    );
+    return (formData.newPassword || formData.confirmPassword) && 
+           (!formData.newPassword || !formData.confirmPassword || formData.newPassword !== formData.confirmPassword);
   };
 
   // initialize when user or userFullName changes
@@ -212,8 +197,8 @@ export default function Profile() {
     setSavedData(userData);
     setFormData(userData);
     setIsEditing(false);
-    setIsFormValid(true);
-    setShowErrors(false);
+    setIsFormValid(true); // Form is valid initially with saved data
+    setShowErrors(false); // Hide errors when initializing
   }, [user]);
 
   // detect unsaved changes ONLY - remove real-time validation
@@ -234,123 +219,46 @@ export default function Profile() {
   // Hide specific error when user focuses on a field
   const handleFieldFocus = (fieldName) => {
     if (showErrors && errors[fieldName]) {
-      setErrors((prev) => ({
+      setErrors(prev => ({
         ...prev,
-        [fieldName]: "",
-      }));
-    }
-  };
-
-  const formatNamePart = (name) => {
-    if (!name || typeof name !== "string") return "";
-
-    return name
-      .trim()
-      .split(/\s+/)
-      .map((word) => {
-        if (word.length === 0) return "";
-        if (word.length === 1) return word.toUpperCase();
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-      })
-      .join(" ");
-  };
-
-  const handleNameBlur = (e) => {
-    const { name, value } = e.target;
-
-    if (value.trim()) {
-      const formattedValue = formatNamePart(value);
-      setFormData((prev) => ({
-        ...prev,
-        [name]: formattedValue,
+        [fieldName]: ""
       }));
     }
   };
 
   // save changes
-  const handleSave = async () => {
-    try {
-      setShowPassword(false);
-      setShowNewPassword(false);
-      setShowConfirmPassword(false);
+  const handleSave = () => {
+    setShowPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    
+    if (!hasChanges) return;
 
-      if (!hasChanges) return;
-
-      setShowErrors(true);
-      if (!validateForm()) {
-        return;
-      }
-
-      // Detect which fields have changed
-      const changedFields = {};
-
-      // Check individual fields for changes
-      if (formData.firstName !== savedData.firstName) {
-        changedFields.firstName = formData.firstName;
-      }
-
-      if (formData.middleName !== savedData.middleName) {
-        changedFields.middleName = formData.middleName;
-      }
-
-      if (formData.lastName !== savedData.lastName) {
-        changedFields.lastName = formData.lastName;
-      }
-
-      if (formData.username !== savedData.username) {
-        changedFields.username = formData.username;
-      }
-
-      if (formData.email !== savedData.email) {
-        changedFields.email = formData.email;
-      }
-
-      // Handle password change
-      if (formData.newPassword && formData.newPassword.trim() !== "") {
-        changedFields.newPassword = formData.newPassword;
-      }
-
-      if (Object.keys(changedFields).length === 0) {
-        console.log("No changes detected");
-        return;
-      }
-
-      console.log("📤 Sending only changed fields:", changedFields);
-
-      // Make API call with changed fields
-      const response = await updateAdminProfile(changedFields);
-      console.log("Response from updateAdminProfile:", response);
-      if (response.success) {
-        const freshUser = await refreshAuth();
-        const updatedFormData = {
-          fullName: combineFullName(
-            freshUser.firstName,
-            freshUser.middleName,
-            freshUser.lastName
-          ),
-          firstName: freshUser.firstName,
-          middleName: freshUser.middleName || "",
-          lastName: freshUser.lastName,
-          username: freshUser.username,
-          email: freshUser.email,
-          password: "*******************",
-          newPassword: "",
-          confirmPassword: "",
-        };
-        showToast("Profile updated successfully", "success");
-        setSavedData(updatedFormData);
-        setFormData(updatedFormData);
-        setIsEditing(false);
-        setIsHovered(false);
-        setShowErrors(false);
-      } else if (!response.success) {
-        showToast(response?.message, "error");
-      } else if (!response?.hasChanges) {
-        showToast("No changes detected", "info");
-      }
-    } catch (error) {
-      console.error("Save failed:", error);
+    // Show errors and validate all fields before saving
+    setShowErrors(true);
+    if (!validateForm()) {
+      return;
     }
+    
+    // Combine name components into fullName before saving
+    const updatedFormData = {
+      ...formData,
+      fullName: combineFullName(formData.firstName, formData.middleName, formData.lastName),
+      // Clear password fields after successful save
+      newPassword: "",
+      confirmPassword: ""
+    };
+
+    setSavedData(updatedFormData);
+    setFormData(updatedFormData);
+
+    if (typeof setUserFullName === "function") {
+      setUserFullName(updatedFormData.fullName);
+    }
+    setIsEditing(false);
+    setIsHovered(false);
+    setShowErrors(false); // Hide errors after successful save
+    console.log("✅ Saved:", updatedFormData);
   };
 
   // discard changes
@@ -360,11 +268,11 @@ export default function Profile() {
     setShowPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
-    setErrors({
-      newPassword: "",
+    setErrors({ 
+      newPassword: "", 
       confirmPassword: "",
       firstName: "",
-      lastName: "",
+      lastName: "", 
       username: "",
       email: "",
     });
@@ -479,31 +387,23 @@ export default function Profile() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs sm:text-sm lg:text-base font-semibold">
-                        Last Name{" "}
-                        {isEditing && <span className="text-red-500">*</span>}
+                        Last Name  {isEditing && (<span className="text-red-500">*</span>)}
                       </label>
                       <input
                         type="text"
                         name="lastName"
                         value={formData.lastName}
-                        onBlur={handleNameBlur}
                         onChange={handleChange}
-                        onFocus={() => handleFieldFocus("lastName")}
+                        onFocus={() => handleFieldFocus('lastName')}
                         className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
                           focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] text-black
-                          ${
-                            showErrors && errors.lastName
-                              ? "border-red-500 border-1"
-                              : "border-transparent"
-                          }`}
+                          ${showErrors && errors.lastName ? "border-red-500 border-1" : "border-transparent"}`}
                       />
                       {showErrors && errors.lastName && (
-                        <p className="text-red-500 text-left text-xs mt-1">
-                          {errors.lastName}
-                        </p>
+                        <p className="text-red-500 text-left text-xs mt-1">{errors.lastName}</p>
                       )}
                     </div>
-
+                
                     <div>
                       <label className="text-xs sm:text-sm lg:text-base font-semibold">
                         Middle Name
@@ -512,7 +412,6 @@ export default function Profile() {
                         type="text"
                         name="middleName"
                         value={formData.middleName}
-                        onBlur={handleNameBlur}
                         onChange={handleChange}
                         className="w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent 
                           focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] text-black"
@@ -520,28 +419,20 @@ export default function Profile() {
                     </div>
                     <div>
                       <label className="text-xs sm:text-sm lg:text-base font-semibold">
-                        First Name{" "}
-                        {isEditing && <span className="text-red-500">*</span>}
+                        First Name  {isEditing && (<span className="text-red-500">*</span>)}
                       </label>
                       <input
                         type="text"
                         name="firstName"
                         value={formData.firstName}
-                        onBlur={handleNameBlur}
                         onChange={handleChange}
-                        onFocus={() => handleFieldFocus("firstName")}
+                        onFocus={() => handleFieldFocus('firstName')}
                         className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
                           focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] text-black
-                          ${
-                            showErrors && errors.firstName
-                              ? "border-red-500 border-1"
-                              : "border-transparent"
-                          }`}
+                          ${showErrors && errors.firstName ? "border-red-500 border-1" : "border-transparent"}`}
                       />
                       {showErrors && errors.firstName && (
-                        <p className="text-red-500 text-left text-xs mt-1">
-                          {errors.firstName}
-                        </p>
+                        <p className="text-red-500 text-left text-xs mt-1">{errors.firstName}</p>
                       )}
                     </div>
                   </div>
@@ -549,177 +440,150 @@ export default function Profile() {
               )}
 
               {/* Other fields */}
-              {["username", "email"].map((field) => (
-                <div key={field}>
-                  <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
-                    {field}{" "}
-                    {isEditing && <span className="text-red-500">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    name={field}
-                    value={formData[field]}
-                    onChange={handleChange}
-                    onFocus={() => handleFieldFocus(field)}
-                    className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
+            {["username", "email"].map((field) => (
+              <div key={field}>
+                <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
+                  {field} {isEditing && (<span className="text-red-500">*</span>)}
+                </label>
+                <input
+                  type="text"
+                  name={field}
+                  value={formData[field]}
+                  onChange={handleChange}
+                  onFocus={() => handleFieldFocus(field)}
+                  className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
                     focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
                     ${isEditing ? "text-black" : "text-gray-500"}
-                    ${
-                      showErrors && errors[field]
-                        ? "border-red-500 border-1"
-                        : "border-transparent"
-                    }`}
-                    disabled={!isEditing}
-                  />
-                  {showErrors && errors[field] && (
-                    <p className="text-red-500 text-left text-xs mt-1">
-                      {errors[field]}
-                    </p>
-                  )}
-                </div>
-              ))}
+                    ${showErrors && errors[field] ? "border-red-500 border-1" : "border-transparent"}`}
+                  disabled={!isEditing}
+                />
+                {showErrors && errors[field] && (
+                  <p className="text-red-500 text-left text-xs mt-1">{errors[field]}</p>
+                )}
+              </div>
+            ))}
 
-              {/* Password Fields */}
-              {isPersonnel && (
-                <div className="space-y-4">
-                  {!isEditing && (
-                    <div>
-                      <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
-                        Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="password"
-                          name="password"
-                          value="*******************"
-                          className="w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent text-gray-500 pr-10"
-                          disabled={true}
-                        />
-                      </div>
-                    </div>
-                  )}
+           {/* Password Fields */}
+                    {isPersonnel && (
+                      <div className="space-y-4">
+                        {!isEditing && (
+                          <div>
+                            <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
+                              Password
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="password"
+                                name="password"
+                                value="*******************"
+                                className="w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border border-transparent text-gray-500 pr-10"
+                                disabled={true}
+                              />
+                            </div>
+                          </div>
+                        )}
 
-                  {/* New Password and Confirm Password*/}
-                  {isEditing && (
-                    <>
-                      <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
-                        New Password
-                      </label>
-                      {/* New Password Input */}
-                      <div className="relative">
-                        <input
-                          type={showNewPassword ? "text" : "password"}
-                          id="newPassword"
-                          name="newPassword"
-                          value={formData.newPassword}
-                          onChange={handleChange}
-                          onFocus={() => {
-                            setIsNPasswordFocused(true);
-                            handleFieldFocus("newPassword");
-                          }}
-                          onBlur={() => setIsNPasswordFocused(false)}
-                          placeholder=" "
-                          className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
-                    focus:outline-none 
-              ${
-                showErrors && errors.newPassword
-                  ? "border-red-500 border-1"
-                  : "border-transparent focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8]"
-              }`}
-                        />
-                        {isNPasswordFocused && (
-                          <button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setShowNewPassword(!showNewPassword);
-                            }}
-                            className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
-                          >
-                            {showNewPassword ? (
-                              <EyeOff size={20} />
-                            ) : (
-                              <Eye size={20} />
-                            )}
-                          </button>
-                        )}
-                        {showErrors && errors.newPassword && (
-                          <p className="text-red-500 text-left text-xs mt-1">
-                            {errors.newPassword}
-                          </p>
-                        )}
-                      </div>
-
-                      <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
-                        Confirm Password
-                      </label>
-                      {/* Confirm Password Input */}
-                      <div className="relative">
-                        <input
-                          type={showConfirmPassword ? "text" : "password"}
-                          id="confirmPassword"
-                          name="confirmPassword"
-                          value={formData.confirmPassword}
-                          onChange={handleChange}
-                          onFocus={() => {
-                            setIsCPasswordFocused(true);
-                            handleFieldFocus("confirmPassword");
-                          }}
-                          onBlur={() => setIsCPasswordFocused(false)}
-                          placeholder=" "
-                          className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
-                    focus:outline-none 
-              ${
-                showErrors && errors.confirmPassword
-                  ? "border-red-500 border-1"
-                  : "border-transparent focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8]"
-              }`}
-                        />
-                        {isCPasswordFocused && (
-                          <button
-                            type="button"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setShowConfirmPassword(!showConfirmPassword);
-                            }}
-                            className={`absolute right-4 top-7.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff size={20} />
-                            ) : (
-                              <Eye size={20} />
-                            )}
-                          </button>
-                        )}
-                        {showErrors && errors.confirmPassword && (
-                          <p className="text-red-500 text-left text-xs mt-1">
-                            {errors.confirmPassword}
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+              {/* New Password and Confirm Password*/}
+              {isEditing && (
+                <> 
+                <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
+                              New Password
+                            </label>
+                  {/* New Password Input */}
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      id="newPassword"
+                      name="newPassword"
+                      value={formData.newPassword}
+                      onChange={handleChange}
+                      onFocus={() => {
+                        setIsNPasswordFocused(true);
+                        handleFieldFocus('newPassword');
+                      }}
+                      onBlur={() => setIsNPasswordFocused(false)}
+                      placeholder=" "
+                      className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
+                              focus:outline-none 
+                        ${
+                          showErrors && errors.newPassword
+                            ? "border-red-500 border-1"
+                            : "border-transparent focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8]"
+                        }`}
+                    />
+                    {isNPasswordFocused && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setShowNewPassword(!showNewPassword);
+                        }}
+                        className={`absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                      >
+                        {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    )}
+                    {showErrors && errors.newPassword && (
+                      <p className="text-red-500 text-left text-xs mt-1">{errors.newPassword}</p>
+                    )}
+                  </div>
+                  
+                  <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
+                    Confirm Password
+                  </label>
+                  {/* Confirm Password Input */}
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      onFocus={() => {
+                        setIsCPasswordFocused(true);
+                        handleFieldFocus('confirmPassword');
+                      }}
+                      onBlur={() => setIsCPasswordFocused(false)}
+                      placeholder=" "
+                      className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
+                              focus:outline-none 
+                        ${
+                          showErrors && errors.confirmPassword
+                            ? "border-red-500 border-1"
+                            : "border-transparent focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8]"
+                        }`}
+                    />
+                    {isCPasswordFocused && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setShowConfirmPassword(!showConfirmPassword);
+                        }}
+                        className={`absolute right-4 top-5 sm:top-6 lg:top-7.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                      >
+                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    )}
+                    {showErrors && errors.confirmPassword && (
+                      <p className="text-red-500 text-left text-xs mt-1">{errors.confirmPassword}</p>
+                    )}
+                  </div>
+                </>
               )}
+            </div>
+          )}
 
               {/* ✅ SAVE BUTTON ALWAYS VISIBLE */}
               {isPersonnel && (
                 <div className="flex justify-center lg:justify-end">
                   <button
                     onClick={handleSave}
-                    disabled={
-                      !isEditing ||
-                      !hasChanges ||
-                      hasEmptyRequiredFields() ||
-                      hasPasswordErrors()
-                    }
+                    disabled={!isEditing || !hasChanges || hasEmptyRequiredFields() || hasPasswordErrors()}
                     className={`w-full sm:w-auto font-medium py-2.5 sm:py-3 px-4 sm:px-5 
                     rounded-lg sm:rounded-xl text-sm sm:text-base transition-all duration-200
                     ${
-                      isEditing &&
-                      hasChanges &&
-                      !hasEmptyRequiredFields() &&
-                      !hasPasswordErrors()
+                      isEditing && hasChanges && !hasEmptyRequiredFields() && !hasPasswordErrors()
                         ? "bg-[#1A73E8] text-white hover:bg-[#155fc9] cursor-pointer "
                         : "bg-[#1A73E8]/40 text-white cursor-not-allowed"
                     }`}
