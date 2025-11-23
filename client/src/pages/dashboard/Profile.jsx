@@ -153,10 +153,10 @@ export default function Profile() {
       isValid = false;
     }
 
-    // Email format validation
+    // Email format validation - .com only
     if (
       formData.email.trim() &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
+      !/^[^\s@]+@[^\s@]+\.com$/.test(formData.email)
     ) {
       newErrors.email = "Please enter a valid email address";
       isValid = false;
@@ -549,35 +549,75 @@ export default function Profile() {
               )}
 
               {/* Other fields */}
-              {["username", "email"].map((field) => (
-                <div key={field}>
-                  <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
-                    {field}{" "}
-                    {isEditing && <span className="text-red-500">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    name={field}
-                    value={formData[field]}
-                    onChange={handleChange}
-                    onFocus={() => handleFieldFocus(field)}
-                    className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
-                    focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
-                    ${isEditing ? "text-black" : "text-gray-500"}
-                    ${
-                      showErrors && errors[field]
-                        ? "border-red-500 border-1"
-                        : "border-transparent"
-                    }`}
-                    disabled={!isEditing}
-                  />
-                  {showErrors && errors[field] && (
-                    <p className="text-red-500 text-left text-xs mt-1">
-                      {errors[field]}
-                    </p>
-                  )}
-                </div>
-              ))}
+              {/* Email field with strict .com validation */}
+              {/* Username field */}
+              <div>
+                <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
+                  username{" "}
+                  {isEditing && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  onFocus={() => handleFieldFocus("username")}
+                  className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
+                  focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
+                  ${isEditing ? "text-black" : "text-gray-500"}
+                  ${
+                    showErrors && errors.username
+                      ? "border-red-500 border-1"
+                      : "border-transparent"
+                  }`}
+                  disabled={!isEditing}
+                />
+                {showErrors && errors.username && (
+                  <p className="text-red-500 text-left text-xs mt-1">
+                    {errors.username}
+                  </p>
+                )}
+              </div>
+
+              {/* Email field with strict .com validation */}
+              <div>
+                <label className="text-xs sm:text-sm lg:text-base font-semibold capitalize">
+                  email{" "}
+                  {isEditing && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  onFocus={() => handleFieldFocus("email")}
+                  onBlur={(e) => {
+                    // Strict email validation - .com only
+                    const emailValue = e.target.value.trim();
+                    if (emailValue && !/^[^\s@]+@[^\s@]+\.com$/.test(emailValue)) {
+                      setErrors((prev) => ({
+                        ...prev,
+                        email: "Please enter a valid email address",
+                      }));
+                      setShowErrors(true);
+                    }
+                  }}
+                  className={`w-full bg-[#F5F5F5] rounded-2xl px-3 sm:px-4 py-2 sm:py-3 lg:py-4 text-sm lg:text-base border
+                  focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-[#1A73E8] 
+                  ${isEditing ? "text-black" : "text-gray-500"}
+                  ${
+                    showErrors && errors.email
+                      ? "border-red-500 border-1"
+                      : "border-transparent"
+                  }`}
+                  disabled={!isEditing}
+                />
+                {showErrors && errors.email && (
+                  <p className="text-red-500 text-left text-xs mt-1">
+                    {errors.email}
+                  </p>
+                )}
+              </div>
 
               {/* Password Fields */}
               {isPersonnel && (
