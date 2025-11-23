@@ -150,7 +150,7 @@ export default function InputModal({
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
   const toggleConfirmPasswordVisibility = () =>
     setShowConfirmPassword(!showConfirmPassword);
-
+  
   return (
     <>
       {/* Backdrop */}
@@ -307,7 +307,7 @@ export default function InputModal({
             {/* New Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                New Password
+               {title === "Add Account" ? "Password" : "New Password"} 
               </label>
               <div className="relative">
                 <input
@@ -321,7 +321,7 @@ export default function InputModal({
                     setLocalErrors(prev => ({ ...prev, passwordLength: '' }));
                   }}
                   onBlur={() => setIsPasswordFocused(false)}
-                  placeholder="New Password"
+                  placeholder={title === "Add Account" ? "Password" : "New Password"}
                   className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
                     localErrors.passwordLength && !isPasswordFocused
                       ? "border-red-500"
@@ -399,6 +399,7 @@ export default function InputModal({
                 </p>
               )}
             </div>
+            
           </div>
 
           {/* Save Button */}
