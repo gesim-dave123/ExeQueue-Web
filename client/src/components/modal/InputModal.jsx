@@ -1,5 +1,5 @@
-import { Eye, EyeOff, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Eye, EyeOff, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export default function InputModal({
   title,
@@ -12,12 +12,12 @@ export default function InputModal({
   errors = {},
 }) {
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    username: "",
-    email: "",
-    newPassword: "",
-    confirmPassword: "",
+    firstName: '',
+    lastName: '',
+    username: '',
+    email: '',
+    newPassword: '',
+    confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
@@ -30,12 +30,12 @@ export default function InputModal({
   useEffect(() => {
     if (accountData) {
       setFormData({
-        firstName: accountData.firstName || "",
-        lastName: accountData.lastName || "",
-        username: accountData.username || "",
-        email: accountData.email || "",
-        newPassword: "",
-        confirmPassword: "",
+        firstName: accountData.firstName || '',
+        lastName: accountData.lastName || '',
+        username: accountData.username || '',
+        email: accountData.email || '',
+        newPassword: '',
+        confirmPassword: '',
       });
     }
   }, [accountData]);
@@ -49,11 +49,11 @@ export default function InputModal({
     });
 
     // Clear password errors when user types
-    if (name === "newPassword" || name === "confirmPassword") {
+    if (name === 'newPassword' || name === 'confirmPassword') {
       setLocalErrors({
         ...localErrors,
-        passwordLength: "",
-        passwordMatch: "",
+        passwordLength: '',
+        passwordMatch: '',
       });
     }
   };
@@ -67,12 +67,12 @@ export default function InputModal({
     if (formData.newPassword || formData.confirmPassword) {
       if (formData.newPassword.length < 8) {
         errors.passwordLength =
-          "Your password must be at least 8 characters long.";
+          'Your password must be at least 8 characters long.';
       }
 
       // Check if passwords match
       if (formData.newPassword !== formData.confirmPassword) {
-        errors.passwordMatch = "Passwords do not match";
+        errors.passwordMatch = 'Passwords do not match';
       }
     }
 
@@ -95,10 +95,10 @@ export default function InputModal({
   // Check if all required fields are filled
   const isFormValid = () => {
     return (
-      formData.firstName.trim() !== "" &&
-      formData.lastName.trim() !== "" &&
-      formData.username.trim() !== "" &&
-      formData.email.trim() !== ""
+      formData.firstName.trim() !== '' &&
+      formData.lastName.trim() !== '' &&
+      formData.username.trim() !== '' &&
+      formData.email.trim() !== ''
     );
   };
 
@@ -130,7 +130,7 @@ export default function InputModal({
           <div className="mb-10">
             <h2 className="text-2xl font-semibold text-[#202124]">{title}</h2>
             <p className="text-sm text-[#686969] mt-1">
-              {details} {accountData?.username || "personnels"}
+              {details} {accountData?.username || 'personnels'}
             </p>
           </div>
 
@@ -150,8 +150,8 @@ export default function InputModal({
                   placeholder="First Name"
                   className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
                     errors.firstName
-                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
-                      : "border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent"
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                   }`}
                 />
                 {errors.firstName && (
@@ -172,8 +172,8 @@ export default function InputModal({
                   placeholder="Last Name"
                   className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
                     errors.lastName
-                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
-                      : "border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent"
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                   }`}
                 />
                 {errors.lastName && (
@@ -195,8 +195,8 @@ export default function InputModal({
                 placeholder="Username"
                 className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
                   errors.username
-                    ? "border-red-500 focus:ring-red-200 focus:border-red-500"
-                    : "border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent"
+                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                 }`}
               />
               {errors.username && (
@@ -217,8 +217,8 @@ export default function InputModal({
                 placeholder="Email"
                 className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
                   errors.email
-                    ? "border-red-500 focus:ring-red-200 focus:border-red-500"
-                    : "border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent"
+                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                 }`}
               />
               {errors.email && (
@@ -232,10 +232,10 @@ export default function InputModal({
                 New Password
               </label>
               <div className="relative">
-                {" "}
+                {' '}
                 {/* Add this wrapper */}
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   name="newPassword"
                   value={formData.newPassword}
                   onChange={handleChange}
@@ -244,8 +244,8 @@ export default function InputModal({
                   placeholder="New Password"
                   className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
                     localErrors.passwordLength
-                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
-                      : "border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent"
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                   }`}
                 />
                 {/* <button 
@@ -267,7 +267,7 @@ export default function InputModal({
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 )}
-              </div>{" "}
+              </div>{' '}
               {/* Close wrapper */}
               {localErrors.passwordLength && (
                 <p className="text-red-500 text-xs mt-1">
@@ -284,7 +284,7 @@ export default function InputModal({
               </label>
               <div className="relative">
                 <input
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -293,8 +293,8 @@ export default function InputModal({
                   placeholder="Confirm Password"
                   className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
                     localErrors.passwordMatch
-                      ? "border-red-500 focus:ring-red-200 focus:border-red-500"
-                      : "border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent"
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
+                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
                   }`}
                 />
                 {isConfirmPasswordFocused && (
@@ -313,7 +313,7 @@ export default function InputModal({
                     )}
                   </button>
                 )}
-              </div>{" "}
+              </div>{' '}
               {/* Close the relative wrapper here */}
               {localErrors.passwordMatch && (
                 <p className="text-red-500 text-xs mt-1">
@@ -330,8 +330,8 @@ export default function InputModal({
               disabled={!isFormValid()}
               className={`px-6 py-3 rounded-xl transition font-medium ${
                 isFormValid()
-                  ? "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? 'bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
               {submitType}
