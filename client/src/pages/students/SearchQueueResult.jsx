@@ -119,15 +119,13 @@
 //   );
 // }
 
-import { ArrowLeft, Camera, Clock } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import DateAndTimeFormatter, {
-  FORMATS,
-} from '../../../../server/utils/DateAndTimeFormatter';
-import ConfirmModal from '../../components/modal/ConfirmModal';
-import { searchQueue } from '../../api/student';
+import { motion } from "framer-motion";
+import { ArrowLeft, Camera, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import DateAndTimeFormatter from "../../../../server/utils/DateAndTimeFormatter";
+import { searchQueue } from "../../api/student";
+import ConfirmModal from "../../components/modal/ConfirmModal";
 
 export default function SearchQueueResult() {
   const location = useLocation();
@@ -139,47 +137,47 @@ export default function SearchQueueResult() {
   } = location.state || {};
   const [selectedQueueIndex, setSelectedQueueIndex] = useState(0);
   const [queues, setQueues] = useState(initialQueues);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
 
   // Redirect back if no data
   useEffect(() => {
     if (!queues || queues.length === 0) {
-      navigate('/student/queue/search');
+      navigate("/student/queue/search");
     }
   }, [queues, navigate]);
 
   const checkQueue = async () => {
-    if (!query || query.trim() === '') {
+    if (!query || query.trim() === "") {
       setShowModal(true);
       return;
     }
 
-    console.log('🔍 Starting search from result page...');
-    console.log('Search Query:', query.trim());
+    console.log("🔍 Starting search from result page...");
+    console.log("Search Query:", query.trim());
 
     try {
       // Determine if it's a studentId or referenceNumber
-      const isReferenceNumber = query.includes('-');
+      const isReferenceNumber = query.includes("-");
 
       const searchParams = isReferenceNumber
         ? { referenceNumber: query.trim() }
         : { studentId: query.trim() };
 
-      console.log('📤 Sending search params:', searchParams);
+      console.log("📤 Sending search params:", searchParams);
 
       const result = await searchQueue(searchParams);
 
-      console.log('✅ Search result received:', result);
-      console.log('Queue data:', result.data);
+      console.log("✅ Search result received:", result);
+      console.log("Queue data:", result.data);
 
       // Update the current page with new queue data
       setQueues(result.data);
       setSelectedQueueIndex(0);
-      setQuery(''); // Clear the search input
+      setQuery(""); // Clear the search input
     } catch (err) {
-      console.error('❌ Search error:', err);
-      console.error('Error response:', err.response?.data);
+      console.error("❌ Search error:", err);
+      console.error("Error response:", err.response?.data);
 
       // Show modal if queue not found
       setShowModal(true);
@@ -194,27 +192,27 @@ export default function SearchQueueResult() {
 
   // Format queue number with prefix
   const formatQueueNumber = (queueNumber, queueType) => {
-    const prefix = queueType === 'PRIORITY' ? 'P' : 'R';
-    return `${prefix}${String(queueNumber).padStart(3, '0')}`;
+    const prefix = queueType === "PRIORITY" ? "P" : "R";
+    return `${prefix}${String(queueNumber).padStart(3, "0")}`;
   };
 
   const formatYearLevel = (yearLevel) => {
     const yearMap = {
-      1: 'First Year',
-      2: 'Second Year',
-      3: 'Third Year',
-      4: 'Fourth Year',
-      5: 'Fifth Year',
-      '1st': 'First Year',
-      '2nd': 'Second Year',
-      '3rd': 'Third Year',
-      '4th': 'Fourth Year',
-      '5th': 'Fifth Year',
-      first: 'First Year',
-      second: 'Second Year',
-      third: 'Third Year',
-      fourth: 'Fourth Year',
-      fifth: 'Fifth Year',
+      1: "First Year",
+      2: "Second Year",
+      3: "Third Year",
+      4: "Fourth Year",
+      5: "Fifth Year",
+      "1st": "First Year",
+      "2nd": "Second Year",
+      "3rd": "Third Year",
+      "4th": "Fourth Year",
+      "5th": "Fifth Year",
+      first: "First Year",
+      second: "Second Year",
+      third: "Third Year",
+      fourth: "Fourth Year",
+      fifth: "Fifth Year",
     };
 
     return yearMap[yearLevel?.toLowerCase()] || yearLevel;
@@ -293,15 +291,15 @@ export default function SearchQueueResult() {
         <div className="w-full flex justify-between items-center mb-6">
           <span
             className={`px-3 py-1 rounded-full text-sm font-semibold ${
-              currentQueue.queueType === 'PRIORITY'
-                ? 'bg-[#FDE5B0] text-[#F9AB00]'
-                : 'bg-[#DDEAFC] text-[#1A73E8]'
+              currentQueue.queueType === "PRIORITY"
+                ? "bg-[#FDE5B0] text-[#F9AB00]"
+                : "bg-[#DDEAFC] text-[#1A73E8]"
             }`}
           >
-            {currentQueue.queueType === 'PRIORITY' ? 'Priority' : 'Regular'}
+            {currentQueue.queueType === "PRIORITY" ? "Priority" : "Regular"}
           </span>
           <p className="text-xs text-gray-500">
-            Ref no.{' '}
+            Ref no.{" "}
             <span className="text-[#1456AE] font-semibold">
               {currentQueue.referenceNumber}
             </span>
@@ -314,9 +312,9 @@ export default function SearchQueueResult() {
         </span>
         <h1
           className={`text-6xl sm:text-7xl font-bold mb-2 ${
-            currentQueue.queueType === 'PRIORITY'
-              ? 'text-[#F9AB00]'
-              : 'text-[#1A73E8]'
+            currentQueue.queueType === "PRIORITY"
+              ? "text-[#F9AB00]"
+              : "text-[#1A73E8]"
           }`}
         >
           {formatQueueNumber(currentQueue.queueNumber, currentQueue.queueType)}
@@ -334,9 +332,9 @@ export default function SearchQueueResult() {
             <span className="text-[#1A73E8] font-semibold">
               {currentQueue.studentFullName
                 .toLowerCase()
-                .split(' ')
+                .split(" ")
                 .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ')}
+                .join(" ")}
             </span>
           </div>
           <div className="flex justify-between">
@@ -351,10 +349,7 @@ export default function SearchQueueResult() {
               <span className="text-gray-600">Requests:</span>
               <div className="flex flex-col items-end text-[#1A73E8] font-semibold text-right space-y-1">
                 {currentQueue.requests.map((request) => (
-                  <span
-                    key={request.requestId}
-                    className=""
-                  >
+                  <span key={request.requestId} className="">
                     {request.requestType.requestName}
                   </span>
                 ))}
@@ -382,10 +377,10 @@ export default function SearchQueueResult() {
         <div className="text-xs text-[#686969] mt-1  font-medium flex items-center gap-2">
           <Clock size={15} />
           <span>
-            Issued on{' '}
+            Issued on{" "}
             {DateAndTimeFormatter.formatInTimeZone(
               new Date(currentQueue.createdAt),
-              'yyyy-MM-dd hh:mm a'
+              "yyyy-MM-dd hh:mm a"
             )}
           </span>
         </div>
@@ -403,8 +398,7 @@ export default function SearchQueueResult() {
             <ArrowLeft size={17} /> Back to Homepage
           </button>
         </Link>
-      </div>
-
+      </motion.div>
       {/* Modal */}
       <ConfirmModal
         isOpen={showModal}
