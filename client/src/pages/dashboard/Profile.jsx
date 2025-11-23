@@ -24,6 +24,7 @@ export default function Profile() {
     email: "",
   });
   const [showErrors, setShowErrors] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // 👈 ADD THIS STATE
 
   const toggleNewPasswordVisibility = () =>
     setShowNewPassword(!showNewPassword);
@@ -214,6 +215,7 @@ export default function Profile() {
     setIsEditing(false);
     setIsFormValid(true);
     setShowErrors(false);
+    setIsSaving(false); // 👈 RESET SAVING STATE
   }, [user]);
 
   // detect unsaved changes ONLY - remove real-time validation
@@ -270,14 +272,22 @@ export default function Profile() {
   // save changes
   const handleSave = async () => {
     try {
+      // 👇 PREVENT MULTIPLE CLICKS
+      if (isSaving) return;
+      
+      setIsSaving(true); // 👈 DISABLE BUTTON IMMEDIATELY
       setShowPassword(false);
       setShowNewPassword(false);
       setShowConfirmPassword(false);
 
-      if (!hasChanges) return;
+      if (!hasChanges) {
+        setIsSaving(false); // 👈 RE-ENABLE IF NO CHANGES
+        return;
+      }
 
       setShowErrors(true);
       if (!validateForm()) {
+        setIsSaving(false); // 👈 RE-ENABLE IF VALIDATION FAILS
         return;
       }
 
@@ -311,11 +321,9 @@ export default function Profile() {
       }
 
       if (Object.keys(changedFields).length === 0) {
-        console.log("No changes detected");
+        setIsSaving(false); // 👈 RE-ENABLE IF NO CHANGES
         return;
       }
-
-      console.log("📤 Sending only changed fields:", changedFields);
 
       // Make API call with changed fields
       const response = await updateAdminProfile(changedFields);
@@ -350,6 +358,10 @@ export default function Profile() {
       }
     } catch (error) {
       console.error("Save failed:", error);
+      showToast("Failed to update profile", "error");
+    } finally {
+      // 👇 RE-ENABLE BUTTON AFTER API CALL COMPLETES (SUCCESS OR ERROR)
+      setIsSaving(false);
     }
   };
 
@@ -370,7 +382,7 @@ export default function Profile() {
     });
     setShowErrors(false); // Hide errors when discarding
     setIsFormValid(true);
-    console.log("❌ Discarded changes, restored:", savedData);
+    setIsSaving(false); // 👈 RESET SAVING STATE
   };
 
   // role checks
@@ -409,9 +421,10 @@ export default function Profile() {
                 {isEditing ? (
                   <button
                     onClick={handleDiscard}
+                    disabled={isSaving} // 👈 DISABLE WHILE SAVING
                     className="flex cursor-pointer border border-red-500 text-red-500 font-medium items-center 
                     py-2 px-3 lg:py-2.5 lg:px-4 gap-2 rounded-lg sm:rounded-xl text-sm lg:text-base w-auto 
-                    hover:bg-red-500 hover:text-white transition-all duration-200"
+                    hover:bg-red-500 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Discard
                   </button>
@@ -748,6 +761,7 @@ export default function Profile() {
                   <button
                     onClick={handleSave}
                     disabled={
+                      isSaving || // ADD THIS CONDITION FIRST
                       !isEditing ||
                       !hasChanges ||
                       hasEmptyRequiredFields() ||
@@ -756,6 +770,7 @@ export default function Profile() {
                     className={`w-full sm:w-auto font-medium py-2.5 sm:py-3 px-4 sm:px-5 
                     rounded-lg sm:rounded-xl text-sm sm:text-base transition-all duration-200
                     ${
+                      !isSaving &&
                       isEditing &&
                       hasChanges &&
                       !hasEmptyRequiredFields() &&
@@ -764,7 +779,7 @@ export default function Profile() {
                         : "bg-[#1A73E8]/40 text-white cursor-not-allowed"
                     }`}
                   >
-                    Save Changes
+                    {isSaving ? "Saving..." : "Save Changes"} {/* 👈 SHOW LOADING TEXT */}
                   </button>
                 </div>
               )}

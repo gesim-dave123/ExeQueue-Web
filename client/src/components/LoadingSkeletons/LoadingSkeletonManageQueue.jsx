@@ -14,7 +14,7 @@ export const MainCardSkeleton = () => (
       </div>
 
       {/* container */}
-      <div className="flex items-center flex-col lg:flex-row justify-between gap-6 h-full">
+      <div className="flex items-start flex-col lg:flex-row justify-between gap-6 h-full">
         {/* left side */}
         <div className="border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 w-full lg:auto h-full">
           <div className="text-left mb-4">
