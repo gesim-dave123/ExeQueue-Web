@@ -7,7 +7,8 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [isEmptyError, setIsEmptyError] = useState(false); 
-  const [isInvalidEmail, setIsInvalidEmail] = useState(false); // New state for invalid email
+  const [isInvalidEmail, setIsInvalidEmail] = useState(false);
+  const [isNotGmail, setIsNotGmail] = useState(false); // New state for non-gmail emails
   const [error, setError] = useState("");
   const [isEmailFound, setIsEmailFound] = useState(true);
   const [reSendCode, setReSendCode] = useState(false);
@@ -20,12 +21,19 @@ export default function ForgotPassword() {
     return emailRegex.test(email);
   };
 
+  // Gmail validation function
+  const validateGmail = (email) => {
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    return gmailRegex.test(email);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setIsEmptyError(false); 
     setIsInvalidEmail(false);
+    setIsNotGmail(false);
 
     if (!email.trim()) {
       setIsEmptyError(true);
@@ -36,6 +44,13 @@ export default function ForgotPassword() {
     // Validate email format
     if (!validateEmail(email)) {
       setIsInvalidEmail(true);
+      setLoading(false);
+      return;
+    }
+
+    // Validate Gmail domain
+    if (!validateGmail(email)) {
+      setIsNotGmail(true);
       setLoading(false);
       return;
     }
@@ -65,6 +80,11 @@ export default function ForgotPassword() {
       return;
     }
 
+    if (!validateGmail(email)) {
+      setIsNotGmail(true);
+      return;
+    }
+
     // If valid, submit again
     handleSubmit(new Event('submit'));
   };
@@ -90,58 +110,62 @@ export default function ForgotPassword() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Email Input */}
-          <div className="relative mb-3">
-            <label
-              htmlFor="email"
-              className={`absolute left-5 transition-all duration-200 pointer-events-none
-                ${isEmailFound ? "text-[#1A73E8]" : "text-red-500"}
-                ${
-                  (isEmptyError || isInvalidEmail) && !isFocused
-                    ? "top-3.5 text-base text-gray-500"
-                    : ""
-                }
-                ${
-                  email || isFocused || ((isEmptyError || isInvalidEmail) && isFocused)
-                    ? "-top-2.5 text-xs bg-white px-1 text-blue-500 "
-                    : "top-3.5 text-base text-gray-500 "
-                }`}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onFocus={() => {setIsFocused(true);
-                setIsEmailFound(true)
-               }}
-              onBlur={() => setIsFocused(false)}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-                setIsEmptyError(false);
-                setIsInvalidEmail(false);
-              }}
-              
-              className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all 
-                ${isEmailFound ? "border-[#1A73E8] border-2" : "border-red-500 border-2"}
-               ${
-                email || isFocused
-                    ? "border-[#1A73E8] border-2"
-                    : "border-[#DDEAFC] border-2 focus:ring-blue-500 focus:border-[#1A73E8]"
-              }`}
-            />
-            {/* Always reserve space for error message */}
-            <div className="h-5 mt-1">
-              {isEmptyError && !isFocused && (
-                <p className="text-red-500 text-left text-xs">Email is required</p>
-              )}
-              {/* {isInvalidEmail && !isFocused && !isEmptyError && (
-                <p className="text-red-500 text-left text-xs">Please enter a valid email address</p>
-              )} */}
-            </div>
-          </div>
-
+         <div className="relative mb-3">
+  <label
+    htmlFor="email"
+    className={`absolute left-5 transition-all duration-200 pointer-events-none
+      ${(isEmptyError || isInvalidEmail || isNotGmail) && !isFocused ? "text-red-500" : "text-[#1A73E8]"}
+      ${
+        (isEmptyError || isInvalidEmail || isNotGmail) && !isFocused
+          ? "-top-2.5 text-xs bg-white px-1 text-red-500" 
+          : ""
+      }
+      ${
+        email || isFocused || ((isEmptyError || isInvalidEmail || isNotGmail) && isFocused)
+          ? "-top-2.5 text-xs bg-white px-1 text-blue-500 "
+          : "top-3.5 text-base text-gray-500 "
+      }`}
+  >
+    Email
+  </label>
+  <input
+    type="email"
+    id="email"
+    value={email}
+    onFocus={() => {
+      setIsFocused(true);
+      setIsEmailFound(true);
+      setIsNotGmail(false);
+    }}
+    onBlur={() => {setIsFocused(false); }}
+    onChange={(e) => {
+      setEmail(e.target.value);
+      setError("");
+      setIsEmptyError(false);
+      setIsInvalidEmail(false);
+      setIsNotGmail(false);
+    }}
+    
+    className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all 
+      ${isFocused ? "border-[#1A73E8] border-2" : 
+        (isEmptyError || isInvalidEmail || isNotGmail) ? "border-red-500 border-2" :
+        !email ? "border-[#DDEAFC] border-2" : "border-[#1A73E8] border-2"
+      }
+    `}
+  />
+  {/* Always reserve space for error message */}
+  <div className="h-5 mt-1">
+    {isEmptyError && !isFocused && (
+      <p className="text-red-500 text-left text-xs">Email is required</p>
+    )}
+    {isInvalidEmail && !isFocused && !isEmptyError &&  (
+      <p className="text-red-500 text-left text-xs">Please enter a valid email address</p>
+    )}
+    {isNotGmail && !isFocused && !isEmptyError && !isInvalidEmail && (
+      <p className="text-red-500 text-left text-xs">Please enter a valid email address</p>
+    )}
+  </div>
+</div>
           {/* Send Code Button */}
           <button
             type="submit"
@@ -156,7 +180,7 @@ export default function ForgotPassword() {
           </button>
         </form>
         
-        {reSendCode && !isEmptyError && !isInvalidEmail && (
+        {reSendCode && !isEmptyError && !isInvalidEmail && !isNotGmail && (
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
               Didn't get any code?{" "}

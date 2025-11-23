@@ -695,7 +695,7 @@ export default function Profile() {
                               e.preventDefault();
                               setShowConfirmPassword(!showConfirmPassword);
                             }}
-                            className={`absolute right-4 top-7.5 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
+                            className={`absolute right-4 top-5 md:top-6 lg:top-7.5  transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer`}
                           >
                             {showConfirmPassword ? (
                               <EyeOff size={20} />
