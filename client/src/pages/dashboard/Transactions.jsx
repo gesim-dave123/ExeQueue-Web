@@ -4,6 +4,7 @@ import {
   getTransactionHistory,
   getTransactionStats,
 } from "../../api/transaction.api";
+import { InlineLoading } from "../../components/InLineLoader";
 
 export default function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -18,7 +19,8 @@ export default function Transactions() {
   const [currentPage, setCurrentPage] = useState(1);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true); // For initial page load
+  const [dataLoading, setDataLoading] = useState(false); // For filtering, searching, pagination
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -73,40 +75,6 @@ export default function Transactions() {
     );
   };
 
-  //REMOVED courseFull mapping - now showing just course codes
-
-  // const fetchAPI = async (url, options = {}) => {
-  //   try {
-  //     const response = await fetch(url, {
-  //       ...options,
-  //       credentials: "include",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         ...options.headers,
-  //       },
-  //     });
-
-  //     const contentType = response.headers.get("content-type");
-  //     if (!contentType || !contentType.includes("application/json")) {
-  //       console.error("Response is not JSON:", await response.text());
-  //       throw new Error(
-  //         "Server returned non-JSON response. Check if API endpoint exists."
-  //       );
-  //     }
-
-  //     const data = await response.json();
-
-  //     if (!response.ok) {
-  //       throw new Error(data.message || `HTTP error ${response.status}`);
-  //     }
-
-  //     return data;
-  //   } catch (error) {
-  //     console.error("API Error:", error);
-  //     throw error;
-  //   }
-  // };
-
   const fetchFilterOptions = async () => {
     try {
       const result = await getTransactionStats();
@@ -124,8 +92,14 @@ export default function Transactions() {
     }
   };
 
-  const fetchTransactions = async () => {
-    setLoading(true);
+  const fetchTransactions = async (isInitialLoad = false) => {
+    // Set appropriate loading state
+    if (isInitialLoad) {
+      // setInitialLoading(true);
+    } else {
+      setDataLoading(true);
+    }
+
     try {
       console.log("Filters: ", filters);
       const params = new URLSearchParams({
@@ -174,17 +148,37 @@ export default function Transactions() {
         itemsPerPage: 8,
       });
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setInitialLoading(false);
+      } else {
+        setDataLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    const initializePage = async () => {
+      await fetchFilterOptions();
+      await fetchTransactions(true); // Pass true to indicate initial load
+    };
+
+    initializePage();
+  }, []);
+
+  useEffect(() => {
+    // Skip initial load and only fetch for data operations
+    if (!initialLoading) {
+      fetchTransactions(false);
+    }
+  }, [currentPage, filters, searchQuery]);
 
   useEffect(() => {
     fetchFilterOptions();
   }, []);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [currentPage, filters, searchQuery]);
+  // useEffect(() => {
+  //   fetchTransactions();
+  // }, [currentPage, filters, searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -250,29 +244,33 @@ export default function Transactions() {
     }
   }, [searchQuery]);
 
-const isStatusSearch = (query) => {
-  if (!query.trim()) return false;
-  
-  const normalizedSearch = query.trim().toUpperCase();
-  const statusTerms = [
-    "COMPLETED", "CANCELLED", "STALLED", 
-    "COMPLETE", "CANCEL", "STALL"
-  ];
-  
-  return statusTerms.some(
-    (term) => normalizedSearch === term || normalizedSearch.includes(term)
-  );
-};
+  const isStatusSearch = (query) => {
+    if (!query.trim()) return false;
 
-const handleFilterChange = (filterType, value) => {
-  setFilters((prev) => ({ ...prev, [filterType]: value }));
-  setCurrentPage(1);
-  setOpenDropdown(null);
-  
-  if (filterType === "status" && isStatusSearch(searchQuery)) {
-    setSearchQuery("");
-  }
-};
+    const normalizedSearch = query.trim().toUpperCase();
+    const statusTerms = [
+      "COMPLETED",
+      "CANCELLED",
+      "STALLED",
+      "COMPLETE",
+      "CANCEL",
+      "STALL",
+    ];
+
+    return statusTerms.some(
+      (term) => normalizedSearch === term || normalizedSearch.includes(term)
+    );
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters((prev) => ({ ...prev, [filterType]: value }));
+    setCurrentPage(1);
+    setOpenDropdown(null);
+
+    if (filterType === "status" && isStatusSearch(searchQuery)) {
+      setSearchQuery("");
+    }
+  };
 
   const clearFilters = () => {
     setFilters({ course: "", request: "", status: "", date: "" });
@@ -392,152 +390,149 @@ const handleFilterChange = (filterType, value) => {
   };
 
   const CustomDropdown = ({ label, filterType, options, displayFn }) => (
-  <div ref={dropdownRefs[filterType]} className="relative">
-    <div className="relative">
-      <button
-       onClick={() => {
-        if (filterType === "status" && isStatusSearch(searchQuery)) {
-          setSearchQuery("");
-        }
-        setOpenDropdown(openDropdown === filterType ? null : filterType);
-      }}
-        className={`w-full cursor-pointer flex items-center justify-between rounded-lg py-2.5 text-sm text-gray-700 transition-colors min-h-[42px]
+    <div ref={dropdownRefs[filterType]} className="relative">
+      <div className="relative">
+        <button
+          onClick={() => {
+            if (filterType === "status" && isStatusSearch(searchQuery)) {
+              setSearchQuery("");
+            }
+            setOpenDropdown(openDropdown === filterType ? null : filterType);
+          }}
+          className={`w-full cursor-pointer flex items-center justify-between rounded-lg py-2.5 text-sm text-gray-700 transition-colors min-h-[42px]
         ${filters[filterType] ? "pl-10 pr-4" : "px-4"}
         ${
           openDropdown === filterType || filters[filterType]
             ? "border border-[#F9AB00]/40 bg-white"
             : "bg-gray-50 hover:bg-gray-100 border border-transparent"
         }`}
-      >
-        <span className="truncate mr-2 flex items-center gap-1">
-          {filterType === "course" && filters[filterType] ? (
-            <>
-              <span className="text-[#88898A] font-light">Course</span>
-              <span className="text-[#88898A]">|</span>
-              <span className="text-[#1A73E8] font-normal">
-                {
-                  filterOptions.courses.find(
-                    (c) => c.courseId === filters[filterType]
-                  )?.courseCode
-                }
-              </span>
-            </>
-          ) : (
-            <span
-              className={`${
-                filters[filterType]
-                  ? "text-[#1A73E8] font-normal"
-                  : "text-gray-500"
-              }`}
-            >
-              {displayFn && filters[label]
-                ? displayFn(filters[filterType])
-                : filters[label] || label}
-            </span>
-          )}
-        </span>
-
-        <ChevronDown
-          className={`w-4 h-4 flex-shrink-0 transition-transform ${
-            openDropdown === filterType
-              ? "rotate-180 text-yellow-500"
-              : "text-gray-500"
-          }`}
-        />
-      </button>
-
-      {filters[filterType] && (
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      handleFilterChange(filterType, "");
-      if (filterType === "status" && isStatusSearch(searchQuery)) {
-        setSearchQuery("");
-      }
-    }}
-    className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors ${
-      filters[filterType]
-        ? "bg-[#88898A] hover:bg-gray-700"
-        : "hover:bg-gray-200"
-    }`}
-  >
-    <svg
-      className="w-3 h-3 text-white"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
-  </button>
-)}
-    </div>
-
-    {openDropdown === filterType && (
-      <div className="absolute z-50 mt-2 w-full bg-white px-1 py-1 rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
-        <button
-          onClick={() => handleFilterChange(filterType, "")}
-          className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
-            filters[filterType] === ""
-              ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
-              : "border-transparent text-gray-700"
-          }`}
         >
-          All
+          <span className="truncate mr-2 flex items-center gap-1">
+            {filterType === "course" && filters[filterType] ? (
+              <>
+                <span className="text-[#88898A] font-light">Course</span>
+                <span className="text-[#88898A]">|</span>
+                <span className="text-[#1A73E8] font-normal">
+                  {
+                    filterOptions.courses.find(
+                      (c) => c.courseId === filters[filterType]
+                    )?.courseCode
+                  }
+                </span>
+              </>
+            ) : (
+              <span
+                className={`${
+                  filters[filterType]
+                    ? "text-[#1A73E8] font-normal"
+                    : "text-gray-500"
+                }`}
+              >
+                {displayFn && filters[label]
+                  ? displayFn(filters[filterType])
+                  : filters[label] || label}
+              </span>
+            )}
+          </span>
+
+          <ChevronDown
+            className={`w-4 h-4 flex-shrink-0 transition-transform ${
+              openDropdown === filterType
+                ? "rotate-180 text-yellow-500"
+                : "text-gray-500"
+            }`}
+          />
         </button>
-        {options.map((option) => {
-          const id =
-            option.courseId ??
-            option.requestTypeId ?? 
-            option;
 
-          let label = option.courseName ?? option.requestName ?? option;
-          if (filterType === "status") {
-            label = formatStatusLabel(option);
-          }
-          
-          const isSelected = filters[filterType] === id;
-          
-          return (
-            <button
-              key={id}
-              onClick={() => handleFilterChange(filterType, id)}
-              className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
-                isSelected
-                  ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
-                  : "border-transparent text-gray-700"
-              }`}
+        {filters[filterType] && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFilterChange(filterType, "");
+              if (filterType === "status" && isStatusSearch(searchQuery)) {
+                setSearchQuery("");
+              }
+            }}
+            className={`absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full transition-colors ${
+              filters[filterType]
+                ? "bg-[#88898A] hover:bg-gray-700"
+                : "hover:bg-gray-200"
+            }`}
+          >
+            <svg
+              className="w-3 h-3 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              {label}
-            </button>
-          );
-        })}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        )}
       </div>
-    )}
 
-    <style jsx>{`
-      .scrollbar-custom::-webkit-scrollbar {
-        width: 8px;
-      }
-      .scrollbar-custom::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-      }
-      .scrollbar-custom::-webkit-scrollbar-thumb {
-        background: #3b82f6;
-        border-radius: 10px;
-      }
-      .scrollbar-custom::-webkit-scrollbar-thumb:hover {
-        background: #2563eb;
-      }
-    `}</style>
-  </div>
-);
+      {openDropdown === filterType && (
+        <div className="absolute z-50 mt-2 w-full bg-white px-1 py-1 rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto scrollbar-custom">
+          <button
+            onClick={() => handleFilterChange(filterType, "")}
+            className={`w-full text-left px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors ${
+              filters[filterType] === ""
+                ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+                : "border-transparent text-gray-700"
+            }`}
+          >
+            All
+          </button>
+          {options.map((option) => {
+            const id = option.courseId ?? option.requestTypeId ?? option;
+
+            let label = option.courseName ?? option.requestName ?? option;
+            if (filterType === "status") {
+              label = formatStatusLabel(option);
+            }
+
+            const isSelected = filters[filterType] === id;
+
+            return (
+              <button
+                key={id}
+                onClick={() => handleFilterChange(filterType, id)}
+                className={`w-full text-left rounded-xl px-4 py-3 cursor-pointer text-sm hover:bg-gray-50 transition-colors  ${
+                  isSelected
+                    ? "bg-[#E8F1FD] text-[#1A73E8] font-medium"
+                    : "border-transparent text-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <style jsx>{`
+        .scrollbar-custom::-webkit-scrollbar {
+          width: 8px;
+        }
+        .scrollbar-custom::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+        .scrollbar-custom::-webkit-scrollbar-thumb {
+          background: #3b82f6;
+          border-radius: 10px;
+        }
+        .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+          background: #2563eb;
+        }
+      `}</style>
+    </div>
+  );
   const CalendarPicker = () => {
     const { daysInMonth, startingDayOfWeek, year, month } =
       getDaysInMonth(calendarDate);
@@ -686,7 +681,15 @@ const handleFilterChange = (filterType, value) => {
     );
   };
 
-  return (
+  return initialLoading && !dataLoading ? (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
+      <InlineLoading
+        text="Fetching transaction history data..."
+        isVisible={initialLoading}
+        size="largest"
+      />
+    </div>
+  ) : (
     <div className="bg-transparent min-h-screen flex flex-col">
       <div className="flex flex-col bg-transparent w-full xl:justify-between pr-3 sm:px-3 lg:pr-7 md:pl-15 xl:px-9 xl:pr-7">
         <div className="flex flex-col lg:flex-row items-start lg:items-center pt-15 lg:pt-11 xl:pt-13 justify-between  lg:pr-9 gap-4">
@@ -818,14 +821,16 @@ const handleFilterChange = (filterType, value) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+                {dataLoading ? (
                   <tr>
                     <td colSpan="6" className="px-4 sm:px-6 py-8 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <LoadingIndicator />
-                        <p className="text-sm text-gray-500">
-                          Loading transactions...
-                        </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <InlineLoading
+                          text="Getting transaction data..."
+                          isVisible={dataLoading}
+                          textSize={"text-md"}
+                          size="medium"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -850,7 +855,7 @@ const handleFilterChange = (filterType, value) => {
                             transaction.status
                           )}`}
                         >
-                          {transaction.status}
+                          {formatStatusLabel(transaction.status)}
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left w-36">
