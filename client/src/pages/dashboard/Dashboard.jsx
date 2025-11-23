@@ -281,7 +281,7 @@ export default function Dashboard() {
               {win.currentServing.number ? (
                 <>
                   <p
-                    className={`text-3xl md:text-5xl font-bold mt-7 xl:text-start ${
+                    className={`text-3xl md:text-5xl font-bold mt-7 text-start ${
                       win.currentServing.type === 'Priority'
                         ? 'text-[#F9A825]'
                         : 'text-[#1A73E8]'
@@ -401,7 +401,7 @@ export default function Dashboard() {
                         className={`w-3 h-3 rounded-full ${item.color}`}
                       ></div>
                       <span className="text-gray-600">{item.name}</span>
-                      <span className="font-medium text-[#202124]">
+                      <span className="font-medium text-xl text-[#202124]">
                         {percentage}%
                       </span>
                     </div>
