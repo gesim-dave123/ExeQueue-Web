@@ -363,7 +363,7 @@ export default function Sidebar() {
       {/* Hamburger for mobile */}
       {isMobileView && (
         <motion.div
-          className="fixed top-4 z-50"
+          className="fixed top-4 z-35"
           initial={false}
           animate={{
             x: isMobileOpen ? 260 : 0,

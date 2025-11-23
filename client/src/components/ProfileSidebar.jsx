@@ -33,9 +33,9 @@ export default function ProfileSidebar() {
     {
       key: "profile",
       label: "Profile",
-      icon: (
+      icon: (isActive) => (
         <img
-          src="/assets/dashboard/personnel.png"
+          src={isActive ? "/assets/Profile/ActiveProfile.png" : "/assets/dashboard/personnel.png"}
           alt="User"
           className="w-6 h-6"
         />
@@ -85,6 +85,19 @@ export default function ProfileSidebar() {
       setIsOpen(false);
       setIsClosing(false);
     }, 300);
+  };
+
+  // ✅ Function to render icon with active state
+  const renderIcon = (item) => {
+    const isActive = activeItem === item.key;
+    
+    if (typeof item.icon === 'function') {
+      return item.icon(isActive);
+    }
+    
+    return React.cloneElement(item.icon, {
+      className: isActive ? "text-blue-500" : "text-gray-800",
+    });
   };
 
   return (
@@ -139,12 +152,7 @@ export default function ProfileSidebar() {
                       : "hover:bg-gray-200 text-gray-800"
                   } ${item.key === "reset" ? "mb-3" : ""}`}
                 >
-                  {React.cloneElement(item.icon, {
-                    className:
-                      activeItem === item.key
-                        ? "text-blue-500"
-                        : "text-gray-800",
-                  })}
+                  {renderIcon(item)}
                   <span className="text-base font-medium">{item.label}</span>
                 </button>
               ))}
@@ -167,7 +175,7 @@ export default function ProfileSidebar() {
                     : "hover:bg-gray-200 text-gray-800"
                 }`}
               >
-                {item.icon}
+                {renderIcon(item)}
                 <span className="text-base font-medium">{item.label}</span>
               </button>
             ))}
@@ -203,12 +211,7 @@ export default function ProfileSidebar() {
                       : "hover:bg-gray-200 text-gray-800"
                   } ${item.key === "reset" ? "mb-3" : ""}`}
                 >
-                  {React.cloneElement(item.icon, {
-                    className:
-                      activeItem === item.key
-                        ? "text-blue-500"
-                        : "text-gray-800",
-                  })}
+                  {renderIcon(item)}
                   <span className="text-lg font-medium">{item.label}</span>
                 </button>
               ))}
@@ -231,7 +234,7 @@ export default function ProfileSidebar() {
                     : "hover:bg-gray-200 text-gray-800"
                 }`}
               >
-                {item.icon}
+                {renderIcon(item)}
                 <span className="text-lg font-medium">{item.label}</span>
               </button>
             ))}

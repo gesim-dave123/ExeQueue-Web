@@ -14,9 +14,9 @@ export const MainCardSkeleton = () => (
       </div>
 
       {/* container */}
-      <div className="flex items-center justify-between gap-6 h-full">
+      <div className="flex items-center justify-between gap-6 h-full flex-col lg:flex-row">
         {/* left side */}
-        <div className="border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
+        <div className="border-2 w-full flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
           <div className="text-left mb-4">
             <div className="text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 bg-gray-200 animate-pulse h-32 flex items-center justify-center">
               <div className="h-12 w-20 bg-gray-300 rounded"></div>
@@ -45,7 +45,7 @@ export const MainCardSkeleton = () => (
         </div>
 
         {/* right side */}
-        <div className="flex flex-col flex-5 justify-between">
+        <div className="flex flex-col flex-5 justify-between w-full">
           <div className="flex-1">
             <div className="space-y-3">
               <div className="border border-gray-200 rounded-lg overflow-hidden">
