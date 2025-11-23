@@ -281,7 +281,7 @@ export default function Dashboard() {
               {win.currentServing.number ? (
                 <>
                   <p
-                    className={`text-3xl md:text-5xl font-bold mt-7 xl:text-start ${
+                    className={`text-3xl md:text-5xl font-bold mt-7 text-start ${
                       win.currentServing.type === 'Priority'
                         ? 'text-[#F9A825]'
                         : 'text-[#1A73E8]'
