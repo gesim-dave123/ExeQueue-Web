@@ -6,28 +6,66 @@ import { sendOTPtoEmail } from "../../../api/auth";
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isEmptyError, setIsEmptyError] = useState(false); 
+  const [isInvalidEmail, setIsInvalidEmail] = useState(false); // New state for invalid email
   const [error, setError] = useState("");
+  const [isEmailFound, setIsEmailFound] = useState(true);
+  const [reSendCode, setReSendCode] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const navigate = useNavigate();
 
+  // Email validation function
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setIsEmptyError(false); 
+    setIsInvalidEmail(false);
 
-    const res = await sendOTPtoEmail( email );
-    
-    if (!res) {
-      console.log("Email not found");
+    if (!email.trim()) {
+      setIsEmptyError(true);
       setLoading(false);
       return;
     }
 
+    // Validate email format
+    if (!validateEmail(email)) {
+      setIsInvalidEmail(true);
+      setLoading(false);
+      return;
+    }
+    
+    const res = await sendOTPtoEmail(email);
+    
+    if (!res) {
+      console.log("Email not found");
+      setLoading(false);
+      setIsEmailFound(false);
+      return;
+    }
+    setIsEmailFound(true);
     navigate("/staff/verify-otp", { state: { email } });
     setLoading(false);
+    setReSendCode(true); // Show resend option after successful submission
   };
 
   const handleResend = () => {
+    if (!email.trim()) {
+      setIsEmptyError(true);
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setIsInvalidEmail(true);
+      return;
+    }
+
+    // If valid, submit again
     handleSubmit(new Event('submit'));
   };
 
@@ -50,16 +88,23 @@ export default function ForgotPassword() {
         </p>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Email Input */}
           <div className="relative mb-3">
             <label
               htmlFor="email"
-              className={`absolute left-3 transition-all duration-200 pointer-events-none ${
-                email
-                  ? "-top-2.5 text-xs bg-white px-1 text-blue-500"
-                  : "top-3 text-base text-gray-500"
-              }`}
+              className={`absolute left-5 transition-all duration-200 pointer-events-none
+                ${isEmailFound ? "text-[#1A73E8]" : "text-red-500"}
+                ${
+                  (isEmptyError || isInvalidEmail) && !isFocused
+                    ? "top-3.5 text-base text-gray-500"
+                    : ""
+                }
+                ${
+                  email || isFocused || ((isEmptyError || isInvalidEmail) && isFocused)
+                    ? "-top-2.5 text-xs bg-white px-1 text-blue-500 "
+                    : "top-3.5 text-base text-gray-500 "
+                }`}
             >
               Email
             </label>
@@ -67,47 +112,70 @@ export default function ForgotPassword() {
               type="email"
               id="email"
               value={email}
+              onFocus={() => {setIsFocused(true);
+                setIsEmailFound(true)
+               }}
+              onBlur={() => setIsFocused(false)}
               onChange={(e) => {
                 setEmail(e.target.value);
                 setError("");
+                setIsEmptyError(false);
+                setIsInvalidEmail(false);
               }}
-              className="w-full px-4 py-3 border border-[#DDEAFC] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              
+              className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all 
+                ${isEmailFound ? "border-[#1A73E8] border-2" : "border-red-500 border-2"}
+               ${
+                email || isFocused
+                    ? "border-[#1A73E8] border-2"
+                    : "border-[#DDEAFC] border-2 focus:ring-blue-500 focus:border-[#1A73E8]"
+              }`}
             />
+            {/* Always reserve space for error message */}
+            <div className="h-5 mt-1">
+              {isEmptyError && !isFocused && (
+                <p className="text-red-500 text-left text-xs">Email is required</p>
+              )}
+              {/* {isInvalidEmail && !isFocused && !isEmptyError && (
+                <p className="text-red-500 text-left text-xs">Please enter a valid email address</p>
+              )} */}
+            </div>
           </div>
 
           {/* Send Code Button */}
           <button
-            type="submit" //kani line i remove, for render rani sya
+            type="submit"
             disabled={loading || !email}
-            className={`w-full font-semibold py-3 mb-5 rounded-2xl transition-all  ${
+            className={`w-full font-medium py-3 mb-5 rounded-2xl transition-all  ${
               loading || !email
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white cursor-pointer"
+                ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
+                : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
             }`}
           >
             {loading ? "Sending..." : "Send Code"}
           </button>
         </form>
-
-        {/* Resend Link */}
-        <div className="text-center mt-4">
-          <p className="text-sm text-gray-600">
-            Didn't get any code?{" "}
-            <button
-              onClick={handleResend}
-              className="text-[#1A73E8]  font-medium cursor-pointer"
-            >
-              Click to resend
-            </button>
-          </p>
-        </div>
-
+        
+        {reSendCode && !isEmptyError && !isInvalidEmail && (
+          <div className="text-center mt-4">
+            <p className="text-sm text-gray-600">
+              Didn't get any code?{" "}
+              <button
+                onClick={handleResend}
+                className="text-[#1A73E8] font-medium cursor-pointer"
+              >
+                Click to resend
+              </button>
+            </p>
+          </div>
+        )}
+     
         {/* Back to Login */}
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
             onClick={() => navigate("/staff/login")}
-            className="text-sm text-gray-700  cursor-pointer"
+            className="text-sm text-gray-700 cursor-pointer"
           >
             Back to Login
           </button>

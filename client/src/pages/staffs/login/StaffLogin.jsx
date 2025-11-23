@@ -1,9 +1,10 @@
-import React, { useState } from "react";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { login } from "../../../api/auth.js";
+import { showToast } from "../../../components/toast/ShowToast.jsx";
 import { useAuth } from "../../../context/AuthProvider";
 import { useLoading } from "../../../context/LoadingProvider";
-import { login } from "../../../api/auth";
 
 export default function StaffLogin() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,12 +16,6 @@ export default function StaffLogin() {
   const { refreshAuth } = useAuth();
   const { setIsLoading, setProgress, setLoadingText } = useLoading();
 
-  // Example local data for testing
-  const exampleUsers = [
-    { username: "staff01", password: "password123" },
-    { username: "admin", password: "admin123" },
-  ];
-
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   const handleChange = (e) => {
@@ -29,77 +24,136 @@ export default function StaffLogin() {
     setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
+  const validateForm = () => {
+    if (!formData.username.trim() || !formData.password.trim()) {
+      setErrors({
+        username: "Please fill out all required fields",
+        password: "Please fill out all required fields",
+      });
+      showToast("Please fill out all required fields", "error");
+      return false;
+    }
+    if (formData.password.trim().length < 8) {
+      setErrors({
+        username: "",
+        password: "Password must be at least 8 characters",
+      });
+      showToast("Password must be at least 8 characters", "error");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
     setLoading(true);
     setLoadingText("Logging In...");
-    setProgress(20);
+    setProgress(0);
+
+    // Start progress animation immediately and independently
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        // Gradually increase progress, but cap at 90% until API completes
+        if (prev < 90) {
+          return prev + Math.random() * 15;
+        }
+        return prev;
+      });
+    }, 200);
 
     try {
-      // Try backend login first
       const res = await login(formData);
 
+      // Clear the interval once API completes
+      clearInterval(progressInterval);
+
       if (res?.success) {
-        setProgress(80);
-        await new Promise((r) => setTimeout(r, 500));
-        await refreshAuth();
+        // Animate to 100% and WAIT for it to complete
         setProgress(100);
+        await new Promise((resolve) => setTimeout(resolve, 800)); // Wait for progress to visually reach 100%
+
+        await refreshAuth();
+        showToast(res?.message, "success");
+
+        // Optional: brief pause at 100% so user sees completion
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // Now navigate
         navigate("/staff/dashboard", { replace: true });
-        setTimeout(() => setIsLoading(false), 500);
-        setLoading(false);
+
+        // Clean up loading states after navigation
+        setTimeout(() => {
+          setIsLoading(false);
+          setLoading(false);
+        }, 100);
         return;
       }
 
-      // Backend says invalid user
-      // Try local example users instead (for testing)
-      const userFound = exampleUsers.find(
-        (user) => user.username === formData.username
-      );
-
-      if (!userFound) {
+      if (!res?.hasAccount) {
+        console.log("Login failed:", res);
         setErrors({
-          username: "Account not found",
-          password: "Account not found",
+          username: res?.message || "Account not found!",
+          password: res?.message || "Account not found!",
         });
-        setIsLoading(false);
-        setLoading(false);
-        return;
-      }
-
-      if (userFound.password !== formData.password) {
+        setFormData({ ...formData, password: "" });
+        showToast(res?.message, "error");
+      } else if (res?.invalidCred) {
+        console.log("Login failed:", res);
         setErrors({
-          username: "",
-          password: "Invalid password",
+          username: res?.message || "Invalid Credentials",
+          password: res?.message || "Invalid Credentials",
         });
-        setIsLoading(false);
-        setLoading(false);
-        return;
+        setFormData({ username: "", password: "" });
+        showToast(res?.message, "error");
+      } else {
+        showToast(res?.message || "Login failed", "error");
       }
 
-      //Logged in with example data
-      setProgress(80);
-      await new Promise((r) => setTimeout(r, 500));
-      await refreshAuth();
-      setProgress(100);
-      navigate("/staff/dashboard", { replace: true });
-      setTimeout(() => setIsLoading(false), 500);
+      setIsLoading(false);
       setLoading(false);
     } catch (error) {
-      // If backend completely fails to fetch
-      setErrors({
-        username: "Account not found",
-        password: "Account not found",
-      });
+      clearInterval(progressInterval);
+      showToast(error?.message || "An unexpected error occurred", "error");
       setIsLoading(false);
       setLoading(false);
     }
   };
 
-  // Determine if both fields should turn red (for account not found)
-  const isAccountNotFound =
-    errors.username === "Account not found" &&
-    errors.password === "Account not found";
+  // Helper functions to determine styling
+  const getFieldErrorStyle = (fieldName) => {
+    return errors[fieldName]
+      ? "border-red-500 border-1 focus:ring-red-500"
+      : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500";
+  };
+
+  const getLabelErrorStyle = (fieldName) => {
+    if (errors[fieldName]) {
+      return "peer-focus:text-red-500 text-red-500";
+    }
+    return formData[fieldName]
+      ? "peer-focus:text-blue-500 text-blue-500"
+      : "peer-focus:text-blue-500";
+  };
+
+  const getErrorMessage = () => {
+    if (
+      errors.username &&
+      errors.password &&
+      errors.username === errors.password
+    ) {
+      return errors.username;
+    }
+    if (errors.username) return errors.username;
+    if (errors.password) return errors.password;
+    return "";
+  };
+
+  const hasError = errors.username || errors.password;
 
   return (
     <div className="min-h-screen w-full flex justify-center items-center bg-transparent p-4">
@@ -134,31 +188,16 @@ export default function StaffLogin() {
               onChange={handleChange}
               placeholder=" "
               className={`peer w-full px-4 py-3 border rounded-2xl bg-white 
-                focus:outline-none transition-all 
-                ${
-                  errors.username || isAccountNotFound
-                    ? "border-red-500 border-2 focus:ring-red-500"
-                    : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                }`}
+                focus:outline-none transition-all ${getFieldErrorStyle(
+                  "username"
+                )}`}
             />
             <label
               htmlFor="username"
               className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none 
                 text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
                 peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
-                 -top-2.5  text-xs 
-                  ${
-                    errors.username || isAccountNotFound
-                      ? "peer-focus:text-red-500"
-                      : "peer-focus:text-blue-500"
-                  }
-                ${
-                  errors.username || isAccountNotFound
-                    ? "text-red-500 "
-                    : formData.username
-                    ? "text-blue-500"
-                    : ""
-                }`}
+                -top-2.5 text-xs ${getLabelErrorStyle("username")}`}
             >
               Username
             </label>
@@ -174,31 +213,16 @@ export default function StaffLogin() {
               onChange={handleChange}
               placeholder=" "
               className={`peer w-full px-4 py-3 pr-12 border rounded-2xl bg-white 
-                focus:outline-none transition-all
-                ${
-                  errors.password || isAccountNotFound
-                    ? "border-red-500 border-2 focus:ring-red-500"
-                    : "border-[#DDEAFC] focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                }`}
+                focus:outline-none transition-all ${getFieldErrorStyle(
+                  "password"
+                )}`}
             />
             <label
               htmlFor="password"
               className={`absolute left-5 transition-all duration-200 bg-white px-1 pointer-events-none 
                 text-gray-500 peer-placeholder-shown:top-3 peer-placeholder-shown:text-base 
                 peer-placeholder-shown:text-gray-500 peer-focus:-top-2.5 peer-focus:text-xs 
-                peer-focus:text-blue-500 -top-2.5 text-xs 
-                 ${
-                   errors.password || isAccountNotFound
-                     ? "peer-focus:text-red-500"
-                     : "peer-focus:text-blue-500"
-                 }
-                ${
-                  errors.password || isAccountNotFound
-                    ? "text-red-500"
-                    : formData.password
-                    ? "text-blue-500"
-                    : ""
-                }`}
+                -top-2.5 text-xs ${getLabelErrorStyle("password")}`}
             >
               Password
             </label>
@@ -212,23 +236,17 @@ export default function StaffLogin() {
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             )}
-
-            {/* Show error message below password only */}
           </div>
 
-          {/* Forgot Password */}
+          {/* Error Message and Forgot Password */}
           <div
-            className={`flex  -mt-2 ${
-              errors.password || isAccountNotFound
-                ? "justify-between"
-                : "justify-end"
+            className={`flex -mt-2 ${
+              hasError ? "justify-between" : "justify-end"
             }`}
           >
-            {(errors.password || isAccountNotFound) && (
+            {hasError && (
               <p className="text-red-500 text-left text-xs">
-                {isAccountNotFound
-                  ? "Account not found"
-                  : errors.password || ""}
+                {getErrorMessage()}
               </p>
             )}
 
@@ -248,7 +266,7 @@ export default function StaffLogin() {
             className={`w-full font-semibold py-3 rounded-xl transition-all cursor-pointer ${
               loading
                 ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white"
+                : "bg-[#1A73E8] hover:bg-[#1557B0] text-white"
             }`}
           >
             {loading ? "Please wait..." : "Login"}
