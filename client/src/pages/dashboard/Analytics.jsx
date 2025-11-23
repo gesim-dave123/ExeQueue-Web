@@ -437,7 +437,7 @@ export default function Analytics() {
         {/* Bottom Section */}
         <div className="flex gap-6 mb-5">
           {/* Queue Summary */}
-          <div className="lg:col-span-2 flex flex-1 flex-col lg:flex-row bg-white rounded-xl shadow-xs p-6 gap-5">
+          <div className="lg:col-span-2 flex flex-1 flex-col lg:flex-row bg-white rounded-xl shadow-xs w-full p-6 gap-5">
             <div className="flex-3">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export default function Analytics() {
                 <div className="flex flex-col items-center justify-center h-[350px]">
                   {doughnutTotals && <DoughnutChart totals={doughnutTotals} />}
 
-                  <div className="flex items-center justify-center gap-6 mt-8">
+                  <div className="mt-6 flex flex-row sm:justify-center gap-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                       <span className="text-sm text-gray-600">
