@@ -63,6 +63,8 @@ export default function Manage_Queue() {
   const [availableWindows, setAvailableWindows] = useState([]);
   const [callingNext, setCallingNext] = useState(false);
   const [wasQueueEmpty, setWasQueueEmpty] = useState(false);
+  const [isLoadingMoreWaiting, setIsLoadingMoreWaiting] = useState(false);
+  const [isLoadingMoreDeferred, setIsLoadingMoreDeferred] = useState(false);
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedDeferredSearchTerm = useDebounce(deferredSearchTerm, 500);
   const isNumeric = (val) => /^\d+$/.test(val);
@@ -824,6 +826,7 @@ export default function Manage_Queue() {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
     const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
     if (nearBottom && hasMoreWaiting && !isLoading) {
+      setIsLoadingMoreWaiting(true);
       loadMoreWaitingQueues();
     }
   };
@@ -841,6 +844,7 @@ export default function Manage_Queue() {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
     const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
     if (nearBottom && hasMoreWaiting && !isLoading) {
+      setIsLoadingMoreDeferred(true);
       loadMoreDeferredQueues();
     }
   };
@@ -1289,7 +1293,7 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    {isDeferredLoading ? (
+                    {isDeferredLoading && !isLoadingMoreDeferred ? (
                       <DeferredTableOnlySkeleton />
                     ) : (
                       <div className="border border-gray-200 rounded-lg overflow-hidden relative">
@@ -1476,7 +1480,7 @@ export default function Manage_Queue() {
                                   );
                                 })}
 
-                              {isLoading && hasMoreDeferred && (
+                              {isLoadingMoreDeferred && hasMoreDeferred && (
                                 <tr
                                   style={{
                                     position: "absolute",
@@ -1587,7 +1591,7 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    {nextInLineLoading ? (
+                    {nextInLineLoading && !isLoadingMoreWaiting ? (
                       <NextInLineTableOnlySkeleton />
                     ) : (
                       <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1765,7 +1769,7 @@ export default function Manage_Queue() {
                                   );
                                 })}
 
-                              {nextInLineLoading && (
+                              {isLoadingMoreWaiting && hasMoreWaiting && (
                                 <tr
                                   style={{
                                     position: "absolute",
