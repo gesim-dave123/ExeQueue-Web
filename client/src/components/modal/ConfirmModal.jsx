@@ -51,7 +51,7 @@ export default function ConfirmModal({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute cursor-pointer top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
               disabled={loading && showLoading}
             >
               <X size={25} />

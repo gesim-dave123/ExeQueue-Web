@@ -122,15 +122,25 @@
 import { ArrowLeft, Camera, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import DateAndTimeFormatter, {
   FORMATS,
 } from '../../../../server/utils/DateAndTimeFormatter';
+import ConfirmModal from '../../components/modal/ConfirmModal';
+import { searchQueue } from '../../api/student';
 
 export default function SearchQueueResult() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { queues, searchType, searchValue } = location.state || {};
+  const {
+    queues: initialQueues,
+    searchType,
+    searchValue,
+  } = location.state || {};
   const [selectedQueueIndex, setSelectedQueueIndex] = useState(0);
+  const [queues, setQueues] = useState(initialQueues);
+  const [query, setQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
 
   // Redirect back if no data
   useEffect(() => {
@@ -138,6 +148,43 @@ export default function SearchQueueResult() {
       navigate('/student/queue/search');
     }
   }, [queues, navigate]);
+
+  const checkQueue = async () => {
+    if (!query || query.trim() === '') {
+      setShowModal(true);
+      return;
+    }
+
+    console.log('🔍 Starting search from result page...');
+    console.log('Search Query:', query.trim());
+
+    try {
+      // Determine if it's a studentId or referenceNumber
+      const isReferenceNumber = query.includes('-');
+
+      const searchParams = isReferenceNumber
+        ? { referenceNumber: query.trim() }
+        : { studentId: query.trim() };
+
+      console.log('📤 Sending search params:', searchParams);
+
+      const result = await searchQueue(searchParams);
+
+      console.log('✅ Search result received:', result);
+      console.log('Queue data:', result.data);
+
+      // Update the current page with new queue data
+      setQueues(result.data);
+      setSelectedQueueIndex(0);
+      setQuery(''); // Clear the search input
+    } catch (err) {
+      console.error('❌ Search error:', err);
+      console.error('Error response:', err.response?.data);
+
+      // Show modal if queue not found
+      setShowModal(true);
+    }
+  };
 
   if (!queues || queues.length === 0) {
     return null;
@@ -203,35 +250,45 @@ export default function SearchQueueResult() {
         </div>
       )} */}
 
-       <div className="flex w-full max-w-md rounded-full overflow-hidden border border-[#1A73E8] bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-15">
+      <div className="flex w-full max-w-md rounded-full overflow-hidden border border-[#1A73E8] bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-15">
         {/* Input Field */}
-         <input
-           type="text"
-          //  value={query}
-          //  onChange={(e) => setQuery(e.target.value)}
-           placeholder="Search Queue"
-           className="flex-1 px-4 py-3 outline-none text-sm sm:text-base font-normal bg-white placeholder-gray-500"
-         />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search Queue"
+          className="flex-1 px-4 py-3 outline-none text-sm sm:text-base font-normal bg-white placeholder-gray-500"
+        />
 
-         {/* Search Button / Icon */}
-         <button
-          // onClick={checkQueue} 
-           className="w-18 h-md flex items-center justify-center bg-[#1A73E8] hover:bg-[#1557B0] transition-colors"
-         >
-           <img src="/assets/Search icon.png" alt="search" className="w-5 h-5" />
-         </button>
+        {/* Search Button / Icon */}
+        <button
+          onClick={checkQueue}
+          className="w-18 h-md flex items-center justify-center bg-[#1A73E8] hover:bg-[#1557B0] transition-colors"
+        >
+          <img src="/assets/Search icon.png" alt="search" className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Note */}
-      <div className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-[#1A73E8] text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+        className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-[#1A73E8] text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2"
+      >
         <Camera size={18} className="flex-shrink-0" />
         <span className="text-center">
           Take a picture to keep note of your queue
         </span>
-      </div>
+      </motion.div>
 
       {/* Main Card */}
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col p-6 sm:p-8 items-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col p-6 sm:p-8 items-center"
+      >
         {/* Header */}
         <div className="w-full flex justify-between items-center mb-6">
           <span
@@ -274,13 +331,13 @@ export default function SearchQueueResult() {
         <div className="w-full space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Name:</span>
-         <span className="text-[#1A73E8] font-semibold">
-          {currentQueue.studentFullName
-            .toLowerCase()
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')}
-        </span>
+            <span className="text-[#1A73E8] font-semibold">
+              {currentQueue.studentFullName
+                .toLowerCase()
+                .split(' ')
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Student ID:</span>
@@ -296,7 +353,7 @@ export default function SearchQueueResult() {
                 {currentQueue.requests.map((request) => (
                   <span
                     key={request.requestId}
-                    className="hover:underline cursor-pointer"
+                    className=""
                   >
                     {request.requestType.requestName}
                   </span>
@@ -328,20 +385,46 @@ export default function SearchQueueResult() {
             Issued on{' '}
             {DateAndTimeFormatter.formatInTimeZone(
               new Date(currentQueue.createdAt),
-              "yyyy-MM-dd hh:mm a"
+              'yyyy-MM-dd hh:mm a'
             )}
           </span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Footer Button */}
-      <div className="w-full max-w-md flex justify-end">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
+        className="w-full max-w-md flex justify-end"
+      >
         <Link to="/" className="mt-10 mr-4">
-          <button className="mt-10 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center gap-2">
+          <button className="mt-10 bg-[#1A73E8] hover:bg-[#1456AE] cursor-pointer text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center gap-2">
             <ArrowLeft size={17} /> Back to Homepage
           </button>
         </Link>
       </div>
+
+      {/* Modal */}
+      <ConfirmModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Queue Ticket Not Found"
+        titleClassName="text-xl font-semibold text-gray-800 text-center mb-4"
+        description={
+          <>
+            Make sure the Student ID or Queue Reference Number <br /> you
+            entered is correct.
+            <br />
+            <br />
+            If you do not have a queue ticket, <br /> please go back to the
+            homepage and generate one.
+          </>
+        }
+        descriptionClassName="text-gray-700 text-sm text-center px-3"
+        hideActions={true}
+        overlayClickClose={false}
+      />
     </div>
   );
 }

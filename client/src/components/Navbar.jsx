@@ -95,7 +95,7 @@ export default function Navbar() {
     }
   };
 
-  const isRequestPage = location.pathname === "/student/request";
+  // const isRequestPage = location.pathname === "/student/request";
 
   const closeMenu = () => {
     setIsMenuOpen(false);
@@ -103,7 +103,7 @@ export default function Navbar() {
 
   const getActiveClass = (sectionId) => {
     // If on the Request page, disable active/highlight
-    const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
+    // const hasQueueSelected = sessionStorage.getItem("hasRequestInProgress") === "true";
     if (
       location.pathname !== "/"
     ) {
@@ -123,14 +123,13 @@ export default function Navbar() {
     const hasQueueSelected =
       sessionStorage.getItem("hasRequestInProgress") === "true";
 
-    if (isRequestPage && hasQueueSelected) {
+    if (hasQueueSelected) {
       setTargetLink(link);
       setShowModal(true);
       // setShowConfirmation(true);
     } else {
       navigateToLink(link);
     }
-    closeMenu();
   };
 
   const handleDesktopNavigation = (link) => {
@@ -150,27 +149,37 @@ export default function Navbar() {
   };
   
   const navigateToLink = (link) => {
-    if (link === "/#" || link === "/") {
-      navigate("/");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      const hashIndex = link.indexOf("#");
-      if (hashIndex !== -1) {
-        const path = link.substring(0, hashIndex) || "/";
-        const hash = link.substring(hashIndex + 1);
+  if (link === "/#" || link === "/") {
+    navigate("/");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    const hashIndex = link.indexOf("#");
+    if (hashIndex !== -1) {
+      const path = link.substring(0, hashIndex) || "/";
+      const hash = link.substring(hashIndex + 1);
 
-        navigate(path);
+      // If we're already on the home page, just scroll to the section
+      if (location.pathname === "/" && path === "/") {
+        const element = document.getElementById(hash);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        // If we're on a different page, navigate to home first, then scroll
+        navigate("/");
         setTimeout(() => {
           const element = document.getElementById(hash);
           if (element) {
             element.scrollIntoView({ behavior: "smooth" });
           }
-        }, 50);
-      } else {
-        navigate(link);
+        }, 100); // Increased timeout to ensure page navigation completes
       }
+    } else {
+      navigate(link);
     }
-  };
+  }
+  closeMenu();
+};
 
   const confirmNavigation = () => {
     // Clear the session storage when user confirms navigation
@@ -398,7 +407,7 @@ export default function Navbar() {
                     "about"
                   )}`}
                 >
-                  About
+                  Help
                 </motion.button>
                 <motion.button
                   variants={menuItemVariants}
@@ -408,7 +417,7 @@ export default function Navbar() {
                     "help"
                   )}`}
                 >
-                  Help
+                  About
                 </motion.button>
                 <motion.button
                   variants={menuItemVariants}

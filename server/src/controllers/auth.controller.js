@@ -51,7 +51,7 @@ export const loginUser = async (req, res) => {
         isActive: user.isActive,
       },
       process.env.JWT_SECRET,
-      { expiresIn: user.role === Role.PERSONNEL ? '10h' : '5h' }
+      { expiresIn: user.role === Role.PERSONNEL ? "12h" : "12h" }
     );
 
     res.cookie('access_token', token, {
@@ -61,8 +61,8 @@ export const loginUser = async (req, res) => {
       path: '/',
       maxAge:
         user.role === Role.PERSONNEL
-          ? 1000 * 60 * 60 * 20
-          : 1000 * 60 * 60 * 10,
+          ? 1000 * 60 * 60 * 12
+          : 1000 * 60 * 60 * 12,
     });
 
     return res.status(200).json({
