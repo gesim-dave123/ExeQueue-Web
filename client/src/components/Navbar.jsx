@@ -123,7 +123,7 @@ export default function Navbar() {
     const hasQueueSelected =
       sessionStorage.getItem("hasRequestInProgress") === "true";
 
-    if (isRequestPage && hasQueueSelected) {
+    if (hasQueueSelected) {
       setTargetLink(link);
       setShowModal(true);
       // setShowConfirmation(true);

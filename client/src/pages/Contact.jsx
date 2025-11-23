@@ -112,7 +112,7 @@ export default function Contact() {
       </div>
 
       {/* Bottom Note */}
-      <div className="mt-10 flex items-center justify-center text-xs text-gray-400 lg:w-8xl">
+      <div className="mt-10 ml-10 lg:ml-0 flex items-center justify-center text-xs text-gray-400 lg:w-8xl">
         <span>© 2025 Team Alpha - ExeQueue v1.0.1 <span className="ml-2"></span> All Rights Reserved.</span>
       </div>
     </footer>
