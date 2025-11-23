@@ -12,42 +12,34 @@ export const login = async (formData) => {
         withCredentials: true,
       }
     );
-
-    if (response.status === 200) {
-      showToast(response.data.message, "success");
-      return {
-        success: response.data.success,
-        token: response.data.token,
-        role: response.data.role,
-      };
-    }
+    return response.data;
   } catch (error) {
     if (error.response) {
-      showToast(error.response.data.message || "Login failed", "error");
+      return error.response.data;
     } else if (error.request) {
-      showToast("No response from server", "error");
+      return { success: false, message: "No response from server" };
     } else {
-      showToast("An unexpected error occurred", "error");
+      return { success: false, message: "An unexpected error occurred" };
     }
-    return null;
   }
 };
 
 export const sendOTPtoEmail = async (email) => {
-  try{
-     const response = await axios.post(
+  try {
+    const response = await axios.post(
       `${backendConnection()}/api/auth/getOTP`,
-      {email},
-      { 
-        headers: {"Content-Type" : "application/json"},
-        withCredentials: true }
+      { email },
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true,
+      }
     );
 
-    if(response.status === 200){
+    if (response.status === 200) {
       showToast(response.data.message, "success");
       return true;
     }
-  }catch (error){
+  } catch (error) {
     if (error.response) {
       showToast(error.response.data.message || "Email not found", "error");
     } else if (error.request) {
@@ -59,30 +51,29 @@ export const sendOTPtoEmail = async (email) => {
   }
 };
 
-export const verifyOTP = async (otp,email) => {
-  try{
+export const verifyOTP = async (otp, email) => {
+  try {
     const response = await axios.post(
       `${backendConnection()}/api/auth/verify-email`,
-      {     
+      {
         receivedOTP: otp,
-        email: email,          
+        email: email,
       },
-      { 
-        headers: {"Content-Type" : "application/json"},
-        withCredentials: true 
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true,
       }
     );
 
-    if(response.status === 200){
+    if (response.status === 200) {
       showToast(response.data.message, "success");
-      return { 
-        success: true, 
+      return {
+        success: true,
         message: response.data.message,
-        resetToken: response.data.resetToken  // Get token from response
+        resetToken: response.data.resetToken, // Get token from response
       };
-    };
-
-  }catch(error){
+    }
+  } catch (error) {
     if (error.response) {
       showToast(error.response.data.message || "OTP found", "error");
     } else if (error.request) {
@@ -96,13 +87,13 @@ export const verifyOTP = async (otp,email) => {
 
 export const resetPassword = async (resetToken, newPassword) => {
   try {
-    const response = await axios.patch(  
+    const response = await axios.patch(
       `${backendConnection()}/api/auth/reset-password`,
       { newPassword },
       {
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${resetToken}`
+          Authorization: `Bearer ${resetToken}`,
         },
         withCredentials: true,
       }
@@ -112,10 +103,12 @@ export const resetPassword = async (resetToken, newPassword) => {
       showToast(response.data.message, "success");
       return { success: true, message: response.data.message };
     }
-
   } catch (error) {
     if (error.response) {
-      showToast(error.response.data.message || "Failed to reset password", "error");
+      showToast(
+        error.response.data.message || "Failed to reset password",
+        "error"
+      );
       return { success: false, message: error.response.data.message };
     } else if (error.request) {
       showToast("No response from server", "error");
@@ -135,7 +128,6 @@ export const logout = async () => {
       { withCredentials: true }
     );
     if (response.status === 200) {
-      showToast(response.data.message, "success");
       return true;
     }
   } catch (error) {
