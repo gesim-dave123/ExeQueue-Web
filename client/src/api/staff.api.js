@@ -230,4 +230,26 @@ export const updateHeartbeatInterval = async (windowId) => {
   }
 };
 
-// export const updateAdminProfile = async ()
+export const updateAdminProfile = async (accountData) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/personnel/profile-setting`,
+      { accountData },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      return error.response.data;
+    } else if (error.request) {
+      return { success: false, message: "No response from server" };
+    } else {
+      return { success: false, message: "An unexpected error occurred" };
+    }
+  }
+};

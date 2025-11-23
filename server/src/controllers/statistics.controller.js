@@ -7,20 +7,6 @@ import { formatQueueNumber } from '../services/queue/QueueNumber.js';
 
 export const getDashboardStatistics = async (req, res) => {
   try {
-    // ✅ AUTO-UPDATE: SKIPPED → CANCELLED after 1 hour
-    // const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-    // await prisma.queue.updateMany({
-    //   where: {
-    //     queueStatus: Status.SKIPPED,
-    //     updatedAt: { lt: oneHourAgo },
-    //     isActive: true,
-    //   },
-    //   data: {
-    //     queueStatus: Status.CANCELLED,
-    //     updatedAt: new Date(),
-    //   },
-    // });
 
     // Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
@@ -258,14 +244,14 @@ export const getLiveDisplayData = async (req, res) => {
       'Asia/Manila'
     );
 
-    //  1) Find the active session (for dashboard view)
+    // 1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true, sessionNumber: true },
       orderBy: { sessionNumber: 'asc' },
     });
 
-    //  2) Get ALL today's sessions (for totals)
+    // 2) Get ALL today's sessions (for totals)
     const allSessionsToday = await prisma.queueSession.findMany({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true },
@@ -303,7 +289,7 @@ export const getLiveDisplayData = async (req, res) => {
 
     const sessionId = activeSession.sessionId;
 
-    // ✅ 3) Get window info for windows 1 & 2
+    // 3) Get window info for windows 1 & 2
     const windows = await prisma.serviceWindow.findMany({
       where: { windowNo: { in: [1, 2] }, isActive: true },
       select: {

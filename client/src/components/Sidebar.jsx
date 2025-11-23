@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import ConfirmModal from "../components/modal/ConfirmModal";
 import { useAuth } from "../context/AuthProvider";
-import icon from "/assets/icon.svg";
-import { showToast } from "./toast/ShowToast";
+import { useLoading } from "../context/LoadingProvider";
 import { useIsSystemOpen } from "../context/ModalCheckerProvider";
+import { showToast } from "./toast/ShowToast";
+import icon from "/assets/icon.svg";
 
 export default function Sidebar() {
   const [isQueueOpen, setIsQueueOpen] = useState(true);
@@ -25,6 +26,8 @@ export default function Sidebar() {
   const location = useLocation();
   const [isHeightSmall, setIsHeightSmall] = useState(false);
   const [isSystemSOpen, setIsSystemSOpen] = useIsSystemOpen();
+  const [loading, setLoading] = useState(false);
+  const { setIsLoading, setProgress, setLoadingText } = useLoading();
 
   const handleCloseModal = () => {
     setShowLogoutModal(false);
@@ -32,16 +35,54 @@ export default function Sidebar() {
   };
 
   const handleLogout = async () => {
+    handleCloseModal();
+    setIsLoading(true);
+    setLoadingText("Logging Out...");
+    setProgress(0);
+
+    // Start progress animation immediately and independently
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        // Gradually increase progress, but cap at 90% until logout completes
+        if (prev < 90) {
+          return prev + Math.random() * 15;
+        }
+        return prev;
+      });
+    }, 200);
+
     try {
+      // Logout happens in parallel with progress animation
       await logoutOperation();
+
+      // Clear the interval once logout completes
+      clearInterval(progressInterval);
+
+      // Animate to 100% and WAIT for it to complete
+      setProgress(100);
+      await new Promise((resolve) => setTimeout(resolve, 800)); // Wait for progress to visually reach 100%
+
       showToast("Logged Out Successfully!", "success");
-      navigate("/");
+
+      // Optional: brief pause at 100% so user sees completion
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Now navigate
+      navigate("/staff/login");
+
+      // Clean up loading states after navigation
+      setTimeout(() => {
+        setIsLoading(false);
+        setProgress(0);
+      }, 100);
     } catch (error) {
+      clearInterval(progressInterval); // Clear interval on error
       console.error("There was a problem logging out:", error);
       showToast("There was a problem logging out", "error");
+      setIsLoading(false);
+      setProgress(0);
     }
   };
-
   const [userFullName, setUserFullName] = useState("Staff");
   const [userRole, setUserRole] = useState("Unknown");
   const { user } = useAuth();
@@ -128,45 +169,48 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
-  setIsSystemSOpen(isSystemSettingsOpen); // true if open, false if closed
-}, [isSystemSettingsOpen]);
+    setIsSystemSOpen(isSystemSettingsOpen); // true if open, false if closed
+  }, [isSystemSettingsOpen]);
 
   // Add this useEffect to handle outside clicks
-useEffect(() => {
-  const handleClickOutside = (event) => {
-    // Check if click is outside the dropdown
-    const dropdown = document.querySelector('[data-dropdown="profile-dropdown"]');
-    const profileButton = document.querySelector('[data-profile-button]');
-    
-    if (isProfileOpen && 
-        dropdown && 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click is outside the dropdown
+      const dropdown = document.querySelector(
+        '[data-dropdown="profile-dropdown"]'
+      );
+      const profileButton = document.querySelector("[data-profile-button]");
+
+      if (
+        isProfileOpen &&
+        dropdown &&
         !dropdown.contains(event.target) &&
         profileButton &&
-        !profileButton.contains(event.target)) {
-      setIsProfileOpen(false);
-      setIsSystemSettingsOpen(false);
+        !profileButton.contains(event.target)
+      ) {
+        setIsProfileOpen(false);
+        setIsSystemSettingsOpen(false);
+      }
+    };
+
+    if (isProfileOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
     }
-  };
 
-  if (isProfileOpen) {
-    document.addEventListener('mousedown', handleClickOutside);
-  }
-
-  return () => {
-    document.removeEventListener('mousedown', handleClickOutside);
-  };
-}, [isProfileOpen]);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isProfileOpen]);
 
   useEffect(() => {
-  const checkHeight = () => {
-    setIsHeightSmall(window.innerHeight < 600); // Adjust threshold as needed
-  };
-  
-  checkHeight();
-  window.addEventListener('resize', checkHeight);
-  return () => window.removeEventListener('resize', checkHeight);
-}, []);
+    const checkHeight = () => {
+      setIsHeightSmall(window.innerHeight < 600); // Adjust threshold as needed
+    };
 
+    checkHeight();
+    window.addEventListener("resize", checkHeight);
+    return () => window.removeEventListener("resize", checkHeight);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -174,11 +218,6 @@ useEffect(() => {
       const isMobile = width < 768; // everything below 1024 = mobile
       setIsMobileView(isMobile);
       setIsSidebarOpen(!isMobile && width >= 1280);
-      // if(isMobile) {
-      //   setIsLoggedIn(true);
-      // }else {
-      //   setIsLoggedIn(false);
-      // }
     };
 
     handleResize();
@@ -374,10 +413,12 @@ useEffect(() => {
         `}
       >
         {/* Scrollable Content Area */}
-        <div 
-          className={` flex flex-col h-full ${isHeightSmall ? 'overflow-y-auto flex-1' : 'overflow-visible flex-0'}`}
+        <div
+          className={` flex flex-col h-full ${
+            isHeightSmall ? "overflow-y-auto flex-1" : "overflow-visible flex-0"
+          }`}
           style={{
-            maxHeight: isHeightSmall ? 'calc(100vh - 120px)' : 'none',
+            maxHeight: isHeightSmall ? "calc(100vh - 120px)" : "none",
           }}
         >
           {!isMobileView && isSidebarOpen && (
@@ -435,7 +476,7 @@ useEffect(() => {
                     <button
                       onClick={() => {
                         setIsSidebarOpen(true);
-                        setIsQueueOpen(!isQueueOpen); 
+                        setIsQueueOpen(!isQueueOpen);
                         setIsSystemSOpen(false);
                         setActiveItem("queue");
                       }}
@@ -451,7 +492,9 @@ useEffect(() => {
                       >
                         <img
                           src={
-                            activeItem === item.key ? item.iconActive : item.icon
+                            activeItem === item.key
+                              ? item.iconActive
+                              : item.icon
                           }
                           alt={item.label}
                           className="w-6 h-6 transform translate-x-[35%]"
@@ -493,7 +536,8 @@ useEffect(() => {
                             >
                               <Link
                                 to={sub.link}
-                                onClick={() => {setSubItem(sub.key);
+                                onClick={() => {
+                                  setSubItem(sub.key);
                                   setIsSystemSOpen(false);
 
                                   if (isMobileView) setIsMobileOpen(false);
@@ -519,8 +563,9 @@ useEffect(() => {
                   <Link
                     key={item.key}
                     to={item.link}
-                    onClick={() => {handleItemClick(item.key);
-                            setIsSystemSOpen(false);
+                    onClick={() => {
+                      handleItemClick(item.key);
+                      setIsSystemSOpen(false);
                     }}
                     className={`flex items-center gap-2 justify-start px-2 py-2.5 rounded-lg transition-colors duration-300
                     ${
@@ -530,7 +575,9 @@ useEffect(() => {
                     }`}
                   >
                     <img
-                      src={activeItem === item.key ? item.iconActive : item.icon}
+                      src={
+                        activeItem === item.key ? item.iconActive : item.icon
+                      }
                       alt={item.label}
                       className="w-6 h-6 transition-opacity duration-300"
                     />
@@ -557,20 +604,24 @@ useEffect(() => {
           <div
             className={`flex-1 w-full cursor-pointer h-full
               ${isHeightSmall ? "hidden" : "flex"} `}
-            onClick={() =>{ setIsSidebarOpen(true); 
-
+            onClick={() => {
+              setIsSidebarOpen(true);
             }}
           ></div>
         )}
 
         {/* Bottom User Section with Dropdown - Fixed at bottom */}
-        <div className={`pb-4 mt-auto ${isOpen ? "px-3" : ""} relative overflow-visible`}>
+        <div
+          className={`pb-4 mt-auto ${
+            isOpen ? "px-3" : ""
+          } relative overflow-visible`}
+        >
           {/* Profile Button */}
           <div
-          data-profile-button
+            data-profile-button
             onClick={() => {
-        handleItemClick("profile"); 
-      }}
+              handleItemClick("profile");
+            }}
             className={`flex items-center justify-start pl-2 gap-3 rounded-lg transition-colors duration-300 cursor-pointer ${
               isOpen ? "py-1.5" : "ml-3 mr-3 py-2.5"
             } ${
@@ -593,9 +644,12 @@ useEffect(() => {
               className="whitespace-nowrap overflow-hidden"
             >
               <div
-                className={`text-sm font-medium
-                  ${isOpen ? "flex" : "hidden"}
-              ${activeItem === "profile" ? "text-[#1A73E8]" : "text-gray-900"}`}
+                className={`text-sm font-medium truncate max-w-[150px]
+                ${isOpen ? "flex" : "hidden"}
+                ${
+                  activeItem === "profile" ? "text-[#1A73E8]" : "text-gray-900"
+                }`}
+                title={userFullName} // Shows full name on hover
               >
                 {userFullName}
               </div>
@@ -613,7 +667,7 @@ useEffect(() => {
           <AnimatePresence>
             {isProfileOpen && isOpen && (
               <motion.div
-              data-dropdown="profile-dropdown"
+                data-dropdown="profile-dropdown"
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -683,15 +737,15 @@ useEffect(() => {
                         <span className="text-sm font-medium">
                           System Settings
                         </span>
-                      <img
-                      src="/assets/dashboard/system_settings_arrow.png"
-                      alt="arrow"
-                      className={`w-5 h-5 ml-auto transition-transform duration-300 ${
-                        isSystemSettingsOpen 
-                          ? "rotate-90 sm:rotate-180"    
-                          : "-rotate-90 sm:rotate-0" 
-                      }`}
-                      />
+                        <img
+                          src="/assets/dashboard/system_settings_arrow.png"
+                          alt="arrow"
+                          className={`w-5 h-5 ml-auto transition-transform duration-300 ${
+                            isSystemSettingsOpen
+                              ? "rotate-90 sm:rotate-180"
+                              : "-rotate-90 sm:rotate-0"
+                          }`}
+                        />
                       </div>
                     </>
                   )}
@@ -701,12 +755,18 @@ useEffect(() => {
                   <AnimatePresence>
                     {isSystemSettingsOpen && (
                       <motion.div
-                        onClick={(e) => {e.stopPropagation();}}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
                         initial={{ opacity: 0, y: -10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className={`flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999]  ml-2 ${isMobileView ? '-top-35 left-20' : '-bottom-13  left-60'}`}
+                        className={`flex flex-col p-1.5 absolute w-[250px] bg-white shadow-lg rounded-[18px] z-[9999]  ml-2 ${
+                          isMobileView
+                            ? "-top-35 left-20"
+                            : "-bottom-13  left-60"
+                        }`}
                         data-dropdown="profile-dropdown"
                       >
                         {/* PERSONNEL: Show all options */}

@@ -16,17 +16,26 @@ export const authenticateToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // console.log("Decoded Token:", decoded); // Debugging line
     const user = await prisma.sasStaff.findUnique({
       where: {
         sasStaffId: decoded.id,
+      },
+      select: {
+        sasStaffId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        deletedAt: true,
       },
     });
     if (!user || (!user.isActive && user.deletedAt === null))
       return res
         .status(404)
         .json({ success: false, message: "Account not found!" });
-    delete user.hashedPassword;
     req.user = user;
     next();
   } catch (error) {
