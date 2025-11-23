@@ -188,7 +188,7 @@ export default function VerifyOTP() {
           <ArrowLeft size={16} className="mr-2 text-[#202124]" />
           <button
             onClick={() => navigate('/staff/login')}
-            className="text-sm text-[#202124]  cursor-pointer font-medium "
+            className="text-sm text-[#202124]  cursor-pointer"
           >
             Back to Login
           </button>
