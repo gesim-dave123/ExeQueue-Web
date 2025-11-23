@@ -10,7 +10,7 @@ import Home from "./Home";
 
 export default function Landing() {
   return (
-    <div className="min-h-screen w-full  flex flex-col items-center  px-4 sm:px-6 md:px-8 relative overflow-hidden py-8">
+    <div className="min-h-screen w-full  flex flex-col items-center  px-4 sm:px-6 md:px-8 relative overflow-hidden pb-8 md:py-8">
       <section id="home" className="  ">
         <Home />
       </section>

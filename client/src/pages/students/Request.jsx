@@ -186,8 +186,6 @@ export default function Request() {
     "2nd Year",
     "3rd Year",
     "4th Year",
-    "5th Year",
-    "6th Year",
     "Irregular",
   ];
   // useEffect(() => {
@@ -955,6 +953,11 @@ const handleBrowserBackCancel = () => {
         )}
 
         {/* Step 2: Your Information */}
+        {Object.keys(errors).length > 0 && (
+              <div className="bg-red-50 border text-left border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-5">
+                Required fields must be filled in.
+              </div>
+            )}
         {currentStep === 2 && (
           <motion.form
             className="space-y-4 mb-8 bg-white shadow-sm p-6 sm:p-10 rounded-2xl md:mb-10 text-left"
@@ -962,11 +965,7 @@ const handleBrowserBackCancel = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            {Object.keys(errors).length > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                Please fill out all required fields
-              </div>
-            )}
+            
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <motion.div
@@ -1057,7 +1056,7 @@ const handleBrowserBackCancel = () => {
               {errors.studentId && (
                 <p className="mt-1 text-sm text-red-600">{errors.studentId}</p>
               )} */}
-              <input
+              <input           
                 type="text"
                 name="studentId"
                 value={formData.studentId}
@@ -1070,6 +1069,9 @@ const handleBrowserBackCancel = () => {
                   errors.studentId ? "border-red-500" : "border-[#DDEAFC]"
                 }`}
               />
+              {errors.studentId && (
+                <p className="mt-1 text-sm text-red-600">{errors.studentId}</p>
+              )}
             </motion.div>
 
             <motion.div
@@ -1181,7 +1183,7 @@ const handleBrowserBackCancel = () => {
                         : "border-[#DDEAFC]"
                     }`}
                   />
-                  <button
+                 <button
                     type="button"
                     onClick={() => setIsYearOpen((s) => !s)}
                     className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
@@ -1189,14 +1191,16 @@ const handleBrowserBackCancel = () => {
                     <ChevronDown
                       size={20}
                       className={`transition-transform ${
-                        isYearOpen ? "rotate-180" : ""
+                        isYearOpen 
+                          ? "max-md:rotate-0 md:rotate-180" 
+                          : "max-md:rotate-180 md:rotate-0"  
                       }`}
                     />
-                  </button>
+                </button>
                 </div>
 
                 {isYearOpen && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-44 overflow-y-auto custom-scrollbar">
+                  <div className=" bottom-full lg:-bottom-45 absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-44 overflow-y-auto custom-scrollbar">
                     {yearOptions.map((y, idx, arr) => (
                       <div
                         key={y}
