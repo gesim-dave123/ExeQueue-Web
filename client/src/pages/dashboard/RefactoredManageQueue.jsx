@@ -30,14 +30,15 @@ import {
   setRequestStatus,
 } from "../../api/staff.queue.api.js";
 import {
+  DeferredTableOnlySkeleton,
   LoadingSkeleton,
   MainCardSkeleton,
+  NextInLineTableOnlySkeleton,
 } from "../../components/LoadingSkeletons/LoadingSkeletonManageQueue.jsx";
 import { Status } from "../../constants/queueEnums.js";
 import { QueueActions, WindowEvents } from "../../constants/SocketEvents.js";
 import { useDebounce } from "../../utils/hooks/useDebounce.jsx";
 import ManageQueueHook from "./ManageQueue/ManageQueueHook.jsx";
-
 
 export default function Manage_Queue() {
   const navigate = useNavigate();
@@ -192,6 +193,7 @@ export default function Manage_Queue() {
     setIsLoading,
     nextInLineLoading,
     setNextInlineLoading,
+    isDeferredLoading,
 
     // Total counts (automatically switches between regular and search totals)
     totalWaitingCount, // Total waiting (or search results total)
@@ -738,7 +740,7 @@ export default function Manage_Queue() {
   const openActionPanel = (queue) => {
     setSelectedQueue(queue);
     setShowActionPanel(true);
-    setIsLoggedIn(isLoggedIn);
+    // setIsLoggedIn(isLoggedIn);
   };
 
   const closeActionPanel = async () => {
@@ -825,22 +827,6 @@ export default function Manage_Queue() {
       loadMoreWaitingQueues();
     }
   };
-
-  // const filteredDeferredQueue = useMemo(() => {
-  // if (statusFilter.length === 0) {
-  //   return deferredQueue; // No filters = show all
-  // }
-
-  // return deferredQueue.filter(queue => {
-  //   // Check if any request in this queue matches any selected status
-  //   return queue.requests?.some(request =>
-  //     statusFilter.some(filter =>
-  //       request.status?.toLowerCase() === filter.toLowerCase()
-  //     )
-  //   );
-  // });
-  // }, [deferredQueue, statusFilter]);
-
   const deferredVirtualizer = useVirtualizer({
     count: deferredQueue.length,
     getScrollElement: () => deferredParentRef.current,
@@ -858,7 +844,6 @@ export default function Manage_Queue() {
       loadMoreDeferredQueues();
     }
   };
-
   return (
     <div className="relative min-h-screen w-full">
       {/* Loading skeleton overlay */}
@@ -1018,20 +1003,30 @@ export default function Manage_Queue() {
                                             {/* Done Button with Top Tooltip */}
                                             <div className="relative group">
                                               {/* Done Button */}
-<button
-    onClick={() => {
-        setActiveButtons(prev => ({ ...prev, [request.id]: "done" }));
-        handleRequestAction(request.id, "done");
-    }}
-    disabled={activeButtons[request.id] === "done"}
-    className={`w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors ${
-        activeButtons[request.id] === "done" 
-            ? "opacity-50 cursor-not-allowed" 
-            : "cursor-pointer"
-    }`}
->
-    <Check className="w-4 h-4" />
-</button>
+                                              <button
+                                                onClick={() => {
+                                                  setActiveButtons((prev) => ({
+                                                    ...prev,
+                                                    [request.id]: "done",
+                                                  }));
+                                                  handleRequestAction(
+                                                    request.id,
+                                                    "done"
+                                                  );
+                                                }}
+                                                disabled={
+                                                  activeButtons[request.id] ===
+                                                  "done"
+                                                }
+                                                className={`w-8 h-8 flex items-center justify-center bg-[#26BA33]/20 text-green-600 rounded-lg hover:bg-green-200 transition-colors ${
+                                                  activeButtons[request.id] ===
+                                                  "done"
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "cursor-pointer"
+                                                }`}
+                                              >
+                                                <Check className="w-4 h-4" />
+                                              </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Done
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1041,20 +1036,33 @@ export default function Manage_Queue() {
                                             {/* Stall Button with Top Tooltip */}
                                             <div className="relative group">
                                               {/* Stall Button */}
-<button
-    onClick={() => {
-        setActiveButtons(prev => ({ ...prev, [request.id]: "stall" }));
-        handleRequestAction(request.id, "stall");
-    }}
-    disabled={activeButtons[request.id] === "stall"}
-    className={`w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors ${
-        activeButtons[request.id] === "stall" 
-            ? "opacity-50 cursor-not-allowed" 
-            : "cursor-pointer"
-    }`}
->
-    <img src="/assets/manage_queue/pause.png" alt="Edit" />
-</button>
+                                              <button
+                                                onClick={() => {
+                                                  setActiveButtons((prev) => ({
+                                                    ...prev,
+                                                    [request.id]: "stall",
+                                                  }));
+                                                  handleRequestAction(
+                                                    request.id,
+                                                    "stall"
+                                                  );
+                                                }}
+                                                disabled={
+                                                  activeButtons[request.id] ===
+                                                  "stall"
+                                                }
+                                                className={`w-8 h-8 flex items-center justify-center bg-[#686969]/20 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors ${
+                                                  activeButtons[request.id] ===
+                                                  "stall"
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "cursor-pointer"
+                                                }`}
+                                              >
+                                                <img
+                                                  src="/assets/manage_queue/pause.png"
+                                                  alt="Edit"
+                                                />
+                                              </button>
 
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Stall
@@ -1065,20 +1073,33 @@ export default function Manage_Queue() {
                                             {/* Skip Button with Top Tooltip */}
                                             <div className="relative group">
                                               {/* Skip Button */}
-<button
-    onClick={() => {
-        setActiveButtons(prev => ({ ...prev, [request.id]: "skip" }));
-        handleRequestAction(request.id, "skip");
-    }}
-    disabled={activeButtons[request.id] === "skip"}
-    className={`w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors ${
-        activeButtons[request.id] === "skip" 
-            ? "opacity-50 cursor-not-allowed" 
-            : "cursor-pointer"
-    }`}
->
-    <img src="/assets/manage_queue/forward.png" alt="Edit" />
-</button>
+                                              <button
+                                                onClick={() => {
+                                                  setActiveButtons((prev) => ({
+                                                    ...prev,
+                                                    [request.id]: "skip",
+                                                  }));
+                                                  handleRequestAction(
+                                                    request.id,
+                                                    "skip"
+                                                  );
+                                                }}
+                                                disabled={
+                                                  activeButtons[request.id] ===
+                                                  "skip"
+                                                }
+                                                className={`w-8 h-8 flex items-center justify-center bg-[#ED9314]/20 text-orange-600 rounded-lg hover:bg-orange-200 transition-colors ${
+                                                  activeButtons[request.id] ===
+                                                  "skip"
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "cursor-pointer"
+                                                }`}
+                                              >
+                                                <img
+                                                  src="/assets/manage_queue/forward.png"
+                                                  alt="Edit"
+                                                />
+                                              </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Skip
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1088,20 +1109,30 @@ export default function Manage_Queue() {
                                             {/* Cancel Button with Top Tooltip */}
                                             <div className="relative group">
                                               {/* Cancel Button */}
-<button
-    onClick={() => {
-        setActiveButtons(prev => ({ ...prev, [request.id]: "cancel" }));
-        handleRequestAction(request.id, "cancel");
-    }}
-    disabled={activeButtons[request.id] === "cancel"}
-    className={`w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors ${
-        activeButtons[request.id] === "cancel" 
-            ? "opacity-50 cursor-not-allowed" 
-            : "cursor-pointer"
-    }`}
->
-    <X className="w-4 h-4" />
-</button>
+                                              <button
+                                                onClick={() => {
+                                                  setActiveButtons((prev) => ({
+                                                    ...prev,
+                                                    [request.id]: "cancel",
+                                                  }));
+                                                  handleRequestAction(
+                                                    request.id,
+                                                    "cancel"
+                                                  );
+                                                }}
+                                                disabled={
+                                                  activeButtons[request.id] ===
+                                                  "cancel"
+                                                }
+                                                className={`w-8 h-8 flex items-center justify-center bg-[#EA4335]/20 text-red-600 rounded-lg hover:bg-red-200 transition-colors ${
+                                                  activeButtons[request.id] ===
+                                                  "cancel"
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "cursor-pointer"
+                                                }`}
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </button>
                                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                                 Cancel
                                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
@@ -1189,7 +1220,7 @@ export default function Manage_Queue() {
                   </div>
                 </div>
               )}
-
+              {/* Deferred Section */}
               <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
                 <button
                   onClick={() => setDeferredOpen(!deferredOpen)}
@@ -1258,236 +1289,241 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    {/* Virtualized Table */}
-                    <div className="border border-gray-200 rounded-lg overflow-hidden relative">
-                      <div
-                        ref={deferredParentRef}
-                        onScroll={handleDeferredScroll}
-                        className="overflow-y-auto custom-scrollbar max-h-96"
-                      >
-                        <table className="text-sm  w-full text-gray-900 table-fixed">
-                          <thead className="sticky top-0 bg-white z-10">
-                            <tr className="border-b  border-[#E2E3E4]">
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "150px" }}
-                              >
-                                Student ID
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "200px" }}
-                              >
-                                Name
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "250px" }}
-                              >
-                                Request
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "120px" }}
-                              >
-                                Status
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "120px" }}
-                              >
-                                Action
-                              </th>
-                            </tr>
-                          </thead>
+                    {isDeferredLoading ? (
+                      <DeferredTableOnlySkeleton />
+                    ) : (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden relative">
+                        <div
+                          ref={deferredParentRef}
+                          onScroll={handleDeferredScroll}
+                          className="overflow-y-auto custom-scrollbar max-h-96"
+                        >
+                          <table className="text-sm  w-full text-gray-900 table-fixed">
+                            <thead className="sticky top-0 bg-white z-10">
+                              <tr className="border-b  border-[#E2E3E4]">
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "150px" }}
+                                >
+                                  Student ID
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "200px" }}
+                                >
+                                  Name
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "250px" }}
+                                >
+                                  Request
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "120px" }}
+                                >
+                                  Status
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "120px" }}
+                                >
+                                  Action
+                                </th>
+                              </tr>
+                            </thead>
 
-                          <tbody
+                            <tbody
+                              style={{
+                                height: `${deferredVirtualizer.getTotalSize()}px`,
+                                position: "relative",
+                              }}
+                            >
+                              {deferredVirtualizer
+                                .getVirtualItems()
+                                .map((virtualRow) => {
+                                  const item = deferredQueue[virtualRow.index];
+                                  if (!item) return null;
+
+                                  return (
+                                    <tr
+                                      key={item.queueId || virtualRow.index}
+                                      className="border-b border-[#E2E3E4] hover:bg-gray-50 transition"
+                                      style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        left: 0,
+                                        transform: `translateY(${virtualRow.start}px)`,
+                                        width: "100%",
+                                        display: "table",
+                                        tableLayout: "fixed",
+                                      }}
+                                    >
+                                      <td
+                                        className="text-left py-3 px-4"
+                                        style={{ width: "150px" }}
+                                      >
+                                        {item.studentId}
+                                      </td>
+
+                                      <td
+                                        className="text-left py-3 px-4"
+                                        style={{ width: "200px" }}
+                                      >
+                                        <span
+                                          className="truncate block"
+                                          title={item.name}
+                                        >
+                                          {item.name}
+                                        </span>
+                                      </td>
+
+                                      <td
+                                        className="text-left py-3 px-4"
+                                        style={{ width: "250px" }}
+                                      >
+                                        <div className="relative">
+                                          {item.requests &&
+                                          item.requests.length > 0 ? (
+                                            <div className="flex items-center">
+                                              <span
+                                                className="truncate block max-w-[180px]"
+                                                title={item.requests[0].name}
+                                              >
+                                                {item.requests[0].name}
+                                              </span>
+                                              {item.requests.length > 1 && (
+                                                <>
+                                                  <span
+                                                    className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
+                                                    onMouseEnter={(e) => {
+                                                      const rect =
+                                                        e.currentTarget.getBoundingClientRect();
+                                                      setTooltipData({
+                                                        id: `deferred-${virtualRow.index}`,
+                                                        requests:
+                                                          item.requests.slice(
+                                                            1
+                                                          ),
+                                                        position: {
+                                                          top: rect.top - 10,
+                                                          left: rect.left,
+                                                        },
+                                                      });
+                                                    }}
+                                                    onMouseLeave={() => {
+                                                      setHoveredRow(null);
+                                                      setTooltipData(null);
+                                                    }}
+                                                  >
+                                                    +{item.requests.length - 1}
+                                                  </span>
+                                                  {hoveredRow ===
+                                                    `deferred-${virtualRow.index}` && (
+                                                    <div className="absolute   bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-20 min-w-[200px] max-w-[300px]">
+                                                      {item.requests
+                                                        .slice(1)
+                                                        .map((req) => (
+                                                          <div
+                                                            key={req.id}
+                                                            className="py-1 text-xs break-words"
+                                                          >
+                                                            {req.name}
+                                                          </div>
+                                                        ))}
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-400 italic">
+                                              All requests processed
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+
+                                      <td
+                                        className="text-left py-3 px-4"
+                                        style={{ width: "120px" }}
+                                      >
+                                        <span
+                                          className={`text-${
+                                            getMajorityStatus(item.requests) ===
+                                            "Stalled"
+                                              ? "gray-600"
+                                              : "[#F9AB00]"
+                                          }`}
+                                        >
+                                          {getMajorityStatus(item.requests)}
+                                        </span>
+                                      </td>
+
+                                      <td
+                                        className="text-left py-3 px-4"
+                                        style={{ width: "120px" }}
+                                      >
+                                        <button
+                                          onClick={() => openActionPanel(item)}
+                                          className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-[#1557B0] transition-colors cursor-pointer"
+                                        >
+                                          View
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                              {isLoading && hasMoreDeferred && (
+                                <tr
+                                  style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    transform: `translateY(${deferredVirtualizer.getTotalSize()}px)`,
+                                    width: "100%",
+                                    display: "table",
+                                    tableLayout: "fixed",
+                                  }}
+                                >
+                                  <td
+                                    colSpan="5"
+                                    className="py-4 text-center text-gray-500 animate-pulse"
+                                  >
+                                    Loading more queues...
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        {/* Render tooltip outside the table */}
+                        {tooltipData && (
+                          <div
+                            className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
                             style={{
-                              height: `${deferredVirtualizer.getTotalSize()}px`,
-                              position: "relative",
+                              top: `${tooltipData.position.top}px`,
+                              left: `${tooltipData.position.left}px`,
+                              transform: "translateY(-100%)",
                             }}
                           >
-                            {deferredVirtualizer
-                              .getVirtualItems()
-                              .map((virtualRow) => {
-                                const item = deferredQueue[virtualRow.index];
-                                if (!item) return null;
-
-                                return (
-                                  <tr
-                                    key={item.queueId || virtualRow.index}
-                                    className="border-b border-[#E2E3E4] hover:bg-gray-50 transition"
-                                    style={{
-                                      position: "absolute",
-                                      top: 0,
-                                      left: 0,
-                                      transform: `translateY(${virtualRow.start}px)`,
-                                      width: "100%",
-                                      display: "table",
-                                      tableLayout: "fixed",
-                                    }}
-                                  >
-                                    <td
-                                      className="text-left py-3 px-4"
-                                      style={{ width: "150px" }}
-                                    >
-                                      {item.studentId}
-                                    </td>
-
-                                    <td
-                                      className="text-left py-3 px-4"
-                                      style={{ width: "200px" }}
-                                    >
-                                      <span
-                                        className="truncate block"
-                                        title={item.name}
-                                      >
-                                        {item.name}
-                                      </span>
-                                    </td>
-
-                                    <td
-                                      className="text-left py-3 px-4"
-                                      style={{ width: "250px" }}
-                                    >
-                                      <div className="relative">
-                                        {item.requests &&
-                                        item.requests.length > 0 ? (
-                                          <div className="flex items-center">
-                                            <span
-                                              className="truncate block max-w-[180px]"
-                                              title={item.requests[0].name}
-                                            >
-                                              {item.requests[0].name}
-                                            </span>
-                                            {item.requests.length > 1 && (
-                                              <>
-                                                <span
-                                                  className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                  onMouseEnter={(e) => {
-                                                    const rect =
-                                                      e.currentTarget.getBoundingClientRect();
-                                                    setTooltipData({
-                                                      id: `deferred-${virtualRow.index}`,
-                                                      requests:
-                                                        item.requests.slice(1),
-                                                      position: {
-                                                        top: rect.top - 10,
-                                                        left: rect.left,
-                                                      },
-                                                    });
-                                                  }}
-                                                  onMouseLeave={() => {
-                                                    setHoveredRow(null);
-                                                    setTooltipData(null);
-                                                  }}
-                                                >
-                                                  +{item.requests.length - 1}
-                                                </span>
-                                                {hoveredRow ===
-                                                  `deferred-${virtualRow.index}` && (
-                                                  <div className="absolute   bottom-full left-0 mb-2 border border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-20 min-w-[200px] max-w-[300px]">
-                                                    {item.requests
-                                                      .slice(1)
-                                                      .map((req) => (
-                                                        <div
-                                                          key={req.id}
-                                                          className="py-1 text-xs break-words"
-                                                        >
-                                                          {req.name}
-                                                        </div>
-                                                      ))}
-                                                  </div>
-                                                )}
-                                              </>
-                                            )}
-                                          </div>
-                                        ) : (
-                                          <span className="text-gray-400 italic">
-                                            All requests processed
-                                          </span>
-                                        )}
-                                      </div>
-                                    </td>
-
-                                    <td
-                                      className="text-left py-3 px-4"
-                                      style={{ width: "120px" }}
-                                    >
-                                      <span
-                                        className={`text-${
-                                          getMajorityStatus(item.requests) ===
-                                          "Stalled"
-                                            ? "gray-600"
-                                            : "[#F9AB00]"
-                                        }`}
-                                      >
-                                        {getMajorityStatus(item.requests)}
-                                      </span>
-                                    </td>
-
-                                    <td
-                                      className="text-left py-3 px-4"
-                                      style={{ width: "120px" }}
-                                    >
-                                      <button
-                                        onClick={() => openActionPanel(item)}
-                                        className="px-4 py-1.5 bg-[#1A73E8] text-white font-medium text-sm rounded-lg hover:bg-[#1557B0] transition-colors cursor-pointer"
-                                      >
-                                        View
-                                      </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-
-                            {isLoading && hasMoreDeferred && (
-                              <tr
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  transform: `translateY(${deferredVirtualizer.getTotalSize()}px)`,
-                                  width: "100%",
-                                  display: "table",
-                                  tableLayout: "fixed",
-                                }}
+                            {tooltipData.requests.map((req) => (
+                              <div
+                                key={req.id}
+                                className="text-xs text-left break-words"
                               >
-                                <td
-                                  colSpan="5"
-                                  className="py-4 text-center text-gray-500 animate-pulse"
-                                >
-                                  Loading more queues...
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                                {req.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      {/* Render tooltip outside the table */}
-                      {tooltipData && (
-                        <div
-                          className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
-                          style={{
-                            top: `${tooltipData.position.top}px`,
-                            left: `${tooltipData.position.left}px`,
-                            transform: "translateY(-100%)",
-                          }}
-                        >
-                          {tooltipData.requests.map((req) => (
-                            <div
-                              key={req.id}
-                              className="text-xs text-left break-words"
-                            >
-                              {req.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    )}
 
                     {/* Empty state */}
-                    {deferredQueue.length === 0 && !isLoading && (
+                    {deferredQueue.length === 0 && !isDeferredLoading && (
                       <div className="py-8 text-center text-gray-500">
                         {isDeferredSearchMode
                           ? "No results found"
@@ -1498,6 +1534,7 @@ export default function Manage_Queue() {
                 )}
               </div>
 
+              {/* Next In Line Section */}
               <div className="bg-white rounded-xl shadow-xs overflow-hidden">
                 {/* Header */}
                 <button
@@ -1549,234 +1586,227 @@ export default function Manage_Queue() {
                         />
                       </div>
                     </div>
-                    {/* Optional: show "Clear search" only
-                    {isWaitingSearchMode && (
-                      <div className="mb-2 text-right">
-                        <button
-                          onClick={() => setSearchTerm("")}
-                          className="text-blue-600 text-sm hover:underline"
-                        >
-                          Clear search
-                        </button>
-                      </div>
-                    )} */}
-                    {/* Table */}
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      <div
-                        ref={parentRef}
-                        onScroll={handleScroll}
-                        className="w-full overflow-y-auto custom-scrollbar max-h-96 "
-                      >
-                        <table className="text-sm w-full text-gray-900 table-fixed">
-                          <thead className="sticky top-0 bg-white z-10">
-                            <tr className="border-b border-[#E2E3E4]">
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "150px" }}
-                              >
-                                Queue No.
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "200px" }}
-                              >
-                                Student ID
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "200px" }}
-                              >
-                                Name
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "200px" }}
-                              >
-                                Request
-                              </th>
-                              <th
-                                className="text-left py-3 px-4 font-semibold text-[#686969]"
-                                style={{ width: "120px" }}
-                              >
-                                Time
-                              </th>
-                            </tr>
-                          </thead>
 
-                          <tbody
+                    {nextInLineLoading ? (
+                      <NextInLineTableOnlySkeleton />
+                    ) : (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div
+                          ref={parentRef}
+                          onScroll={handleScroll}
+                          className="w-full overflow-y-auto custom-scrollbar max-h-96 "
+                        >
+                          <table className="text-sm w-full text-gray-900 table-fixed">
+                            <thead className="sticky top-0 bg-white z-10">
+                              <tr className="border-b border-[#E2E3E4]">
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "150px" }}
+                                >
+                                  Queue No.
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "200px" }}
+                                >
+                                  Student ID
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "200px" }}
+                                >
+                                  Name
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "200px" }}
+                                >
+                                  Request
+                                </th>
+                                <th
+                                  className="text-left py-3 px-4 font-semibold text-[#686969]"
+                                  style={{ width: "120px" }}
+                                >
+                                  Time
+                                </th>
+                              </tr>
+                            </thead>
+
+                            <tbody
+                              style={{
+                                height: `${rowVirtualizer.getTotalSize()}px`,
+                                position: "relative",
+                              }}
+                            >
+                              {rowVirtualizer
+                                .getVirtualItems()
+                                .map((virtualRow) => {
+                                  const item =
+                                    globalQueueList[virtualRow.index];
+                                  if (!item) return null;
+
+                                  return (
+                                    <tr
+                                      key={item.queueId || virtualRow.index}
+                                      className="border-b  border-[#E2E3E4] hover:bg-gray-50 transition"
+                                      style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        left: 0,
+                                        transform: `translateY(${virtualRow.start}px)`,
+                                        width: "100%",
+                                        display: "table",
+                                        tableLayout: "fixed",
+                                      }}
+                                    >
+                                      <td
+                                        className="text-left py-4 px-4 font-semibold"
+                                        style={{ width: "150px" }}
+                                      >
+                                        <span
+                                          className={
+                                            item.type === "Priority"
+                                              ? "text-[#F9AB00]"
+                                              : "text-[#1A73E8]"
+                                          }
+                                        >
+                                          {item.queueNo}
+                                        </span>
+                                      </td>
+
+                                      <td
+                                        className="text-left py-4 px-4"
+                                        style={{ width: "200px" }}
+                                      >
+                                        {item.studentId}
+                                      </td>
+
+                                      <td
+                                        className="text-left py-4 px-4"
+                                        style={{ width: "200px" }}
+                                      >
+                                        <span
+                                          className="truncate block"
+                                          title={item.name}
+                                        >
+                                          {item.name}
+                                        </span>
+                                      </td>
+
+                                      <td
+                                        className="text-left py-4 px-4"
+                                        style={{ width: "200px" }}
+                                      >
+                                        {item.requests &&
+                                        item.requests.length > 0 ? (
+                                          <div className="relative flex items-center">
+                                            <span
+                                              className="truncate block max-w-[180px]"
+                                              title={item.requests[0].name}
+                                            >
+                                              {item.requests[0].name}
+                                            </span>
+                                            {item.requests.length > 1 && (
+                                              <>
+                                                <span
+                                                  className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
+                                                  onMouseEnter={(e) => {
+                                                    const rect =
+                                                      e.currentTarget.getBoundingClientRect();
+                                                    setTooltipData({
+                                                      id: `deferred-${virtualRow.index}`,
+                                                      requests:
+                                                        item.requests.slice(1),
+                                                      position: {
+                                                        top: rect.top - 10,
+                                                        left: rect.left,
+                                                      },
+                                                    });
+                                                  }}
+                                                  onMouseLeave={() => {
+                                                    setHoveredRow(null);
+                                                    setTooltipData(null);
+                                                  }}
+                                                >
+                                                  +{item.requests.length - 1}
+                                                </span>
+                                                {hoveredRow ===
+                                                  virtualRow.index && (
+                                                  <div className="absolute bottom-full left-0 mb-2 bg-white border border-[#E2E3E4] p-3 rounded-lg shadow-lg z-40 min-w-[200px] max-w-[300px]">
+                                                    {item.requests
+                                                      .slice(1)
+                                                      .map((req) => (
+                                                        <div
+                                                          key={req.id}
+                                                          className="py-1 text-xs break-words"
+                                                        >
+                                                          {req.name}
+                                                        </div>
+                                                      ))}
+                                                  </div>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-gray-400">
+                                            No requests
+                                          </span>
+                                        )}
+                                      </td>
+
+                                      <td
+                                        className="py-4 px-4 text-left"
+                                        style={{ width: "120px" }}
+                                      >
+                                        {item.time}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                              {nextInLineLoading && (
+                                <tr
+                                  style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    transform: `translateY(${rowVirtualizer.getTotalSize()}px)`,
+                                    width: "100%",
+                                  }}
+                                >
+                                  <td
+                                    colSpan="5"
+                                    className="py-4 text-center text-gray-500 animate-pulse flex justify-center items-center"
+                                  >
+                                    Loading more queues...
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        {tooltipData && (
+                          <div
+                            className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
                             style={{
-                              height: `${rowVirtualizer.getTotalSize()}px`,
-                              position: "relative",
+                              top: `${tooltipData.position.top}px`,
+                              left: `${tooltipData.position.left}px`,
+                              transform: "translateY(-100%)",
                             }}
                           >
-                            {rowVirtualizer
-                              .getVirtualItems()
-                              .map((virtualRow) => {
-                                const item = globalQueueList[virtualRow.index];
-                                if (!item) return null;
-
-                                return (
-                                  <tr
-                                    key={item.queueId || virtualRow.index}
-                                    className="border-b  border-[#E2E3E4] hover:bg-gray-50 transition"
-                                    style={{
-                                      position: "absolute",
-                                      top: 0,
-                                      left: 0,
-                                      transform: `translateY(${virtualRow.start}px)`,
-                                      width: "100%",
-                                      display: "table",
-                                      tableLayout: "fixed",
-                                    }}
-                                  >
-                                    <td
-                                      className="text-left py-4 px-4 font-semibold"
-                                      style={{ width: "150px" }}
-                                    >
-                                      <span
-                                        className={
-                                          item.type === "Priority"
-                                            ? "text-[#F9AB00]"
-                                            : "text-[#1A73E8]"
-                                        }
-                                      >
-                                        {item.queueNo}
-                                      </span>
-                                    </td>
-
-                                    <td
-                                      className="text-left py-4 px-4"
-                                      style={{ width: "200px" }}
-                                    >
-                                      {item.studentId}
-                                    </td>
-
-                                    <td
-                                      className="text-left py-4 px-4"
-                                      style={{ width: "200px" }}
-                                    >
-                                      <span
-                                        className="truncate block"
-                                        title={item.name}
-                                      >
-                                        {item.name}
-                                      </span>
-                                    </td>
-
-                                    <td
-                                      className="text-left py-4 px-4"
-                                      style={{ width: "200px" }}
-                                    >
-                                      {item.requests &&
-                                      item.requests.length > 0 ? (
-                                        <div className="relative flex items-center">
-                                          <span
-                                            className="truncate block max-w-[180px]"
-                                            title={item.requests[0].name}
-                                          >
-                                            {item.requests[0].name}
-                                          </span>
-                                          {item.requests.length > 1 && (
-                                            <>
-                                              <span
-                                                className="ml-2 border border-[#1A73E8] text-[#1A73E8] font-semibold text-xs px-2 py-0.5 rounded-full cursor-pointer flex-shrink-0"
-                                                onMouseEnter={(e) => {
-                                                  const rect =
-                                                    e.currentTarget.getBoundingClientRect();
-                                                  setTooltipData({
-                                                    id: `deferred-${virtualRow.index}`,
-                                                    requests:
-                                                      item.requests.slice(1),
-                                                    position: {
-                                                      top: rect.top - 10,
-                                                      left: rect.left,
-                                                    },
-                                                  });
-                                                }}
-                                                onMouseLeave={() => {
-                                                  setHoveredRow(null);
-                                                  setTooltipData(null);
-                                                }}
-                                              >
-                                                +{item.requests.length - 1}
-                                              </span>
-                                              {hoveredRow ===
-                                                virtualRow.index && (
-                                                <div className="absolute bottom-full left-0 mb-2 bg-white border border-[#E2E3E4] p-3 rounded-lg shadow-lg z-40 min-w-[200px] max-w-[300px]">
-                                                  {item.requests
-                                                    .slice(1)
-                                                    .map((req) => (
-                                                      <div
-                                                        key={req.id}
-                                                        className="py-1 text-xs break-words"
-                                                      >
-                                                        {req.name}
-                                                      </div>
-                                                    ))}
-                                                </div>
-                                              )}
-                                            </>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-400">
-                                          No requests
-                                        </span>
-                                      )}
-                                    </td>
-
-                                    <td
-                                      className="py-4 px-4 text-left"
-                                      style={{ width: "120px" }}
-                                    >
-                                      {item.time}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-
-                            {nextInLineLoading && (
-                              <tr
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  transform: `translateY(${rowVirtualizer.getTotalSize()}px)`,
-                                  width: "100%",
-                                }}
+                            {tooltipData.requests.map((req) => (
+                              <div
+                                key={req.id}
+                                className="text-xs text-left break-words"
                               >
-                                <td
-                                  colSpan="5"
-                                  className="py-4 text-center text-gray-500 animate-pulse flex justify-center items-center"
-                                >
-                                  Loading more queues...
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                                {req.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      {tooltipData && (
-                        <div
-                          className="fixed border space-y-2 border-[#E2E3E4] bg-white p-3 rounded-lg shadow-lg z-[9999] min-w-[200px] max-w-[300px]"
-                          style={{
-                            top: `${tooltipData.position.top}px`,
-                            left: `${tooltipData.position.left}px`,
-                            transform: "translateY(-100%)",
-                          }}
-                        >
-                          {tooltipData.requests.map((req) => (
-                            <div
-                              key={req.id}
-                              className="text-xs text-left break-words"
-                            >
-                              {req.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {/* Empty State */}
-                    {globalQueueList.length === 0 && !isLoading && (
+                    )}
+                    {globalQueueList.length === 0 && !nextInLineLoading && (
                       <div className="py-8 text-center text-gray-500">
                         {isWaitingSearchMode
                           ? "No results found"
@@ -1912,13 +1942,27 @@ export default function Manage_Queue() {
                                             <div className="relative group">
                                               <button
                                                 onClick={() => {
-                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "done" }));
-                                                  handleDeferredAction(request.id, "done");
+                                                  setActiveDeferredButtons(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [request.id]: "done",
+                                                    })
+                                                  );
+                                                  handleDeferredAction(
+                                                    request.id,
+                                                    "done"
+                                                  );
                                                 }}
-                                                disabled={activeDeferredButtons[request.id] === "done"}
+                                                disabled={
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "done"
+                                                }
                                                 className={`w-8 h-8 flex items-center justify-center rounded hover:bg-green-200 transition-colors ${
-                                                  activeDeferredButtons[request.id] === "done" 
-                                                    ? "bg-green-100 text-green-600 opacity-50 cursor-not-allowed" 
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "done"
+                                                    ? "bg-green-100 text-green-600 opacity-50 cursor-not-allowed"
                                                     : "bg-green-100 text-green-600 cursor-pointer"
                                                 }`}
                                               >
@@ -1934,13 +1978,27 @@ export default function Manage_Queue() {
                                             <div className="relative group">
                                               <button
                                                 onClick={() => {
-                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "stall" }));
-                                                  handleDeferredAction(request.id, "stall");
+                                                  setActiveDeferredButtons(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [request.id]: "stall",
+                                                    })
+                                                  );
+                                                  handleDeferredAction(
+                                                    request.id,
+                                                    "stall"
+                                                  );
                                                 }}
-                                                disabled={activeDeferredButtons[request.id] === "stall"}
+                                                disabled={
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "stall"
+                                                }
                                                 className={`w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition-colors ${
-                                                  activeDeferredButtons[request.id] === "stall" 
-                                                    ? "bg-gray-100 text-gray-600 opacity-50 cursor-not-allowed" 
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "stall"
+                                                    ? "bg-gray-100 text-gray-600 opacity-50 cursor-not-allowed"
                                                     : "bg-gray-100 text-gray-600 cursor-pointer"
                                                 }`}
                                               >
@@ -1959,13 +2017,27 @@ export default function Manage_Queue() {
                                             <div className="relative group">
                                               <button
                                                 onClick={() => {
-                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "skip" }));
-                                                  handleDeferredAction(request.id, "skip");
+                                                  setActiveDeferredButtons(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [request.id]: "skip",
+                                                    })
+                                                  );
+                                                  handleDeferredAction(
+                                                    request.id,
+                                                    "skip"
+                                                  );
                                                 }}
-                                                disabled={activeDeferredButtons[request.id] === "skip"}
+                                                disabled={
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "skip"
+                                                }
                                                 className={`w-8 h-8 flex items-center justify-center rounded hover:bg-orange-200 transition-colors ${
-                                                  activeDeferredButtons[request.id] === "skip" 
-                                                    ? "bg-orange-100 text-orange-600 opacity-50 cursor-not-allowed" 
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "skip"
+                                                    ? "bg-orange-100 text-orange-600 opacity-50 cursor-not-allowed"
                                                     : "bg-orange-100 text-orange-600 cursor-pointer"
                                                 }`}
                                               >
@@ -1984,13 +2056,27 @@ export default function Manage_Queue() {
                                             <div className="relative group">
                                               <button
                                                 onClick={() => {
-                                                  setActiveDeferredButtons(prev => ({ ...prev, [request.id]: "cancel" }));
-                                                  handleDeferredAction(request.id, "cancel");
+                                                  setActiveDeferredButtons(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [request.id]: "cancel",
+                                                    })
+                                                  );
+                                                  handleDeferredAction(
+                                                    request.id,
+                                                    "cancel"
+                                                  );
                                                 }}
-                                                disabled={activeDeferredButtons[request.id] === "cancel"}
+                                                disabled={
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "cancel"
+                                                }
                                                 className={`w-8 h-8 flex items-center justify-center rounded hover:bg-red-200 transition-colors ${
-                                                  activeDeferredButtons[request.id] === "cancel" 
-                                                    ? "bg-red-100 text-red-600 opacity-50 cursor-not-allowed" 
+                                                  activeDeferredButtons[
+                                                    request.id
+                                                  ] === "cancel"
+                                                    ? "bg-red-100 text-red-600 opacity-50 cursor-not-allowed"
                                                     : "bg-red-100 text-red-600 cursor-pointer"
                                                 }`}
                                               >

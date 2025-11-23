@@ -15,10 +15,21 @@ export default function Reset_Queue() {
       if (!result) {
         throw new Error(result);
       }
-      showToast(
-        `${queueType.toUpperCase()} has been reset successfully.`,
-        "success"
-      );
+      if (result?.success === false && result?.noActiveQueue) {
+        showToast(`${result?.message}`, "info");
+        return;
+      } else if (
+        result?.success === false &&
+        !result?.noActiveQueue &&
+        !result?.activeSessionFound
+      ) {
+        showToast(`${result?.messsage}`, "warning");
+      } else {
+        showToast(
+          `${queueType.toUpperCase()} has been reset successfully.`,
+          "success"
+        );
+      }
     } catch (error) {
       console.error("Error in resetting queue: ", error);
     }

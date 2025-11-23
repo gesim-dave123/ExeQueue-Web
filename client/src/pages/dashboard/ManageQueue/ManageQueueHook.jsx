@@ -60,11 +60,15 @@ const ManageQueueHook = ({
 
   const waitingSearchValueRef = useRef("");
   const deferredSearchValueRef = useRef("");
+  const filterTimeoutRef = useRef(null);
+  const currentFilterRequestRef = useRef(null);
+  const lastFilterRef = useRef([]);
 
   const [currentQueue, setCurrentQueue] = useState(null);
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [nextInLineLoading, setNextInlineLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeferredLoading, setIsDeferredLoading] = useState(false);
 
   const isFetchingRef = useRef(false);
   const INITIAL_LOAD = 100;
@@ -133,83 +137,23 @@ const ManageQueueHook = ({
     return statusMap[statusString.toLowerCase()];
   };
 
-  const toggleStatusFilter = useCallback(
-    (status) => {
-      // Add abort controller to prevent race conditions
-      const abortController = new AbortController();
+  const toggleStatusFilter = useCallback((status) => {
+    if (currentFilterRequestRef.current) {
+      currentFilterRequestRef.current.abort();
+      currentFilterRequestRef.current = null;
+    }
+    if (filterTimeoutRef.current) {
+      clearTimeout(filterTimeoutRef.current);
+      filterTimeoutRef.current = null;
+    }
+    setStatusFilter((prev) => {
+      const newFilter = prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status];
 
-      setStatusFilter((prev) => {
-        const newFilter = prev.includes(status)
-          ? prev.filter((s) => s !== status)
-          : [...prev, status];
-
-        console.log("Filter changed:", newFilter);
-
-        // Reset filtered state when filter changes
-        setFilteredDeferredQueueIds([]);
-        setFilteredDeferredQueueMap(new Map());
-        setHasMoreFilteredDeferred(true);
-        setTotalFilteredDeferredCount(0);
-
-        // Load with the NEW filter immediately
-        if (newFilter.length > 0) {
-          const mappedStatusFilter = newFilter
-            .map((s) => mapStatusToEnum(s))
-            .filter(Boolean);
-
-          if (mappedStatusFilter.length > 0) {
-            getQueueListByQuery(
-              Status.DEFERRED,
-              {
-                requestStatus: mappedStatusFilter,
-                limit: LOAD_MORE_SIZE,
-                offset: 0,
-              },
-              { signal: abortController.signal }
-            )
-              .then((response) => {
-                if (abortController.signal.aborted) return;
-
-                const queues = response?.queues || response;
-                const total = response?.pagination?.total || 0;
-
-                if (Array.isArray(queues) && queues.length > 0) {
-                  const formattedDeferred = queues
-                    .map(formatQueueData)
-                    .map(filterDeferredRequests);
-
-                  setFilteredDeferredQueueMap((prev) => {
-                    const newMap = new Map(prev);
-                    formattedDeferred.forEach((queue) =>
-                      newMap.set(queue.queueId, queue)
-                    );
-                    return newMap;
-                  });
-
-                  setFilteredDeferredQueueIds(
-                    formattedDeferred.map((q) => q.queueId)
-                  );
-                  setTotalFilteredDeferredCount(total);
-                  setHasMoreFilteredDeferred(queues.length < total);
-                } else {
-                  setHasMoreFilteredDeferred(false);
-                }
-              })
-              .catch((error) => {
-                if (error.name === "AbortError") return;
-                console.error("Error loading filtered deferred queues:", error);
-              });
-          }
-        }
-
-        return newFilter;
-      });
-
-      // Cleanup function to abort previous requests
-      return () => abortController.abort();
-    },
-    [formatQueueData, Status, filterDeferredRequests] // ✅ Added missing dependency
-  );
+      return newFilter;
+    });
+  }, []);
 
   const addToWaitingQueue = useCallback(
     (formattedQueue) => {
@@ -276,61 +220,104 @@ const ManageQueueHook = ({
   const updateQueueInMaps = useCallback(
     (queue) => {
       const filteredQueue = filterDeferredRequests(queue);
+      const queueId = String(queue.queueId);
 
-      // Always update main deferred map
+      // Check if this queue should be in deferred based on its current status
+      const shouldBeInDeferred =
+        filteredQueue.requests && filteredQueue.requests.length > 0;
+
+      // Check if this queue should be in the current filter
+      const shouldBeInFilter =
+        statusFilter.length > 0 &&
+        filteredQueue.requests?.some((req) =>
+          statusFilter.includes(req.status?.toLowerCase())
+        );
+
+      console.log(`🔄 Updating queue ${queueId}:`, {
+        shouldBeInDeferred,
+        shouldBeInFilter,
+        currentStatusFilter: statusFilter,
+        queueRequests: filteredQueue.requests?.map((r) => ({
+          id: r.id,
+          status: r.status,
+        })),
+      });
+
+      // Update main deferred map
       setDeferredQueueMap((prev) => {
         const newMap = new Map(prev);
-        newMap.set(filteredQueue.queueId, filteredQueue);
-        return newMap;
-      });
 
-      // Update filtered map only if queue matches current filter
-      setFilteredDeferredQueueMap((prev) => {
-        const newMap = new Map(prev);
-
-        // Check if this queue should be in the current filter
-        const shouldBeInFilter =
-          statusFilter.length > 0 &&
-          filteredQueue.requests?.some((req) =>
-            statusFilter.includes(req.status?.toLowerCase())
-          );
-
-        if (shouldBeInFilter) {
-          newMap.set(filteredQueue.queueId, filteredQueue);
+        if (shouldBeInDeferred) {
+          newMap.set(queueId, filteredQueue);
         } else {
-          // Remove from filtered view if no longer matches filter
-          newMap.delete(filteredQueue.queueId);
+          // Remove from deferred if no longer has deferred requests
+          newMap.delete(queueId);
         }
 
         return newMap;
       });
 
-      // Update search map if applicable
-      setDeferredSearchMap((prev) => {
-        const newMap = new Map(prev);
-        if (newMap.has(filteredQueue.queueId)) {
-          newMap.set(filteredQueue.queueId, filteredQueue);
-        }
-        return newMap;
-      });
-
-      // Also update IDs lists to maintain consistency
-      setFilteredDeferredQueueIds((prev) => {
-        const shouldBeInFilter =
-          statusFilter.length > 0 &&
-          filteredQueue.requests?.some((req) =>
-            statusFilter.includes(req.status?.toLowerCase())
-          );
-
-        if (shouldBeInFilter && !prev.includes(filteredQueue.queueId)) {
-          return [...prev, filteredQueue.queueId];
-        } else if (!shouldBeInFilter) {
-          return prev.filter((id) => id !== filteredQueue.queueId);
+      // Update deferred IDs list
+      setDeferredQueueIds((prev) => {
+        if (shouldBeInDeferred && !prev.includes(queueId)) {
+          return [...prev, queueId];
+        } else if (!shouldBeInDeferred) {
+          return prev.filter((id) => id !== queueId);
         }
         return prev;
       });
+
+      // Update filtered deferred map
+      setFilteredDeferredQueueMap((prev) => {
+        const newMap = new Map(prev);
+
+        if (shouldBeInFilter) {
+          newMap.set(queueId, filteredQueue);
+        } else {
+          // Remove from filtered view if no longer matches filter
+          newMap.delete(queueId);
+        }
+
+        return newMap;
+      });
+
+      // Update filtered deferred IDs list
+      setFilteredDeferredQueueIds((prev) => {
+        if (shouldBeInFilter && !prev.includes(queueId)) {
+          return [...prev, queueId];
+        } else if (!shouldBeInFilter) {
+          return prev.filter((id) => id !== queueId);
+        }
+        return prev;
+      });
+
+      // Update search maps
+      setDeferredSearchMap((prev) => {
+        const newMap = new Map(prev);
+        if (newMap.has(queueId)) {
+          if (shouldBeInDeferred) {
+            newMap.set(queueId, filteredQueue);
+          } else {
+            newMap.delete(queueId);
+          }
+        }
+        return newMap;
+      });
+
+      // Also update total counts
+      if (!shouldBeInDeferred && deferredQueueMap.has(queueId)) {
+        setTotalDeferredCount((prev) => Math.max(0, prev - 1));
+      }
+      if (!shouldBeInFilter && filteredDeferredQueueMap.has(queueId)) {
+        setTotalFilteredDeferredCount((prev) => Math.max(0, prev - 1));
+      }
     },
-    [filterDeferredRequests, statusFilter]
+    [
+      filterDeferredRequests,
+      statusFilter,
+      deferredQueueMap,
+      filteredDeferredQueueMap,
+    ]
   );
 
   const addToDeferredQueue = useCallback(
@@ -484,7 +471,7 @@ const ManageQueueHook = ({
       }
 
       setIsWaitingSearchMode(true);
-      // setIsLoading(true);
+      setNextInlineLoading(true);
 
       try {
         const response = await getQueueListByQuery(Status.WAITING, {
@@ -516,7 +503,7 @@ const ManageQueueHook = ({
       } catch (error) {
         console.error("Waiting search error:", error);
       } finally {
-        // setIsLoading(false);
+        setNextInlineLoading(false);
       }
     },
     [formatQueueData, sortByPriorityPattern, Status]
@@ -537,11 +524,22 @@ const ManageQueueHook = ({
       }
 
       setIsDeferredSearchMode(true);
-      // setIsLoading(true);
+      setIsDeferredLoading(true);
 
       try {
+        const requestStatus =
+          statusFilter.length > 0
+            ? statusFilter.map((s) => mapStatusToEnum(s)).filter(Boolean)
+            : [Status.STALLED, Status.SKIPPED];
+
+        console.log("🔍 Deferred search with:", {
+          searchValue: trimmedSearch,
+          statusFilter,
+          requestStatus,
+        });
+
         const response = await getQueueListByQuery(Status.DEFERRED, {
-          requestStatus: [Status.STALLED, Status.SKIPPED],
+          requestStatus: requestStatus,
           limit: INITIAL_LOAD,
           offset: 0,
           searchValue: trimmedSearch,
@@ -553,6 +551,7 @@ const ManageQueueHook = ({
           const formattedDeferred = queues
             .map(formatQueueData)
             .map(filterDeferredRequests);
+
           const newMap = new Map();
           const newIds = [];
           formattedDeferred.forEach((q) => {
@@ -563,7 +562,7 @@ const ManageQueueHook = ({
           setDeferredSearchMap(newMap);
           setDeferredSearchIds(newIds);
           setDeferredSearchTotal(
-            response?.pagination?.total || formatted.length
+            response?.pagination?.total || formattedDeferred.length
           );
           setHasMoreDeferredSearch(
             newIds.length < (response?.pagination?.total || 0)
@@ -572,10 +571,10 @@ const ManageQueueHook = ({
       } catch (error) {
         console.error("Deferred search error:", error);
       } finally {
-        // setIsLoading(false);
+        setIsDeferredLoading(false);
       }
     },
-    [formatQueueData, Status]
+    [formatQueueData, Status, statusFilter, filterDeferredRequests] // ✅ Add statusFilter dependency
   );
 
   const handleFetchQueue = useCallback(async (data, options = {}) => {
@@ -679,31 +678,15 @@ const ManageQueueHook = ({
   ]);
   const loadMoreDeferredQueues = useCallback(async () => {
     if (!hasMoreDeferred || isLoading) return;
-
+    setIsDeferredLoading(true);
     try {
-      // const mappedStatusFilter = statusFilter
-      //   .map((status) => mapStatusToEnum(status))
-      //   .filter(Boolean);
-
-      // console.log("Original statusFilter: ", statusFilter);
-      // console.log("Mapped Status Filter: ", mappedStatusFilter);
-
       const queryParams = {
         limit: LOAD_MORE_SIZE,
         offset: deferredQueueIds.length,
       };
-
-      // if (mappedStatusFilter.length > 0) {
-      //   queryParams.requestStatus = mappedStatusFilter;
-      // }
-
-      console.log("Query Params: ", queryParams);
-
       const response = await getQueueListByQuery(Status.DEFERRED, queryParams);
-
       const queues = response?.queues || response;
       if (Array.isArray(queues) && queues.length > 0) {
-        // Apply filtering here
         const formattedDeferred = queues
           .map(formatQueueData)
           .map(filterDeferredRequests);
@@ -727,6 +710,8 @@ const ManageQueueHook = ({
       }
     } catch (error) {
       console.error("Error loading more deferred queues:", error);
+    } finally {
+      setIsDeferredLoading(false);
     }
   }, [
     hasMoreDeferred,
@@ -787,10 +772,15 @@ const ManageQueueHook = ({
   ]);
   const loadMoreDeferredSearch = useCallback(async () => {
     if (!hasMoreDeferredSearch || !isDeferredSearchMode || isLoading) return;
-
+    setIsDeferredLoading(true);
     try {
+      const requestStatus =
+        statusFilter.length > 0
+          ? statusFilter.map((s) => mapStatusToEnum(s)).filter(Boolean)
+          : [Status.STALLED, Status.SKIPPED];
+
       const response = await getQueueListByQuery(Status.DEFERRED, {
-        requestStatus: [Status.STALLED, Status.SKIPPED],
+        requestStatus: requestStatus,
         limit: LOAD_MORE_SIZE,
         offset: deferredSearchIds.length,
         searchValue: deferredSearchValueRef.current,
@@ -799,16 +789,16 @@ const ManageQueueHook = ({
 
       const queues = response?.queues || response;
       if (Array.isArray(queues) && queues.length > 0) {
-        // Apply filtering here
         const formattedDeferred = queues
           .map(formatQueueData)
           .map(filterDeferredRequests);
 
         setDeferredSearchMap((prev) => {
-          const newMap = new Map(); // <-- reset
+          const newMap = new Map(prev);
           formattedDeferred.forEach((q) => newMap.set(q.queueId, q));
           return newMap;
         });
+
         setDeferredSearchIds((prev) => [
           ...prev,
           ...formattedDeferred.map((q) => q.queueId),
@@ -823,6 +813,8 @@ const ManageQueueHook = ({
       }
     } catch (error) {
       console.error("Error loading more deferred search results:", error);
+    } finally {
+      setIsDeferredLoading(false);
     }
   }, [
     hasMoreDeferredSearch,
@@ -833,10 +825,11 @@ const ManageQueueHook = ({
     formatQueueData,
     filterDeferredRequests,
     Status,
+    statusFilter,
   ]);
   const loadMoreFilteredDeferredQueues = useCallback(async () => {
     if (!hasMoreFilteredDeferred || isLoading) return;
-
+    setIsDeferredLoading(true);
     try {
       const mappedStatusFilter = statusFilter
         .map((status) => mapStatusToEnum(status))
@@ -847,10 +840,16 @@ const ManageQueueHook = ({
         return;
       }
 
+      const currentOffset = await new Promise((resolve) => {
+        setFilteredDeferredQueueIds((prev) => {
+          resolve(prev.length);
+          return prev;
+        });
+      });
       const response = await getQueueListByQuery(Status.DEFERRED, {
         requestStatus: mappedStatusFilter,
         limit: LOAD_MORE_SIZE,
-        offset: filteredDeferredQueueIds.length,
+        offset: currentOffset,
       });
 
       const queues = response?.queues || response;
@@ -861,26 +860,24 @@ const ManageQueueHook = ({
           .map(formatQueueData)
           .map(filterDeferredRequests);
 
-        // ✅ FIX: Append to existing map instead of resetting
         setFilteredDeferredQueueMap((prev) => {
-          const newMap = new Map(prev); // Keep existing data
+          const newMap = new Map(prev);
           formattedDeferred.forEach((queue) =>
             newMap.set(queue.queueId, queue)
           );
           return newMap;
         });
 
-        // Append to IDs
         setFilteredDeferredQueueIds((prev) => [
           ...prev,
           ...formattedDeferred.map((q) => q.queueId),
         ]);
+        setFilteredDeferredQueueIds((prev) => {
+          const newTotalLoaded = prev.length;
+          setHasMoreFilteredDeferred(newTotalLoaded < total);
+          return prev;
+        });
 
-        // Calculate hasMore correctly
-        const newTotalLoaded = filteredDeferredQueueIds.length + queues.length;
-        setHasMoreFilteredDeferred(newTotalLoaded < total);
-
-        // Only update total count if we got a valid total from API
         if (total > 0) {
           setTotalFilteredDeferredCount(total);
         }
@@ -890,15 +887,16 @@ const ManageQueueHook = ({
     } catch (error) {
       console.error("Error loading filtered deferred queues:", error);
       setHasMoreFilteredDeferred(false);
+    } finally {
+      setIsDeferredLoading(false);
     }
   }, [
     hasMoreFilteredDeferred,
     isLoading,
-    filteredDeferredQueueIds.length,
     statusFilter,
     formatQueueData,
     filterDeferredRequests,
-    Status,
+    // ✅ Removed filteredDeferredQueueIds.length
   ]);
 
   // ==================== SOCKET EVENT HANDLERS (OPTIMIZED) ====================
@@ -956,33 +954,6 @@ const ManageQueueHook = ({
     ]
   );
 
-  const removeFromList = useCallback(
-    (queueData) => {
-      try {
-        const queueId = String(queueData.queueId);
-
-        // Check where the queue exists before removing
-        const isInWaiting = globalQueueMap.has(queueId);
-        const isInDeferred = deferredQueueMap.has(queueId);
-
-        if (isInWaiting) {
-          removeFromWaitingQueue(queueId);
-        }
-
-        if (isInDeferred) {
-          removeFromDeferredQueue(queueId);
-        }
-
-        console.log(`🗑️ Removed queue ${queueId} from:`, {
-          waiting: isInWaiting,
-          deferred: isInDeferred,
-        });
-      } catch (error) {
-        console.log("An error occurred.", error);
-      }
-    },
-    [globalQueueMap, deferredQueueMap]
-  );
   const removeFromFilteredDeferred = useCallback((queueId) => {
     setFilteredDeferredQueueMap((prev) => {
       const newMap = new Map(prev);
@@ -994,6 +965,64 @@ const ManageQueueHook = ({
 
     setTotalFilteredDeferredCount((prev) => Math.max(0, prev - 1));
   }, []);
+
+  const removeFromList = useCallback(
+    (queueData) => {
+      try {
+        const queueId = String(queueData.queueId);
+
+        // Check where the queue exists before removing
+        const isInWaiting = globalQueueMap.has(queueId);
+        const isInDeferred = deferredQueueMap.has(queueId);
+        const isInFilteredDeferred = filteredDeferredQueueMap.has(queueId);
+        const isInDeferredSearch = deferredSearchMap.has(queueId);
+
+        console.log(`🗑️ Removing queue ${queueId} from:`, {
+          waiting: isInWaiting,
+          deferred: isInDeferred,
+          filteredDeferred: isInFilteredDeferred,
+          deferredSearch: isInDeferredSearch,
+        });
+
+        // Remove from waiting queue
+        if (isInWaiting) {
+          removeFromWaitingQueue(queueId);
+        }
+
+        // Remove from deferred queue
+        if (isInDeferred) {
+          removeFromDeferredQueue(queueId);
+        }
+
+        // Remove from filtered deferred view
+        if (isInFilteredDeferred) {
+          removeFromFilteredDeferred(queueId);
+        }
+
+        // Remove from deferred search results
+        if (isInDeferredSearch) {
+          setDeferredSearchMap((prev) => {
+            const newMap = new Map(prev);
+            newMap.delete(queueId);
+            return newMap;
+          });
+          setDeferredSearchIds((prev) => prev.filter((id) => id !== queueId));
+          setDeferredSearchTotal((prev) => Math.max(0, prev - 1));
+        }
+      } catch (error) {
+        console.log("An error occurred in removeFromList:", error);
+      }
+    },
+    [
+      globalQueueMap,
+      deferredQueueMap,
+      filteredDeferredQueueMap,
+      deferredSearchMap,
+      removeFromWaitingQueue,
+      removeFromDeferredQueue,
+      removeFromFilteredDeferred,
+    ]
+  );
   const handleQueueRemoved = useCallback(
     (data) => {
       removeFromList(data);
@@ -1027,29 +1056,55 @@ const ManageQueueHook = ({
 
   const handleCompleted = useCallback(
     (data) => {
-      removeFromList(data);
-      removeFromFilteredDeferred(data.queueId);
+      try {
+        const hasSufficientData = data.requests || data.status || data.queueNo;
+        if (hasSufficientData) {
+          updateQueueInMaps(data);
+        } else {
+          removeFromList(data);
+        }
+      } catch (error) {
+        console.error("Error handling completed queue:", error);
+        removeFromList(data);
+      }
     },
-    [removeFromList]
+    [updateQueueInMaps, removeFromList]
   );
 
   const handleCancelled = useCallback(
     (data) => {
-      removeFromList(data);
-      removeFromFilteredDeferred(data.queueId);
+      try {
+        const hasSufficientData = data.requests || data.status || data.queueNo;
+        if (hasSufficientData) {
+          updateQueueInMaps(data);
+        } else {
+          removeFromList(data);
+        }
+      } catch (error) {
+        console.error("Error handling completed queue:", error);
+        removeFromList(data);
+      }
     },
-    [removeFromList]
+    [updateQueueInMaps, removeFromList]
   );
 
   const handlePartiallyCompleted = useCallback(
     (data) => {
-      removeFromList(data);
-      removeFromFilteredDeferred(data.queueId);
+      try {
+        const hasSufficientData = data.requests || data.status || data.queueNo;
+        if (hasSufficientData) {
+          updateQueueInMaps(data);
+        } else {
+          removeFromList(data);
+        }
+      } catch (error) {
+        console.error("Error handling completed queue:", error);
+        removeFromList(data);
+      }
     },
-    [removeFromList]
+    [updateQueueInMaps, removeFromList]
   );
 
-  // console.log("SelectedQueue: ", selectedQueue);
   const handleDeferredRequestUpdated = useCallback((data) => {
     try {
       console.log("Deferred request updated:", data);
@@ -1226,7 +1281,6 @@ const ManageQueueHook = ({
     [showToast]
   );
 
-  // ✅ Simplified useEffect
   useEffect(() => {
     if (!socket || !isConnected || !selectedWindow?.id) {
       // console.log("Stopping heartbeat update...");
@@ -1321,8 +1375,8 @@ const ManageQueueHook = ({
 
   useEffect(() => {
     const lastId = globalQueueIds[globalQueueIds.length - 1];
-    console.log("🔍 Last queue in list:", lastId);
-    console.log("🧩 In map:", globalQueueMap.has(lastId));
+    // console.log("🔍 Last queue in list:", lastId);
+    // console.log("🧩 In map:", globalQueueMap.has(lastId));
   }, [globalQueueIds, globalQueueMap]);
   useEffect(() => {
     console.log({
@@ -1332,24 +1386,98 @@ const ManageQueueHook = ({
     });
   }, [totalWaitingCount, hasMoreWaiting, globalQueueIds]);
 
-  // useEffect(() => {
-  //   if (statusFilter.length > 0) {
-  //     // Filter activated - reset and load filtered data
-  //     console.log("Filter activated, loading filtered results");
-  //     setFilteredDeferredQueueIds([]);
-  //     setFilteredDeferredQueueMap(new Map());
-  //     setHasMoreFilteredDeferred(true);
-  //     setTotalFilteredDeferredCount(0);
-  //     loadMoreFilteredDeferredQueues();
-  //   }
-  //   // When filter cleared, show unfiltered data (already loaded)
-  // }, [statusFilter]);
+  useEffect(() => {
+    if (currentFilterRequestRef.current) {
+      currentFilterRequestRef.current.abort();
+      currentFilterRequestRef.current = null;
+    }
+    if (filterTimeoutRef.current) {
+      clearTimeout(filterTimeoutRef.current);
+      filterTimeoutRef.current = null;
+    }
+
+    // Reset UI state
+    setFilteredDeferredQueueIds([]);
+    setFilteredDeferredQueueMap(new Map());
+    setHasMoreFilteredDeferred(false);
+    setTotalFilteredDeferredCount(0);
+
+    if (statusFilter.length === 0) {
+      setIsDeferredLoading(false);
+      return;
+    }
+
+    setIsDeferredLoading(true);
+
+    filterTimeoutRef.current = setTimeout(() => {
+      const abortController = new AbortController();
+      currentFilterRequestRef.current = abortController;
+
+      const mappedStatusFilter = statusFilter
+        .map(mapStatusToEnum)
+        .filter(Boolean);
+
+      getQueueListByQuery(
+        Status.DEFERRED,
+        {
+          requestStatus: mappedStatusFilter,
+          limit: LOAD_MORE_SIZE,
+          offset: 0,
+        },
+        { signal: abortController.signal }
+      )
+        .then((response) => {
+          if (abortController.signal.aborted) return;
+
+          currentFilterRequestRef.current = null;
+          const queues = response?.queues || response;
+          const total = response?.pagination?.total || 0;
+
+          if (Array.isArray(queues) && queues.length > 0) {
+            const formattedDeferred = queues
+              .map(formatQueueData)
+              .map(filterDeferredRequests);
+
+            setFilteredDeferredQueueMap(
+              new Map(formattedDeferred.map((queue) => [queue.queueId, queue]))
+            );
+            setFilteredDeferredQueueIds(
+              formattedDeferred.map((q) => q.queueId)
+            );
+            setTotalFilteredDeferredCount(total);
+            setHasMoreFilteredDeferred(queues.length < total);
+          } else {
+            setHasMoreFilteredDeferred(false);
+          }
+        })
+        .catch((error) => {
+          if (error.name === "AbortError") return;
+          console.error("Filter error:", error);
+          currentFilterRequestRef.current = null;
+          setHasMoreFilteredDeferred(false);
+        })
+        .finally(() => {
+          setIsDeferredLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      if (currentFilterRequestRef.current) {
+        currentFilterRequestRef.current.abort();
+      }
+      if (filterTimeoutRef.current) {
+        clearTimeout(filterTimeoutRef.current);
+      }
+      setIsDeferredLoading(false);
+    };
+  }, [statusFilter, formatQueueData, filterDeferredRequests]);
   // ==================== RETURN VALUES ====================
 
   // Convert Map to Array for rendering (only when needed)
   const globalQueueList = globalQueueIds
     .map((id) => globalQueueMap.get(id))
     .filter(Boolean);
+
   const deferredQueue = deferredQueueIds
     .map((id) => deferredQueueMap.get(id))
     .filter(Boolean);
@@ -1369,7 +1497,7 @@ const ManageQueueHook = ({
     // Main Deferred Queue
     deferredQueue: isDeferredSearchMode
       ? deferredSearchIds.map((id) => deferredSearchMap.get(id)).filter(Boolean)
-      : statusFilter.length > 0 // ✅ Direct check
+      : statusFilter.length > 0
       ? filteredDeferredQueueIds
           .map((id) => filteredDeferredQueueMap.get(id))
           .filter(Boolean)
@@ -1378,12 +1506,12 @@ const ManageQueueHook = ({
     deferredQueueIds,
     totalDeferredCount: isDeferredSearchMode
       ? deferredSearchTotal
-      : statusFilter.length > 0 // ✅ Direct check
+      : statusFilter.length > 0
       ? totalFilteredDeferredCount
       : totalDeferredCount,
     hasMoreDeferred: isDeferredSearchMode
       ? hasMoreDeferredSearch
-      : statusFilter.length > 0 // ✅ Direct check
+      : statusFilter.length > 0
       ? hasMoreFilteredDeferred
       : hasMoreDeferred,
 
@@ -1398,6 +1526,7 @@ const ManageQueueHook = ({
     isLoading,
     setIsLoading,
     nextInLineLoading,
+    isDeferredLoading,
     statusFilter,
 
     // Actions
@@ -1410,7 +1539,7 @@ const ManageQueueHook = ({
       : loadMoreWaitingQueues,
     loadMoreDeferredQueues: isDeferredSearchMode
       ? loadMoreDeferredSearch
-      : statusFilter.length > 0 // ✅ Direct check
+      : statusFilter.length > 0
       ? loadMoreFilteredDeferredQueues
       : loadMoreDeferredQueues,
     fetchQueueList,

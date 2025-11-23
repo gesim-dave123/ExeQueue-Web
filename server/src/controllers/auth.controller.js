@@ -13,12 +13,12 @@ import {
 
 export const loginUser = async (req, res) => {
   const { username, password } = req.body;
-  console.log("Hereee");
   try {
     if (!username || !password)
-      return res
-        .status(403)
-        .json({ success: false, message: "Required Fields are missing!" });
+      return res.status(403).json({
+        success: false,
+        message: "Please fill out all required fields",
+      });
     const user = await prisma.sasStaff.findUnique({
       where: {
         username: username,
@@ -32,18 +32,22 @@ export const loginUser = async (req, res) => {
       },
     });
 
-    if (!user || (!user.isActive && user.deletedAt === null))
-      return res
-        .status(404)
-        .json({ success: false, message: "Account not found!" });
-
+    if (!user || (!user.isActive && user.deletedAt === null)) {
+      return res.status(404).json({
+        success: false,
+        hasAccount: false,
+        message: "Account not found!",
+      });
+    }
     const decrypt = await bcrypt.compare(password, user.hashedPassword);
-    if (!decrypt)
-      return res
-        .status(403)
-        .json({ success: false, message: "Invalid Credentials" });
-
-    const token = await jwt.sign(
+    if (!decrypt) {
+      return res.status(403).json({
+        success: false,
+        invalidCred: true,
+        message: "Invalid Credentials",
+      });
+    }
+    const token = jwt.sign(
       {
         id: user.sasStaffId,
         role: user.role,
@@ -69,8 +73,6 @@ export const loginUser = async (req, res) => {
       success: true,
       message: "Logged In Successfully!",
       role: user.role,
-      // serviceWindowId: user.serviceWindowId,
-      token: token,
     });
   } catch (error) {
     console.error("Error in Login: ", error);
@@ -117,7 +119,7 @@ export const logoutUser = (req, res) => {
 
   return res.status(200).json({
     success: true,
-    message: "Logged Out Successfully!",
+    // message: "Logged Out Successfully!",
   });
 };
 
@@ -141,9 +143,7 @@ export const requestPasswordReset = async (req, res) => {
 
   try {
     const user = await prisma.sasStaff.findUnique({
-      where: {
-        email: email,
-      },
+      where: { email: email },
     });
 
     if (!user)
@@ -153,22 +153,23 @@ export const requestPasswordReset = async (req, res) => {
 
     const OTPcode = generateCode();
     storeOTP(email, OTPcode);
-    const adminEmail = await prisma.sasStaff.findUnique({
-      where: {
-        username: "admin",
-      },
-      select: {
-        email: true,
-      },
-    });
 
-    const emailSent = await sendCodeToEmail(email, adminEmail, OTPcode);
+    // ✅ Send email asynchronously (no admin email query needed)
+    sendCodeToEmail(email, OTPcode)
+      .then((success) => {
+        if (success) {
+          console.log(`✅ OTP sent to ${email}`);
+        } else {
+          console.error(`❌ Failed to send OTP to ${email}`);
+          deleteOTP(email); // Clean up if email fails
+        }
+      })
+      .catch((error) => {
+        console.error(`❌ Error sending OTP to ${email}:`, error);
+        deleteOTP(email);
+      });
 
-    if (!emailSent)
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to send verification email" });
-
+    // ✅ Respond immediately to user
     return res.status(200).json({
       success: true,
       message: "Verification code sent successfully",

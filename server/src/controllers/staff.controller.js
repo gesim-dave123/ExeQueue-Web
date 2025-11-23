@@ -1145,6 +1145,7 @@ export const manualResetQueueNumber = async (req, res) => {
           success: false,
           messsage: "There is no active session found!",
           activeSessionFound: false,
+          noActiveQueue: true,
         });
       }
 
@@ -1158,7 +1159,12 @@ export const manualResetQueueNumber = async (req, res) => {
       });
 
       if (!lastQueue) {
-        throw new Error(`No ${normalizedType} queues found to reset.`);
+        return res.status(203).json({
+          success: false,
+          message: `No ${normalizedType} queues found to reset.`,
+          noActiveQueue: true,
+        });
+        // throw new Error(`No ${normalizedType} queues found to reset.`);
       }
 
       // ===========================================================
@@ -1219,6 +1225,7 @@ export const manualResetQueueNumber = async (req, res) => {
           triggeredAt: new Date().toISOString(),
         },
         activeSessionFound: true,
+        noActiveQueue: false,
       });
     });
   } catch (error) {
@@ -1352,8 +1359,9 @@ export const manualResetSession = async (req, res) => {
 export const updateAdminProfile = async (req, res) => {
   try {
     const { sasStaffId, role } = req.user;
+    const accountData = req.body.accountData || req.body;
     const { username, firstName, lastName, middleName, email, newPassword } =
-      req.body;
+      accountData;
 
     if (!sasStaffId || !role) {
       return res.status(400).json({
@@ -1380,11 +1388,15 @@ export const updateAdminProfile = async (req, res) => {
         message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
       });
     }
+
     const account = await prisma.sasStaff.findUnique({
       where: { sasStaffId },
       select: {
         sasStaffId: true,
         username: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
         email: true,
         isActive: true,
         role: true,
@@ -1396,20 +1408,20 @@ export const updateAdminProfile = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Account not found or inactive." });
     }
+
+    // Only hash password if it's provided
     let hashedPassword = undefined;
-    if (!newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required to proceed.",
-      });
-    }
-    if (newPassword) {
+    if (newPassword && newPassword.trim() !== "") {
       hashedPassword = await bcrypt.hash(newPassword, 10);
     }
 
+    // Check for duplicate username
     if (username && username !== account.username) {
       const existingUsername = await prisma.sasStaff.findFirst({
-        where: { username },
+        where: {
+          username,
+          sasStaffId: { not: sasStaffId },
+        },
         select: { sasStaffId: true },
       });
       if (existingUsername) {
@@ -1418,9 +1430,14 @@ export const updateAdminProfile = async (req, res) => {
           .json({ success: false, message: "Username already in use." });
       }
     }
+
+    // Check for duplicate email
     if (email && email !== account.email) {
       const existingEmail = await prisma.sasStaff.findFirst({
-        where: { email },
+        where: {
+          email,
+          sasStaffId: { not: sasStaffId },
+        },
         select: { sasStaffId: true },
       });
       if (existingEmail) {
@@ -1429,19 +1446,70 @@ export const updateAdminProfile = async (req, res) => {
           .json({ success: false, message: "Email already in use." });
       }
     }
+    // Build update object with only changed fields
+    const updateData = {};
 
-    // Build update payload
-    const updateData = {
-      ...(username ? { username } : {}),
-      ...(firstName ? { firstName } : {}),
-      ...(lastName ? { lastName } : {}),
-      ...(typeof middleName !== "undefined"
-        ? { middleName: middleName ?? null }
-        : {}),
-      ...(email ? { email } : {}),
-      ...(typeof hashedPassword !== "undefined" ? { hashedPassword } : {}),
-      updatedAt: new Date(),
-    };
+    if (username && username !== account.username) {
+      updateData.username = username;
+      console.log("Username changed:", account.username, "→", username);
+    }
+
+    if (firstName && firstName !== account.firstName) {
+      updateData.firstName = firstName;
+      console.log("FirstName changed:", account.firstName, "→", firstName);
+    }
+
+    if (lastName && lastName !== account.lastName) {
+      updateData.lastName = lastName;
+      console.log("LastName changed:", account.lastName, "→", lastName);
+    }
+
+    // Fixed middleName handling
+    if (typeof middleName !== "undefined") {
+      const newMiddleName = middleName || null;
+      const currentMiddleName = account.middleName || null;
+
+      console.log("🔍 MiddleName comparison:", {
+        received: middleName,
+        normalized: newMiddleName,
+        current: currentMiddleName,
+        areEqual: newMiddleName === currentMiddleName,
+      });
+
+      if (newMiddleName !== currentMiddleName) {
+        updateData.middleName = newMiddleName;
+        console.log(
+          "MiddleName changed:",
+          currentMiddleName,
+          "→",
+          newMiddleName
+        );
+      }
+    }
+
+    if (email && email !== account.email) {
+      updateData.email = email;
+      console.log("Email changed:", account.email, "→", email);
+    }
+
+    if (hashedPassword) {
+      updateData.hashedPassword = hashedPassword;
+      console.log("Password changed");
+    }
+
+    console.log("📦 Update data object:", updateData);
+
+    if (Object.keys(updateData).length === 0) {
+      console.log("No changes detected - all values match database");
+      return res.status(203).json({
+        success: true,
+        hasChanges: false,
+        message: "No changes",
+      });
+    }
+
+    // Add updatedAt timestamp
+    updateData.updatedAt = new Date();
 
     const updated = await prisma.sasStaff.update({
       where: { sasStaffId },
@@ -1451,22 +1519,20 @@ export const updateAdminProfile = async (req, res) => {
         username: true,
         firstName: true,
         lastName: true,
+        middleName: true,
         email: true,
         role: true,
         isActive: true,
-        updatedAt: true,
       },
     });
+
+    console.log("✅ Update successful:", updated);
 
     return res.status(200).json({
       success: true,
       message: "Account updated successfully.",
       data: {
-        sasStaffId: updated.sasStaffId,
-        username: updated.username,
-        name: `${updated.firstName} ${updated.lastName}`,
-        email: updated.email,
-        role: updated.role,
+        updated: updated,
       },
     });
   } catch (error) {
