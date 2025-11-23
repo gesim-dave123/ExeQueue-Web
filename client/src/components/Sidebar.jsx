@@ -901,7 +901,7 @@ export default function Sidebar() {
         showCloseButton={false}
         hideActions={false}
         cancelButtonClass="px-4 py-3 bg-[#E2E3E4] text-black hover:bg-[#c6c7c8] rounded-xl w-1/2 font-medium cursor-pointer"
-        confirmButtonClass="px-4 py-3 bg-[#1A73E8] text-white hover:bg-blue-700 rounded-xl cursor-pointeed-xl w-1/2 font-medium cursor-pointer"
+        confirmButtonClass="px-4 py-3 bg-[#1A73E8] text-white hover:bg-[#1557B0] rounded-xl cursor-pointeed-xl w-1/2 font-medium cursor-pointer"
         description={
           <>
             Ready to log out?
