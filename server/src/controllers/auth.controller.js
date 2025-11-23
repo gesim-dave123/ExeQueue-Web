@@ -28,7 +28,6 @@ export const loginUser = async (req, res) => {
         hashedPassword: true,
         role: true,
         isActive: true,
-        // serviceWindowId: true
       },
     });
 
@@ -73,6 +72,7 @@ export const loginUser = async (req, res) => {
       success: true,
       message: "Logged In Successfully!",
       role: user.role,
+      token: token,
     });
   } catch (error) {
     console.error("Error in Login: ", error);
