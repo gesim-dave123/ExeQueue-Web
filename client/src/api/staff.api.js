@@ -204,3 +204,52 @@ export const overrideWindowRelease = async (windowNum) => {
     return null;
   }
 };
+
+export const updateHeartbeatInterval = async (windowId) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/window/update/heartbeat`,
+      {
+        windowId,
+      },
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (response?.status === 200 && response?.data.success) {
+      return response.data;
+    } else {
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in update last heartbeat api: ", error);
+    return null;
+  }
+};
+
+export const updateAdminProfile = async (accountData) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/personnel/profile-setting`,
+      { accountData },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      return error.response.data;
+    } else if (error.request) {
+      return { success: false, message: "No response from server" };
+    } else {
+      return { success: false, message: "An unexpected error occurred" };
+    }
+  }
+};

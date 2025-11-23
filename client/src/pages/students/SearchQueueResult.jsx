@@ -176,7 +176,7 @@ export default function SearchQueueResult() {
   return (
     <div className="min-h-[90vh] w-full flex justify-center items-center flex-col px-4 py-6">
       {/* Multiple Queue Navigation */}
-      {queues.length > 1 && (
+      {/* {queues.length > 1 && (
         <div className="w-full max-w-md mb-6 bg-white rounded-xl shadow-md p-4">
           <p className="text-sm text-gray-600 mb-3 text-center">
             Found{' '}
@@ -201,10 +201,29 @@ export default function SearchQueueResult() {
             ))}
           </div>
         </div>
-      )}
+      )} */}
+
+       <div className="flex w-full max-w-md rounded-full overflow-hidden border border-[#1A73E8] bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-15">
+        {/* Input Field */}
+         <input
+           type="text"
+          //  value={query}
+          //  onChange={(e) => setQuery(e.target.value)}
+           placeholder="Search Queue"
+           className="flex-1 px-4 py-3 outline-none text-sm sm:text-base font-normal bg-white placeholder-gray-500"
+         />
+
+         {/* Search Button / Icon */}
+         <button
+          // onClick={checkQueue} 
+           className="w-18 h-md flex items-center justify-center bg-[#1A73E8] hover:bg-[#1557B0] transition-colors"
+         >
+           <img src="/assets/Search icon.png" alt="search" className="w-5 h-5" />
+         </button>
+      </div>
 
       {/* Note */}
-      <div className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-blue-600 text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2">
+      <div className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-[#1A73E8] text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2">
         <Camera size={18} className="flex-shrink-0" />
         <span className="text-center">
           Take a picture to keep note of your queue
@@ -216,17 +235,17 @@ export default function SearchQueueResult() {
         {/* Header */}
         <div className="w-full flex justify-between items-center mb-6">
           <span
-            className={`px-3 py-1 rounded-full text-sm font-medium ${
+            className={`px-3 py-1 rounded-full text-sm font-semibold ${
               currentQueue.queueType === 'PRIORITY'
                 ? 'bg-[#FDE5B0] text-[#F9AB00]'
-                : 'bg-blue-100 text-blue-600'
+                : 'bg-[#DDEAFC] text-[#1A73E8]'
             }`}
           >
             {currentQueue.queueType === 'PRIORITY' ? 'Priority' : 'Regular'}
           </span>
           <p className="text-xs text-gray-500">
             Ref no.{' '}
-            <span className="text-blue-600 font-semibold">
+            <span className="text-[#1456AE] font-semibold">
               {currentQueue.referenceNumber}
             </span>
           </p>
@@ -240,7 +259,7 @@ export default function SearchQueueResult() {
           className={`text-6xl sm:text-7xl font-bold mb-2 ${
             currentQueue.queueType === 'PRIORITY'
               ? 'text-[#F9AB00]'
-              : 'text-blue-600'
+              : 'text-[#1A73E8]'
           }`}
         >
           {formatQueueNumber(currentQueue.queueNumber, currentQueue.queueType)}
@@ -252,37 +271,28 @@ export default function SearchQueueResult() {
         </div>
 
         {/* Details */}
-        <div className="w-full space-y-4 text-sm">
+        <div className="w-full space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Name:</span>
-            <span className="text-blue-600 font-medium">
-              {currentQueue.studentFullName}
-            </span>
+         <span className="text-[#1A73E8] font-semibold">
+          {currentQueue.studentFullName
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')}
+        </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Student ID:</span>
-            <span className="text-blue-600 font-medium">
+            <span className="text-[#1A73E8] font-semibold">
               {currentQueue.studentId}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Course:</span>
-            <span className="text-blue-600 font-medium">
-              {currentQueue.courseCode}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Year Level:</span>
-            <span className="text-blue-600 font-medium">
-              {formatYearLevel(currentQueue.yearLevel)}
-            </span>
-          </div>
-
           {/* Requests */}
           {currentQueue.requests && currentQueue.requests.length > 0 && (
             <div className="flex justify-between items-start">
               <span className="text-gray-600">Requests:</span>
-              <div className="flex flex-col items-end text-blue-600 font-medium text-right space-y-1">
+              <div className="flex flex-col items-end text-[#1A73E8] font-semibold text-right space-y-1">
                 {currentQueue.requests.map((request) => (
                   <span
                     key={request.requestId}
@@ -299,7 +309,7 @@ export default function SearchQueueResult() {
           {currentQueue.serviceWindow && (
             <div className="flex justify-between">
               <span className="text-gray-600">Window:</span>
-              <span className="text-blue-600 font-medium">
+              <span className="text-[#1A73E8] font-medium">
                 {currentQueue.serviceWindow.windowName}
               </span>
             </div>
@@ -312,13 +322,13 @@ export default function SearchQueueResult() {
         </div>
 
         {/* Issued Date */}
-        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+        <div className="text-xs text-[#686969] mt-1  font-medium flex items-center gap-2">
           <Clock size={15} />
           <span>
             Issued on{' '}
             {DateAndTimeFormatter.formatInTimeZone(
               new Date(currentQueue.createdAt),
-              FORMATS.DISPLAY
+              "yyyy-MM-dd hh:mm a"
             )}
           </span>
         </div>
