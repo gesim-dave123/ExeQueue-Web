@@ -39,10 +39,15 @@ export const authenticateToken = async (req, res, next) => {
         deletedAt: true,
       },
     });
-    if (!user || (!user.isActive && user.deletedAt === null))
+    if (!user)
       return res
         .status(404)
         .json({ success: false, message: "Account not found!" });
+    if (!user.isActive && user.deletedAt === null) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Account not found!" });
+    }
     req.user = user;
     next();
   } catch (error) {
