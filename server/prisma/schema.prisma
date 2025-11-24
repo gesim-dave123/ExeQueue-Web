@@ -96,7 +96,7 @@ model SasStaff {
   transactionHistories TransactionHistory[] @relation("PerformedBy")
   assignments          WindowAssignment[]   @relation("StaffAssignments")
 
-  @@unique([email], map: "unique_active_email")
+  // @@unique([email], map: "unique_active_email")
   @@index([username, isActive], map: "idx_sas_staff_username_active")
   @@index([email, isActive], map: "idx_sas_staff_email_active")
   @@index([role, isActive], map: "idx_sas_staff_role_active")
