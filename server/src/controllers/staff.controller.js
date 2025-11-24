@@ -595,12 +595,11 @@ export const createWorkingScholar = async (req, res) => {
         .json({ success: false, message: "Missing required fields." });
     }
 
-    // ✅ Check if password is provided
     if (!password || !password.trim()) {
       return res.status(400).json({
         success: false,
         message: "Password cannot be empty",
-        field: "password", // Add field identifier
+        field: "password",
       });
     }
 
@@ -608,26 +607,37 @@ export const createWorkingScholar = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Passwords do not match",
-        field: "password", // Add field identifier
+        field: "password",
       });
     }
-
-    // Check uniqueness for username and email (regardless of isActive)
-    const existing = await prisma.sasStaff.findFirst({
+    const existingUsername = await prisma.sasStaff.findFirst({
       where: {
-        OR: [{ username }, { email }],
+        username,
+        deletedAt: null,
+        isActive: true,
       },
       select: { sasStaffId: true, username: true, email: true },
     });
 
-    if (existing) {
-      if (existing.username === username) {
-        return res.status(409).json({
-          success: false,
-          message: "Username already exists",
-          field: "username",
-        });
-      }
+    if (existingUsername) {
+      return res.status(409).json({
+        success: false,
+        message: "Username already exists",
+        field: "username",
+      });
+    }
+
+    // ✅ Check email separately
+    const existingEmail = await prisma.sasStaff.findFirst({
+      where: {
+        email,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: { sasStaffId: true, username: true, email: true },
+    });
+
+    if (existingEmail) {
       return res.status(409).json({
         success: false,
         message: "Email already exists",
@@ -702,10 +712,13 @@ export const updateWorkingScholar = async (req, res) => {
         email: true,
         isActive: true,
         role: true,
+        deletedAt: true,
+        createdBy: true,
       },
     });
 
-    if (!account || !account.isActive) {
+    // Check if account exists and is not soft deleted
+    if (!account || !account.isActive || account.deletedAt !== null) {
       return res
         .status(404)
         .json({ success: false, message: "Account not found or inactive." });
@@ -731,33 +744,50 @@ export const updateWorkingScholar = async (req, res) => {
     }
     if (newPassword && confirmPassword) {
       if (newPassword !== confirmPassword) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Password does not match." });
+        return res.status(400).json({
+          success: false,
+          message: "Passwords do not match.",
+          field: "password",
+        });
       }
       hashedPassword = await bcrypt.hash(newPassword, 10);
     }
 
+    // Check if username is being changed and if it's available
     if (username && username !== account.username) {
       const existingUsername = await prisma.sasStaff.findFirst({
-        where: { username },
+        where: {
+          username,
+          deletedAt: null, // ✅ Only check active accounts
+          sasStaffId: { not: sasStaffId }, // ✅ Exclude current account
+        },
         select: { sasStaffId: true },
       });
       if (existingUsername) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Username already in use." });
+        return res.status(409).json({
+          success: false,
+          message: "Username already in use.",
+          field: "username",
+        });
       }
     }
+
+    // Check if email is being changed and if it's available
     if (email && email !== account.email) {
       const existingEmail = await prisma.sasStaff.findFirst({
-        where: { email },
+        where: {
+          email,
+          deletedAt: null, // ✅ Only check active accounts
+          sasStaffId: { not: sasStaffId }, // ✅ Exclude current account
+        },
         select: { sasStaffId: true },
       });
       if (existingEmail) {
-        return res
-          .status(409)
-          .json({ success: false, message: "Email already in use." });
+        return res.status(409).json({
+          success: false,
+          message: "Email already in use.",
+          field: "email",
+        });
       }
     }
 
@@ -772,7 +802,6 @@ export const updateWorkingScholar = async (req, res) => {
       ...(email ? { email } : {}),
       ...(typeof hashedPassword !== "undefined" ? { hashedPassword } : {}),
       updatedAt: new Date(),
-      createdBy: account.createdBy ?? updaterId ?? null, // keep createdBy if any; optional
     };
 
     const updated = await prisma.sasStaff.update({
@@ -803,6 +832,28 @@ export const updateWorkingScholar = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating working scholar account:", error);
+
+    // ✅ Handle Prisma unique constraint errors
+    if (error.code === "P2002") {
+      const field = error.meta?.target?.[0];
+
+      if (field === "email") {
+        return res.status(409).json({
+          success: false,
+          message: "Email already in use.",
+          field: "email",
+        });
+      }
+
+      if (field === "username") {
+        return res.status(409).json({
+          success: false,
+          message: "Username already in use.",
+          field: "username",
+        });
+      }
+    }
+
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });
