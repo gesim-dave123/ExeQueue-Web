@@ -1,5 +1,5 @@
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../../../api/auth.js";
 import { showToast } from "../../../components/toast/ShowToast.jsx";
@@ -13,7 +13,7 @@ export default function StaffLogin() {
   const [formData, setFormData] = useState({ username: "", password: "" });
 
   const navigate = useNavigate();
-  const { refreshAuth } = useAuth();
+  const { refreshAuth, user } = useAuth();
   const { setIsLoading, setProgress, setLoadingText } = useLoading();
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
@@ -50,15 +50,18 @@ export default function StaffLogin() {
       return;
     }
 
+    // if (user) {
+    //   showToast("You are already logged in", "info");
+    //   return;
+    // }
+
     setIsLoading(true);
     setLoading(true);
     setLoadingText("Logging In...");
     setProgress(0);
 
-    // Start progress animation immediately and independently
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
-        // Gradually increase progress, but cap at 90% until API completes
         if (prev < 90) {
           return prev + Math.random() * 15;
         }
@@ -68,29 +71,36 @@ export default function StaffLogin() {
 
     try {
       const res = await login(formData);
-
-      // Clear the interval once API completes
       clearInterval(progressInterval);
 
       if (res?.success) {
-        // Animate to 100% and WAIT for it to complete
         setProgress(100);
-        await new Promise((resolve) => setTimeout(resolve, 800)); // Wait for progress to visually reach 100%
+        await new Promise((resolve) => setTimeout(resolve, 800));
 
         await refreshAuth();
+
+        // ✅ Notify other tabs about successful login
+        localStorage.setItem("auth_login_event", Date.now().toString());
+        localStorage.removeItem("auth_login_event"); // Clean up immediately
+
         showToast(res?.message, "success");
-
-        // Optional: brief pause at 100% so user sees completion
         await new Promise((resolve) => setTimeout(resolve, 100));
-
-        // Now navigate
         navigate("/staff/dashboard", { replace: true });
 
-        // Clean up loading states after navigation
         setTimeout(() => {
           setIsLoading(false);
           setLoading(false);
         }, 100);
+        return;
+      }
+
+      if (res?.alreadyLoggedIn) {
+        showToast(
+          res?.message || "You are already logged in. Please logout first.",
+          "info"
+        );
+        setIsLoading(false);
+        setLoading(false);
         return;
       }
 
@@ -118,11 +128,27 @@ export default function StaffLogin() {
       setLoading(false);
     } catch (error) {
       clearInterval(progressInterval);
-      showToast(error?.message || "An unexpected error occurred", "error");
+
+      if (error?.response?.data?.alreadyLoggedIn) {
+        showToast("You are already logged in. Please logout first.", "info");
+      } else {
+        showToast(error?.message || "An unexpected error occurred", "error");
+      }
+
       setIsLoading(false);
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const handleFocus = async () => {
+      console.log("🔄 Login page focused, refreshing auth...");
+      await refreshAuth();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [refreshAuth]);
 
   // Helper functions to determine styling
   const getFieldErrorStyle = (fieldName) => {

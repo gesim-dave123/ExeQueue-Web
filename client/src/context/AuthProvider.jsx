@@ -66,12 +66,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === "auth_logout_event") {
-        console.log("🔄 Logout detected from another tab");
+        console.log("Logout detected from another tab");
         setUser(null);
         setError(null);
       }
       if (e.key === "auth_login_event") {
-        console.log("🔄 Login detected from another tab");
+        console.log("Login detected from another tab");
         checkAuth();
       }
     };
