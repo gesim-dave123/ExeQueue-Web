@@ -152,3 +152,47 @@ export const verifyUser = async () => {
     return null;
   }
 };
+
+export const forceLogout = async () => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/auth/staff/force-logout`,
+      {},
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      return error.response.data;
+    } else if (error.request) {
+      return { success: false, message: "No response from server" };
+    } else {
+      return { success: false, message: "An unexpected error occurred" };
+    }
+  }
+};
+
+export const checkLoginStatus = async () => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/auth/staff/check-login`,
+      {},
+      {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      return error.response.data;
+    } else if (error.request) {
+      return { success: false, message: "No response from server" };
+    } else {
+      return { success: false, message: "An unexpected error occurred" };
+    }
+  }
+};
