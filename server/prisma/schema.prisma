@@ -82,7 +82,7 @@ model SasStaff {
   firstName      String    @db.VarChar(100) @map("first_name")
   lastName       String    @db.VarChar(100) @map("last_name")
   middleName     String?   @db.VarChar(100) @map("middle_name")
-  email          String    @unique @db.VarChar(150)
+  email          String    @db.VarChar(150)
   role           Role      @default(WORKING_SCHOLAR)
   isActive       Boolean   @default(true) @map("is_active")
   createdBy      String?   @db.Uuid @map("created_by")
@@ -96,12 +96,12 @@ model SasStaff {
   transactionHistories TransactionHistory[] @relation("PerformedBy")
   assignments          WindowAssignment[]   @relation("StaffAssignments")
 
+  @@unique([email], map: "unique_active_email")
   @@index([username, isActive], map: "idx_sas_staff_username_active")
   @@index([email, isActive], map: "idx_sas_staff_email_active")
   @@index([role, isActive], map: "idx_sas_staff_role_active")
   @@map("sas_staff")
 }
-
 model ServiceWindow {
   windowId         Int       @id @default(autoincrement()) @map("window_id")
   windowNo         Int       @unique @map("window_no")
