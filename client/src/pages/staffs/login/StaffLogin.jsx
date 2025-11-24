@@ -128,13 +128,7 @@ export default function StaffLogin() {
       setLoading(false);
     } catch (error) {
       clearInterval(progressInterval);
-
-      if (error?.response?.data?.alreadyLoggedIn) {
-        showToast("You are already logged in. Please logout first.", "info");
-      } else {
-        showToast(error?.message || "An unexpected error occurred", "error");
-      }
-
+      showToast(error?.message || "An unexpected error occurred", "error");
       setIsLoading(false);
       setLoading(false);
     }
