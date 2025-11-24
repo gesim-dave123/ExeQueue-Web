@@ -1,4 +1,3 @@
-import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../../prisma/prisma.js";
@@ -13,45 +12,98 @@ import {
 
 export const loginUser = async (req, res) => {
   const { username, password } = req.body;
-  console.log("Hereee");
-  try {
-    if (!username || !password)
-      return res
-        .status(403)
-        .json({ success: false, message: "Required Fields are missing!" });
 
-    const user = await prisma.sasStaff.findUnique({
+  try {
+    if (!username || !password) {
+      return res.status(403).json({
+        success: false,
+        message: "Required fields are missing!",
+      });
+    }
+
+    const existingToken = req.cookies.access_token;
+
+    if (existingToken) {
+      try {
+        const decoded = jwt.verify(existingToken, process.env.JWT_SECRET);
+
+        const userAlreadyLoggedIn = await prisma.sasStaff.findFirst({
+          where: { username: username, deletedAt: null },
+          select: { sasStaffId: true, isActive: true },
+        });
+
+        if (!userAlreadyLoggedIn) {
+          return res.status(404).json({
+            success: false,
+            message: "Account not found!",
+          });
+        }
+
+        if (!userAlreadyLoggedIn.isActive) {
+          return res.status(401).json({
+            success: false,
+            message: "Account is not active.",
+          });
+        }
+
+        if (
+          userAlreadyLoggedIn &&
+          decoded.id === userAlreadyLoggedIn.sasStaffId
+        ) {
+          return res.status(200).json({
+            success: true,
+            message: "You are already logged in.",
+            alreadyLoggedIn: true,
+            sameAccount: true,
+          });
+        }
+
+        // Different user trying to login → BLOCK
+        return res.status(400).json({
+          success: false,
+          message: "Another account is already logged in. Please logout first.",
+          alreadyLoggedIn: true,
+          sameAccount: false,
+        });
+      } catch (err) {
+        console.log("Existing token invalid → continue login");
+      }
+    }
+    const user = await prisma.sasStaff.findFirst({
       where: {
         username: username,
+        deletedAt: null,
       },
       select: {
         sasStaffId: true,
         hashedPassword: true,
         role: true,
         isActive: true,
-        deletedAt: true,
       },
     });
 
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "Account not found!" });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found!",
+      });
+    }
 
-    // ✅ Check if account is inactive or deleted
-    if (!user.isActive || user.deletedAt) {
+    if (!user.isActive) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Account is not active.",
       });
     }
 
     const decrypt = await bcrypt.compare(password, user.hashedPassword);
-    if (!decrypt)
-      return res
-        .status(403)
-        .json({ success: false, message: "Invalid Credentials" });
 
+    if (!decrypt) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid Credentials",
+      });
+    }
     const token = jwt.sign(
       {
         id: user.sasStaffId,
@@ -59,7 +111,7 @@ export const loginUser = async (req, res) => {
         isActive: user.isActive,
       },
       process.env.JWT_SECRET,
-      { expiresIn: user.role === Role.PERSONNEL ? "12h" : "12h" }
+      { expiresIn: "12h" }
     );
 
     res.cookie("access_token", token, {
@@ -67,65 +119,89 @@ export const loginUser = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
-      maxAge:
-        user.role === Role.PERSONNEL
-          ? 1000 * 60 * 60 * 12
-          : 1000 * 60 * 60 * 12,
+      maxAge: 1000 * 60 * 60 * 12,
     });
 
     return res.status(200).json({
       success: true,
       message: "Logged In Successfully!",
       role: user.role,
-      token: token,
+      token,
     });
   } catch (error) {
-    console.error("Error in Login: ", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error!" });
+    console.error("Error in Login:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
   }
-};
-
-export const createUser = (req, res) => {
-  const {
-    username,
-    password,
-    first_name,
-    last_name,
-    middle_name,
-    email,
-    role,
-  } = req.body;
-
-  try {
-    if (
-      !username?.trim() ||
-      !password?.trim() ||
-      !email?.trim() ||
-      !role?.trim()
-    ) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Required fields are missing!" });
-    }
-    if (!first_name?.trim() || !last_name?.trim())
-      return res.status(403).json({});
-    // TODO: Continue this part, it should validate all fields
-  } catch (error) {}
 };
 
 export const logoutUser = (req, res) => {
   res.clearCookie("access_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
   });
 
   return res.status(200).json({
     success: true,
     message: "Logged Out Successfully!",
   });
+};
+
+// ✅ NEW: Force logout endpoint (clears cookie even if token is invalid)
+export const forceLogout = (req, res) => {
+  res.clearCookie("access_token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Successfully logged out!",
+  });
+};
+
+// ✅ NEW: Check login status endpoint
+export const checkLoginStatus = (req, res) => {
+  try {
+    const token = req.cookies.access_token;
+
+    if (!token) {
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: false,
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: true,
+        user: {
+          id: decoded.id,
+          role: decoded.role,
+        },
+      });
+    } catch (error) {
+      // Token is invalid or expired
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: false,
+      });
+    }
+  } catch (error) {
+    console.error("Error checking login status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
 };
 
 export const requestPasswordReset = async (req, res) => {
@@ -147,8 +223,13 @@ export const requestPasswordReset = async (req, res) => {
     });
 
   try {
-    const user = await prisma.sasStaff.findUnique({
-      where: { email: email },
+    const user = await prisma.sasStaff.findFirst({
+      where: {
+        email: email,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: { sasStaffId: true, email: true },
     });
 
     if (!user)
@@ -157,24 +238,23 @@ export const requestPasswordReset = async (req, res) => {
         .json({ success: false, message: "Email not found in database" });
 
     const OTPcode = generateCode();
-    storeOTP(email, OTPcode);
 
-    // ✅ Send email asynchronously (no admin email query needed)
-    sendCodeToEmail(email, OTPcode)
+    sendCodeToEmail(user.email, OTPcode)
       .then((success) => {
         if (success) {
           console.log(`✅ OTP sent to ${email}`);
         } else {
-          console.error(`❌ Failed to send OTP to ${email}`);
-          deleteOTP(email); // Clean up if email fails
+          console.error(`❌ Failed to send OTP to ${user.email}`);
+          deleteOTP(user.email); // Clean up if email fails
         }
       })
       .catch((error) => {
-        console.error(`❌ Error sending OTP to ${email}:`, error);
-        deleteOTP(email);
+        console.error(`❌ Error sending OTP to ${user.email}:`, error);
+        deleteOTP(user.email);
       });
 
-    // ✅ Respond immediately to user
+    storeOTP(user.email, OTPcode);
+
     return res.status(200).json({
       success: true,
       message: "Verification code sent successfully",
@@ -257,15 +337,12 @@ export const resetPassword = async (req, res) => {
     const { newPassword } = req.body;
     const authHeader = req.headers.authorization;
 
-    console.log("Auth Header:", authHeader);
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
         message: "No authorization token provided",
       });
     }
-
     const resetToken = authHeader.split(" ")[1];
     console.log("Token extracted:", resetToken.substring(0, 20) + "...");
 
@@ -302,9 +379,17 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Check if user exists
-    const user = await prisma.sasStaff.findUnique({
-      where: { email },
+    const user = await prisma.sasStaff.findFirst({
+      where: {
+        email: email,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: {
+        sasStaffId: true,
+        email: true,
+        hashedPassword: true,
+      },
     });
 
     if (!user) {
@@ -314,7 +399,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // ✅ NEW: Check if new password is the same as old password
     const isSamePassword = await bcrypt.compare(
       newPassword,
       user.hashedPassword
@@ -327,11 +411,9 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash and update the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
     await prisma.sasStaff.update({
-      where: { email: email },
+      where: { sasStaffId: user.sasStaffId }, // ✅ Use sasStaffId for update
       data: {
         hashedPassword: hashedPassword,
         updatedAt: new Date(),
@@ -345,11 +427,13 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "An error occurred while resetting password",
+      message:
+        "Internal Server Error, An error occurred while resetting password",
       error: error.message,
     });
   }
 };
+
 export const verifyUser = (req, res) => {
   try {
     res.status(200).json({ success: true, user: req.user });
