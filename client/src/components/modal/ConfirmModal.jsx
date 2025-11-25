@@ -27,7 +27,7 @@ export default function ConfirmModal({
   
   // 🔹 New Props
   cancelButtonClass = "px-4 py-3 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-xl w-1/2 font-medium cursor-pointer",
-  confirmButtonClass = "px-4 py-3 bg-[#1A73E8] text-white hover:bg-blue-700 rounded-xl w-1/2 font-medium cursor-pointer",
+  confirmButtonClass = "px-4 py-3 bg-[#1A73E8] text-white hover:bg-[#1456AE] rounded-xl w-1/2 font-medium cursor-pointer",
 }) {
   if (!isOpen) return null;
 
@@ -51,7 +51,7 @@ export default function ConfirmModal({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute cursor-pointer top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
               disabled={loading && showLoading}
             >
               <X size={25} />

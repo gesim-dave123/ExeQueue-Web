@@ -3,6 +3,7 @@ node_modules
 .env
 
 /src/generated/prisma
+/src/old_files
 
 seed.js
 server/prisma/seed.js

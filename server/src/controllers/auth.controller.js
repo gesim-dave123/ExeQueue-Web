@@ -1,119 +1,154 @@
-import { Role } from '@prisma/client'
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import {generateCode,sendCodeToEmail,storeOTP,getOTP,markOTPAsUsed,deleteOTP} from '../services/queue/generateOTP.js'
-import prisma from '../../prisma/prisma.js'
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import prisma from "../../prisma/prisma.js";
+import {
+  deleteOTP,
+  generateCode,
+  getOTP,
+  markOTPAsUsed,
+  sendCodeToEmail,
+  storeOTP,
+} from "../services/queue/generateOTP.js";
 
-export const loginUser = async (req, res) =>{
-  const {username, password} = req.body
-  console.log("Hereee")
+export const loginUser = async (req, res) => {
+  const { username, password } = req.body;
+
   try {
-    if (!username || !password)
-      return res
-        .status(403)
-        .json({ success: false, message: "Required Fields are missing!" });
-    const user = await prisma.sasStaff.findUnique({
-      where: {
-        username: username,
-      },
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields are missing!",
+      });
+    }
+
+    const user = await prisma.sasStaff.findFirst({
+      where: { username, isActive: true, deletedAt: null },
       select: {
         sasStaffId: true,
         hashedPassword: true,
         role: true,
-        isActive: true,
-        // serviceWindowId: true
+        username: true,
       },
     });
 
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "Account not found!" });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found!",
+      });
+    }
 
     const decrypt = await bcrypt.compare(password, user.hashedPassword);
-    if (!decrypt)
-      return res
-        .status(403)
-        .json({ success: false, message: "Invalid Credentials" });
+    if (!decrypt) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid Credentials",
+      });
+    }
 
-    const token = await jwt.sign(
-      {
-        id: user.sasStaffId,
-        role: user.role,
-        isActive: user.isActive,
-        // serviceWindowId: user.serviceWindowId
-      },
+    // Generate token *only after password is correct*
+    const token = jwt.sign(
+      { id: user.sasStaffId, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: user.role === Role.PERSONNEL ? "10h" : "5h" }
+      { expiresIn: "12h" }
     );
 
+    // Clear old token only now
+    res.clearCookie("access_token");
+
+    // Set new token
     res.cookie("access_token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+      secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
-      maxAge:
-        user.role === Role.PERSONNEL
-          ? 1000 * 60 * 60 * 20
-          : 1000 * 60 * 60 * 10,
+      maxAge: 1000 * 60 * 60 * 12,
     });
 
     return res.status(200).json({
       success: true,
-      message: "Logged In Successfully!",
-      role: user.role,
-      // serviceWindowId: user.serviceWindowId,
-      token: token,
+      message: "Login Successful",
+      user: {
+        id: user.sasStaffId,
+        username: user.username,
+        role: user.role,
+      },
     });
-  } catch (error) {
-    console.error("Error in Login: ", error);
-    return res
-      .status(500)
-      .json({ sucess: false, message: "Internal Server Error!" });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
   }
-};
-
-export const createUser = (req, res) => {
-  const {
-    username,
-    password,
-    first_name,
-    last_name,
-    middle_name,
-    email,
-    role,
-  } = req.body;
-
-  try {
-    if (
-      !username?.trim() ||
-      !password?.trim() ||
-      !email?.trim() ||
-      !role?.trim()
-    ) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Required fields are missing!" });
-    }
-    if (!first_name?.trim() || !last_name?.trim())
-      return res.status(403).json({});
-    // TODO: Continue this part, it should validate all fields
-  } catch (error) {}
 };
 
 export const logoutUser = (req, res) => {
   res.clearCookie("access_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
   });
 
   return res.status(200).json({
-    success:true,
-    message: "Logged Out Successfully!"
-  })
+    success: true,
+    message: "Logged Out Successfully!",
+  });
 };
 
+// Force logout endpoint (clears cookie even if token is invalid)
+export const forceLogout = (req, res) => {
+  res.clearCookie("access_token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Successfully logged out!",
+  });
+};
+
+//Check login status endpoint
+export const checkLoginStatus = (req, res) => {
+  try {
+    const token = req.cookies.access_token;
+
+    if (!token) {
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: false,
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: true,
+        user: {
+          id: decoded.id,
+          role: decoded.role,
+        },
+      });
+    } catch (error) {
+      // Token is invalid or expired
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: false,
+      });
+    }
+  } catch (error) {
+    console.error("Error checking login status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
 
 export const requestPasswordReset = async (req, res) => {
   const correctEmail = (email) => {
@@ -122,124 +157,239 @@ export const requestPasswordReset = async (req, res) => {
 
   const { email } = req.body;
 
-  if (!email) return res.status(400).json({success: false, message: "Email is required"});
-  
-  if (!correctEmail(email)) return res.status(400).json({success: false,message: "Invalid email format. Must be a Gmail address"});
-  
-  try {
-    const user = await prisma.sasStaff.findUnique({
-      where: {
-        email: email
-      }
+  if (!email)
+    return res
+      .status(400)
+      .json({ success: false, message: "Email is required" });
+
+  if (!correctEmail(email))
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email format. Must be a valid Gmail address",
     });
 
-    if (!user) return res.status(404).json({ success: false, message: "Email not found in database"});
-    
-    const OTPcode = generateCode();
-    storeOTP(email,OTPcode);
-    const adminEmail = await prisma.sasStaff.findUnique({
-      where:{
-        username: "admin2"
+  try {
+    const user = await prisma.sasStaff.findFirst({
+      where: {
+        email: email,
+        deletedAt: null,
+        isActive: true,
       },
-      select:{
-        email:true
-      }
-    })
-    
-    const emailSent = await sendCodeToEmail(email,adminEmail, OTPcode);
+      select: { sasStaffId: true, email: true },
+    });
 
-    if (!emailSent) return res.status(500).json({ success: false,message: "Failed to send verification email"});
-    
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "Email not found." });
+
+    const OTPcode = generateCode();
+
+    sendCodeToEmail(user.email, OTPcode)
+      .then((success) => {
+        if (success) {
+          console.log(`OTP sent to ${email}`);
+        } else {
+          console.error(`Failed to send OTP to ${user.email}`);
+          deleteOTP(user.email);
+        }
+      })
+      .catch((error) => {
+        console.error(`Error sending OTP to ${user.email}:`, error);
+        deleteOTP(user.email);
+      });
+
+    storeOTP(user.email, OTPcode);
+
+    const flowToken = jwt.sign(
+      {
+        email: user.email,
+        purpose: "otp-flow",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "5m" }
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Verification code sent successfully", 
+      message: "Verification code sent successfully",
+      email: user.email,
+      flowToken: flowToken,
     });
-
   } catch (error) {
-    console.error('Error in requestPasswordReset:', error);
+    console.error("Error in requestPasswordReset:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
 
 export const verifyEmail = async (req, res) => {
+  const { receivedOTP, email, flowToken } = req.body;
   try {
-    const { recievedOTP, email } = req.body;
-    if (!recievedOTP) return res.status(400).json({ success: false, message: "Code is Required"});
-    
-    if (!email) return res.status(400).json({success: false, message: "Email is Required"});
+    if (!receivedOTP)
+      return res
+        .status(400)
+        .json({ success: false, message: "OTP is Required" });
 
-    const OTPcode = getOTP(email);
-
-    if (!OTPcode) return res.status(404).json({success: false,message: "OTP not found or has expired. Please try again"});
-    
-    if (Date.now() > OTPcode.expires_at) {
-      deleteOTP(email);
-      return res.status(400).json({ success: false, message: "OTP has expired. Please request a new code"});
-    }
-
-    if (recievedOTP !== OTPcode.code) {
-      return res.status(400).json({
+    if (!email)
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is Required" });
+    if (!flowToken)
+      return res.status(401).json({
         success: false,
-        message: "Invalid OTP. Please try again"
+        message: "Token required. Please try again.",
+      });
+
+    const decodedFlow = jwt.verify(flowToken, process.env.JWT_SECRET);
+    if (decodedFlow.purpose !== "otp-flow" || decodedFlow.email !== email) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or mismatched token.",
       });
     }
 
-    if (OTPcode.is_used) return res.status(400).json({success: false,message: "OTP has already been used"});
-    
+    const OTPcode = getOTP(email);
+
+    if (!OTPcode)
+      return res.status(404).json({
+        success: false,
+        message: "OTP has expired. Please try again",
+      });
+
+    if (Date.now() > OTPcode.expires_at) {
+      deleteOTP(email);
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new code",
+      });
+    }
+
+    if (receivedOTP !== OTPcode.code) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP. Please try again",
+      });
+    }
+
+    if (OTPcode.is_used)
+      return res
+        .status(400)
+        .json({ success: false, message: "OTP has already been used" });
+
     markOTPAsUsed(email);
     deleteOTP(email);
 
+    const resetToken = jwt.sign(
+      { email, purpose: "password-reset" },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Email verified successfully"
+      message: "Email verified successfully",
+      resetToken,
     });
-
   } catch (error) {
-    console.error('Verify email error:', error);
+    console.error("Verify email error:", error);
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "The password reset session has expired. Please restart.",
+      });
+    }
     return res.status(500).json({
       success: false,
-      message: "An error occurred. Please try again later"
+      message: "An error occurred. Please try again later",
     });
   }
 };
 
 export const resetPassword = async (req, res) => {
   try {
-    const { newPassword, confirmPassword, email } = req.body;
+    const { newPassword } = req.body;
+    const authHeader = req.headers.authorization;
 
-    if (!newPassword || !confirmPassword || !email) {
-      return res.status(400).json({
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
         success: false,
-        message: "Email and passwords are required",
+        message: "No authorization token provided",
+      });
+    }
+    const resetToken = authHeader.split(" ")[1];
+    console.log("Token extracted:", resetToken.substring(0, 20) + "...");
+
+    let decoded;
+    try {
+      decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        return res.status(401).json({
+          success: false,
+          message: "Reset token has expired. Please request a new one.",
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        message: "Invalid reset token",
       });
     }
 
-
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({
+    if (decoded.purpose !== "password-reset") {
+      return res.status(401).json({
         success: false,
-        message: "Password and Confirm Password do not match",
+        message: "Invalid token purpose",
       });
     }
 
-    const user = await prisma.sasStaff.findUnique({
-      where: { email },
+    const { email } = decoded;
+
+    // Validate password length
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Your password must be 8 characters long",
+      });
+    }
+
+    const user = await prisma.sasStaff.findFirst({
+      where: {
+        email: email,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: {
+        sasStaffId: true,
+        email: true,
+        hashedPassword: true,
+      },
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Email not found in database",
+        message: "User not found",
       });
     }
-  
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+    const isSamePassword = await bcrypt.compare(
+      newPassword,
+      user.hashedPassword
+    );
+
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password cannot be the same as your old password",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.sasStaff.update({
-      where: { email },
+      where: { sasStaffId: user.sasStaffId }, // ✅ Use sasStaffId for update
       data: {
         hashedPassword: hashedPassword,
         updatedAt: new Date(),
@@ -248,28 +398,36 @@ export const resetPassword = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Password changed successfully",
+      message: "Password reset successfully",
     });
   } catch (error) {
-    console.error("Reset password error:", error);
     return res.status(500).json({
       success: false,
-      message: "An error occurred while resetting password",
+      message:
+        "Internal Server Error, An error occurred while resetting password",
+      error: error.message,
     });
   }
 };
 
 export const verifyUser = (req, res) => {
   try {
-    res.status(200).json({ success: true, user: req.user });
-  } catch (error) {
-    console.error("Error in verifying user: ", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error!" });
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        user: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error("Verify error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
   }
 };
-  
-
-
-

@@ -5,8 +5,11 @@ import {
   createQueueSession,
   currentServedQueue,
   determineNextQueue,
+  getQueue,
   getQueueList,
-  getQueueListByStatus, // Add this import
+  getQueueListByQuery,
+  manuallyCancelSkippedRequests,
+  manuallyFinalizeStalledRequests, // Add this import
   markQueueStatus,
   restoreSkippedQueue,
   setDeferredRequestStatus,
@@ -48,7 +51,7 @@ router.get(
   "/list",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
-  getQueueListByStatus
+  getQueueListByQuery
 );
 
 router.put(
@@ -86,10 +89,30 @@ router.put(
 );
 
 router.get(
-  "/current/:windowId",
+  "/current/window/:windowId",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   currentServedQueue
+);
+
+router.get(
+  "/get/:queueId/:referenceNumber",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getQueue
+);
+router.post(
+  "/test/finalize-stalled",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL),
+  manuallyFinalizeStalledRequests
+);
+
+router.post(
+  "/test/cancel-skipped",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL),
+  manuallyCancelSkippedRequests
 );
 
 export default router;

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Eye, EyeOff, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function InputModal({
   title,
@@ -12,26 +12,57 @@ export default function InputModal({
   errors = {},
 }) {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    username: '',
-    email: '',
-    newPassword: '',
-    confirmPassword: '',
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    newPassword: "",
+    confirmPassword: "",
   });
+  const [initialData, setInitialData] = useState({
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isConfirmPasswordFocused, setIsConfirmPasswordFocused] =
+    useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isFirstNameFocused, setIsFirstNameFocused] = useState(false);
+  const [isLastNameFocused, setIsLastNameFocused] = useState(false);
+  const [isUsernameFocused, setIsUsernameFocused] = useState(false);
 
   const [localErrors, setLocalErrors] = useState({});
 
+  // Email validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateGmail = (email) => {
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    return gmailRegex.test(email);
+  };
+
   useEffect(() => {
     if (accountData) {
-      setFormData({
-        firstName: accountData.firstName || '',
-        lastName: accountData.lastName || '',
-        username: accountData.username || '',
-        email: accountData.email || '',
-        newPassword: '',
-        confirmPassword: '',
-      });
+      const initialFormData = {
+        firstName: accountData.firstName || "",
+        lastName: accountData.lastName || "",
+        username: accountData.username || "",
+        email: accountData.email || "",
+        newPassword: "",
+        confirmPassword: "",
+      };
+      
+      setFormData(initialFormData);
+      setInitialData(initialFormData);
     }
   }, [accountData]);
 
@@ -42,32 +73,49 @@ export default function InputModal({
       ...formData,
       [name]: value,
     });
+  };
 
-    // Clear password errors when user types
-    if (name === 'newPassword' || name === 'confirmPassword') {
-      setLocalErrors({
-        ...localErrors,
-        passwordLength: '',
-        passwordMatch: '',
-      });
-    }
+  // Check if there are any changes
+  const hasChanges = () => {
+    return (
+      formData.firstName !== initialData.firstName ||
+      formData.lastName !== initialData.lastName ||
+      formData.username !== initialData.username ||
+      formData.email !== initialData.email ||
+      formData.newPassword !== "" ||
+      formData.confirmPassword !== ""
+    );
   };
 
   const handleSubmit = () => {
+    // Don't submit if no changes
+    if (!hasChanges()) {
+      return;
+    }
+
     // Clear previous errors
     setLocalErrors({});
     let errors = {};
+
+    // Email validation
+    if (formData.email) {
+      if (!validateEmail(formData.email)) {
+        errors.email = "Please enter a valid email address";
+      } else if (!validateGmail(formData.email)) {
+        errors.email = "Please enter a valid email address";
+      }
+    }
 
     // Check password length (only if password fields are filled)
     if (formData.newPassword || formData.confirmPassword) {
       if (formData.newPassword.length < 8) {
         errors.passwordLength =
-          'Your password must be at least 8 characters long.';
+          "Your password must be at least 8 characters long.";
       }
 
       // Check if passwords match
       if (formData.newPassword !== formData.confirmPassword) {
-        errors.passwordMatch = 'Passwords do not match';
+        errors.passwordMatch = "Passwords do not match";
       }
     }
 
@@ -87,18 +135,22 @@ export default function InputModal({
     }
   };
 
-  // Check if all required fields are filled
+  // Check if all required fields are filled AND there are changes
   const isFormValid = () => {
     return (
-      formData.firstName.trim() !== '' &&
-      formData.lastName.trim() !== '' &&
-      formData.username.trim() !== '' &&
-      formData.email.trim() !== ''
+      formData.firstName.trim() !== "" &&
+      formData.lastName.trim() !== "" &&
+      formData.username.trim() !== "" &&
+      formData.email.trim() !== "" &&
+      hasChanges()
     );
   };
 
   if (!isOpen) return null;
-
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const toggleConfirmPasswordVisibility = () =>
+    setShowConfirmPassword(!showConfirmPassword);
+  
   return (
     <>
       {/* Backdrop */}
@@ -122,7 +174,7 @@ export default function InputModal({
           <div className="mb-10">
             <h2 className="text-2xl font-semibold text-[#202124]">{title}</h2>
             <p className="text-sm text-[#686969] mt-1">
-              {details} {accountData?.username || 'personnels'}
+              {details} {accountData?.username || "personnels"}
             </p>
           </div>
 
@@ -139,16 +191,24 @@ export default function InputModal({
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
+                  onFocus={() => {
+                    setIsFirstNameFocused(true);
+                    // Clear error when focused
+                    setLocalErrors(prev => ({ ...prev, firstName: '' }));
+                  }}
+                  onBlur={() => setIsFirstNameFocused(false)}
                   placeholder="First Name"
-                  className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                    errors.firstName
-                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                  className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
+                    (errors.firstName || localErrors.firstName) && !isFirstNameFocused
+                      ? "border-red-500"
+                      : isFirstNameFocused
+                        ? "border-[#1A73E8]"
+                        : "border-[#DDEAFC]"
                   }`}
                 />
-                {errors.firstName && (
+                {(errors.firstName || localErrors.firstName) && !isFirstNameFocused && (
                   <p className="text-red-500 text-xs mt-1">
-                    {errors.firstName}
+                    {errors.firstName || localErrors.firstName}
                   </p>
                 )}
               </div>
@@ -161,15 +221,23 @@ export default function InputModal({
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
+                  onFocus={() => {
+                    setIsLastNameFocused(true);
+                    // Clear error when focused
+                    setLocalErrors(prev => ({ ...prev, lastName: '' }));
+                  }}
+                  onBlur={() => setIsLastNameFocused(false)}
                   placeholder="Last Name"
-                  className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                    errors.lastName
-                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                      : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                  className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
+                    (errors.lastName || localErrors.lastName) && !isLastNameFocused
+                      ? "border-red-500"
+                      : isLastNameFocused
+                        ? "border-[#1A73E8]"
+                        : "border-[#DDEAFC]"
                   }`}
                 />
-                {errors.lastName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
+                {(errors.lastName || localErrors.lastName) && !isLastNameFocused && (
+                  <p className="text-red-500 text-xs mt-1">{errors.lastName || localErrors.lastName}</p>
                 )}
               </div>
             </div>
@@ -184,15 +252,23 @@ export default function InputModal({
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
+                onFocus={() => {
+                  setIsUsernameFocused(true);
+                  // Clear error when focused
+                  setLocalErrors(prev => ({ ...prev, username: '' }));
+                }}
+                onBlur={() => setIsUsernameFocused(false)}
                 placeholder="Username"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  errors.username
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
+                  (errors.username || localErrors.username) && !isUsernameFocused
+                    ? "border-red-500"
+                    : isUsernameFocused
+                      ? "border-[#1A73E8]"
+                      : "border-[#DDEAFC]"
                 }`}
               />
-              {errors.username && (
-                <p className="text-red-500 text-xs mt-1">{errors.username}</p>
+              {(errors.username || localErrors.username) && !isUsernameFocused && (
+                <p className="text-red-500 text-xs mt-1">{errors.username || localErrors.username}</p>
               )}
             </div>
 
@@ -206,36 +282,68 @@ export default function InputModal({
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                onFocus={() => {
+                  setIsEmailFocused(true);
+                  // Clear error when focused
+                  setLocalErrors(prev => ({ ...prev, email: '' }));
+                }}
+                onBlur={() => setIsEmailFocused(false)}
                 placeholder="Email"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  errors.email
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
+                className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
+                  (localErrors.email || errors.email) && !isEmailFocused
+                    ? "border-red-500"
+                    : isEmailFocused
+                      ? "border-[#1A73E8]"
+                      : "border-[#DDEAFC]"
                 }`}
               />
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+              {(localErrors.email || errors.email) && !isEmailFocused && (
+                <p className="text-red-500 text-xs mt-1">
+                  {localErrors.email || errors.email}
+                </p>
               )}
             </div>
 
             {/* New Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                New Password
+               {title === "Add Account" ? "Password" : "New Password"} 
               </label>
-              <input
-                type="password"
-                name="newPassword"
-                value={formData.newPassword}
-                onChange={handleChange}
-                placeholder="New Password"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordLength
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
-                }`}
-              />
-              {localErrors.passwordLength && (
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="newPassword"
+                  value={formData.newPassword}
+                  onChange={handleChange}
+                  onFocus={() => {
+                    setIsPasswordFocused(true);
+                    // Clear error when focused
+                    setLocalErrors(prev => ({ ...prev, passwordLength: '' }));
+                  }}
+                  onBlur={() => setIsPasswordFocused(false)}
+                  placeholder={title === "Add Account" ? "Password" : "New Password"}
+                  className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
+                    localErrors.passwordLength && !isPasswordFocused
+                      ? "border-red-500"
+                      : isPasswordFocused
+                        ? "border-[#1A73E8]"
+                        : "border-[#DDEAFC]"
+                  }`}
+                />
+                {isPasswordFocused && (
+                  <button
+                    type="button"
+                    className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      togglePasswordVisibility();
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                )}
+              </div>
+              {localErrors.passwordLength && !isPasswordFocused && (
                 <p className="text-red-500 text-xs mt-1">
                   {localErrors.passwordLength}
                 </p>
@@ -247,24 +355,51 @@ export default function InputModal({
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Confirm Password
               </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirm Password"
-                className={`w-full px-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 transition ${
-                  localErrors.passwordMatch
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500'
-                    : 'border-[#DDEAFC] focus:ring-[#DDEAFC] focus:border-transparent'
-                }`}
-              />
-              {localErrors.passwordMatch && (
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onFocus={() => {
+                    setIsConfirmPasswordFocused(true);
+                    // Clear error when focused
+                    setLocalErrors(prev => ({ ...prev, passwordMatch: '' }));
+                  }}
+                  onBlur={() => setIsConfirmPasswordFocused(false)}
+                  placeholder="Confirm Password"
+                  className={`w-full px-4 py-3 border-2 rounded-2xl focus:outline-none transition-all ${
+                    localErrors.passwordMatch && !isConfirmPasswordFocused
+                      ? "border-red-500"
+                      : isConfirmPasswordFocused
+                        ? "border-[#1A73E8]"
+                        : "border-[#DDEAFC]"
+                  }`}
+                />
+                {isConfirmPasswordFocused && (
+                  <button
+                    type="button"
+                    className="absolute cursor-pointer right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      toggleConfirmPasswordVisibility();
+                    }}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={20} />
+                    ) : (
+                      <Eye size={20} />
+                    )}
+                  </button>
+                )}
+              </div>
+              {localErrors.passwordMatch && !isConfirmPasswordFocused && (
                 <p className="text-red-500 text-xs mt-1">
                   {localErrors.passwordMatch}
                 </p>
               )}
             </div>
+            
           </div>
 
           {/* Save Button */}
@@ -274,8 +409,8 @@ export default function InputModal({
               disabled={!isFormValid()}
               className={`px-6 py-3 rounded-xl transition font-medium ${
                 isFormValid()
-                  ? 'bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer"
+                  : "bg-[#1A73E8]/40 text-white cursor-not-allowed"
               }`}
             >
               {submitType}

@@ -1,35 +1,59 @@
-import { Role } from '@prisma/client';
-import express from 'express';
+import { Role } from "@prisma/client";
+import express from "express";
 import {
-  getDashboardStatistics,
   getAnalyticsData,
+  getDashboardStatistics,
+  getLiveDisplayData,
   getTodayAnalytics,
-} from '../controllers/statistics.controller.js';
+  streamDashboardUpdates,
+  streamLiveDisplayUpdates,
+} from "../controllers/statistics.controller.js";
 import {
   authenticateToken,
   authorizeRoles,
-} from '../middlewares/auth.middleware.js';
+} from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
 router.get(
-  '/dashboard',
+  "/dashboard",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   getDashboardStatistics
 );
+router.get(
+  "/dashboard/stream",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  streamDashboardUpdates
+); // ✅ Add this line
 //this week analytics
 router.get(
-  '/week',
+  "/week",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL),
   getAnalyticsData
 );
 //today analytics
 router.get(
-  '/today',
+  "/today",
   authenticateToken,
   authorizeRoles(Role.PERSONNEL),
   getTodayAnalytics
 );
+
+router.get(
+  "/queue/live",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  getLiveDisplayData
+);
+
+router.get(
+  "/queue/live/stream",
+  authenticateToken,
+  authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
+  streamLiveDisplayUpdates
+);
+
 export default router;

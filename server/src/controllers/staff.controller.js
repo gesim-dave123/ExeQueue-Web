@@ -1,15 +1,15 @@
-import { Status } from "@prisma/client";
+import { Role, Status } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import prisma from "../../prisma/prisma.js";
 import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
 import { getShiftTag } from "../../utils/shiftTag.js";
-import bcrypt from 'bcryptjs';
-import { Role } from '@prisma/client';
+import { QueueActions, WindowEvents } from "../services/enums/SocketEvents.js";
+// import { sendDashboardUpdate } from "./sse.controllers.js";
+import { scheduleAssignmentTimer } from "../services/Window/windowAssignment.service.js";
 import {
-  QueueActions,
-  QueueEvents,
-  WindowEvents,
-} from "../services/enums/SocketEvents.js";
-
+  sendDashboardUpdate,
+  sendLiveDisplayUpdate,
+} from "./statistics.controller.js";
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
@@ -74,12 +74,16 @@ export const assignServiceWindow = async (req, res) => {
 
       return assignment;
     });
-
-    io.emit(WindowEvents.WINDOW_ASSIGNED, {
-      windowId,
-      staff: result.staff,
-      message: `Window ${windowId} assigned to ${result.staff.firstName}`,
-    });
+    scheduleAssignmentTimer(
+      result.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      io
+    );
+    // io.emit(WindowEvents.ASSIGN_WINDOW, {
+    //   windowId,
+    //   staff: result.staff,
+    //   message: `Window ${windowId} assigned to ${result.staff.firstName}`,
+    // });
 
     return res.status(201).json({
       success: true,
@@ -87,7 +91,7 @@ export const assignServiceWindow = async (req, res) => {
       assignment: result,
     });
   } catch (error) {
-    console.error("❌ Error assigning staff:", error);
+    console.error("Error assigning staff:", error);
 
     // Handle unique constraint (window already taken)
     if (error.code === "P2002" && error.meta?.target?.includes("windowId")) {
@@ -120,7 +124,6 @@ export const releaseServiceWindow = async (req, res) => {
     const io = req.app.get("io");
 
     const result = await prisma.$transaction(async (tx) => {
-      // Find the active assignment first
       const activeAssignment = await tx.windowAssignment.findFirst({
         where: { sasStaffId, shiftTag: shift, releasedAt: null },
         include: {
@@ -133,21 +136,27 @@ export const releaseServiceWindow = async (req, res) => {
       });
 
       if (!activeAssignment) {
-        throw new Error("No active window assignment found");
+        return res.status(203).json({
+          success: false,
+          messsage: "There is no active staff assigned to this window",
+          wasWindowAssigned: false,
+        });
       }
 
-      // 🆕 Check if there's a current queue being served by this window
       const currentQueue = await tx.queue.findFirst({
         where: {
           windowId: activeAssignment.windowId,
           queueStatus: Status.IN_SERVICE,
           // servedAt: null, // Not yet completed
         },
+        select: {
+          queueId: true,
+          queueNumber: true,
+        },
       });
 
-      // 🆕 If there's a current queue, reset it back to WAITING
       if (currentQueue) {
-        await tx.queue.update({
+        const updatedQueue = await tx.queue.update({
           where: { queueId: currentQueue.queueId },
           data: {
             queueStatus: Status.WAITING,
@@ -155,60 +164,20 @@ export const releaseServiceWindow = async (req, res) => {
             servedByStaff: null,
             calledAt: null,
           },
-        });
-
-        // ✅ Get complete queue data with requests for perfect sync
-        const queueWithRequests = await tx.queue.findUnique({
-          where: { queueId: currentQueue.queueId },
-          include: {
-            requests: {
-              where: { isActive: true },
-              include: {
-                requestType: {
-                  select: {
-                    requestTypeId: true,
-                    requestName: true,
-                  },
-                },
-              },
-            },
+          select: {
+            queueId: true,
+            referenceNumber: true,
+            windowId: true,
           },
         });
-
-        io.to(QueueEvents.REFETCH).emit(QueueActions.QUEUE_RESET, {
-          // ✅ Core queue identification & formatting
-          queueId: queueWithRequests.queueId,
-          queueType: queueWithRequests.queueType, // PRIORITY or REGULAR
-          queueNumber: queueWithRequests.queueNumber, // For queueNo formatting
-          queueStatus: Status.WAITING,
-          windowId: null,
-          studentFullName: queueWithRequests.studentFullName,
-          studentId: queueWithRequests.studentId,
-          courseCode: queueWithRequests.courseCode,
-          yearLevel: queueWithRequests.yearLevel,
-          createdAt: queueWithRequests.createdAt,
-          referenceNumber: queueWithRequests.referenceNumber,
+        io.emit(QueueActions.QUEUE_RESET, {
+          queueId: updatedQueue.queueId,
+          windowId: updatedQueue.windowId,
+          referenceNumber: updatedQueue.referenceNumber,
           previousWindowId: activeAssignment.windowId,
-          reason: "Window released",
-          requests: queueWithRequests.requests.map((req) => ({
-            requestId: req.requestId,
-            queueId: queueWithRequests.queueId,
-            requestTypeId: req.requestTypeId,
-            requestStatus: req.requestStatus,
-            isActive: req.isActive,
-            createdAt: req.createdAt,
-            updatedAt: req.updatedAt,
-            requestType: {
-              requestTypeId: req.requestType.requestTypeId,
-              requestName: req.requestType.requestName,
-            },
-          })),
-
-          timestamp: Date.now(),
         });
       }
 
-      // Release the window assignment
       const released = await tx.windowAssignment.updateMany({
         where: { sasStaffId, shiftTag: shift, releasedAt: null },
         data: { releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila") },
@@ -221,8 +190,7 @@ export const releaseServiceWindow = async (req, res) => {
         resetQueue: currentQueue,
       };
     });
-
-    io.to(QueueEvents.REFETCH).emit(WindowEvents.RELEASE_WINDOW, {
+    io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, {
       windowId: result.windowId,
       previousWindowId: result.windowId,
       sasStaffId,
@@ -230,7 +198,34 @@ export const releaseServiceWindow = async (req, res) => {
       resetQueue: result.resetQueue
         ? {
             queueId: result.resetQueue.queueId,
-            queueNo: result.resetQueue.queueNo,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+    sendDashboardUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    sendLiveDisplayUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
           }
         : null,
       message: `${result.windowName} was released.`,
@@ -239,9 +234,10 @@ export const releaseServiceWindow = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: result.resetQueue
-        ? `Window released and queue ${result.resetQueue.queueNo} reset to waiting`
+        ? `Window released and queue ${result.resetQueue.queueNumber} reset to waiting`
         : "Window released successfully",
       resetQueue: result.resetQueue,
+      wasWindowAssigned: true,
     });
   } catch (error) {
     console.error("❌ Error releasing window:", error);
@@ -323,7 +319,6 @@ export const checkAvailableWindow = async (req, res) => {
     }
 
     const shift = getShiftTag(); // returns "MORNING", "AFTERNOON", "EVENING"
-    console.log(shift);
     const assignedWindows = await prisma.windowAssignment.findMany({
       where: {
         windowId: { in: windowIds },
@@ -337,7 +332,6 @@ export const checkAvailableWindow = async (req, res) => {
     });
 
     const assignedIds = assignedWindows.map((a) => a.windowId);
-    console.log(assignedIds);
     const availableWindows = windowIds.filter(
       (id) => !assignedIds.includes(id)
     );
@@ -362,7 +356,15 @@ export const updateWindowHeartbeat = async (req, res) => {
     const { windowId } = req.body;
     const io = req.app.get("io");
     const shift = getShiftTag();
-    const HEARTBEAT_INTERVAL = 30 * 1000; // 30 seconds
+    const HEARTBEAT_INTERVAL = 2 * 60 * 1000;
+
+    // Validate windowId
+    if (!windowId) {
+      return res.status(400).json({
+        success: false,
+        message: "windowId is required",
+      });
+    }
 
     const assignment = await prisma.windowAssignment.findFirst({
       where: {
@@ -371,7 +373,10 @@ export const updateWindowHeartbeat = async (req, res) => {
         shiftTag: shift,
         releasedAt: null,
       },
-      select: { lastHeartbeat: true },
+      select: {
+        assignmentId: true,
+        lastHeartbeat: true,
+      },
     });
 
     if (!assignment) {
@@ -382,52 +387,63 @@ export const updateWindowHeartbeat = async (req, res) => {
     }
 
     const now = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
-    const timeSinceLastHeartbeat =
-      now.getTime() - new Date(assignment.lastHeartbeat).getTime();
 
-    // Only update if heartbeat is older than interval
-    if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
-      return res.status(200).json({
-        success: true,
-        message: "Heartbeat still fresh, skipped update",
-        skipped: true,
-      });
+    // Check if heartbeat needs updating
+    if (assignment.lastHeartbeat) {
+      const timeSinceLastHeartbeat =
+        now.getTime() - new Date(assignment.lastHeartbeat).getTime();
+
+      // Only update if heartbeat is older than interval
+      if (timeSinceLastHeartbeat < HEARTBEAT_INTERVAL) {
+        return res.status(200).json({
+          success: true,
+          message: "Heartbeat still fresh, skipped update",
+          skipped: true,
+          lastHeartbeat: assignment.lastHeartbeat,
+        });
+      }
     }
 
-    // Update only if needed
-    await prisma.windowAssignment.updateMany({
+    // Update heartbeat using the specific assignmentId
+    const updatedAssignment = await prisma.windowAssignment.update({
       where: {
-        sasStaffId,
-        windowId,
-        shiftTag: shift,
-        releasedAt: null,
+        assignmentId: assignment.assignmentId,
       },
       data: {
         lastHeartbeat: now,
       },
+      select: {
+        assignmentId: true,
+      },
     });
-
-    // Only emit socket event when actually updating
-    io.emit(WindowEvents.HEARTBEAT_UPDATE, {
-      windowId,
-      sasStaffId,
-      timestamp: now,
-    });
+    scheduleAssignmentTimer(
+      updatedAssignment.assignmentId,
+      DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      io
+    );
+    // Emit socket event for monitoring/debugging (optional)
+    if (io) {
+      io.emit(WindowEvents.HEARTBEAT_UPDATE, {
+        windowId,
+        sasStaffId,
+        timestamp: now,
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: "Heartbeat updated",
       updated: true,
+      lastHeartbeat: now,
     });
   } catch (error) {
-    console.error("❌ Error updating heartbeat:", error);
+    console.error("Error updating heartbeat:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
     });
   }
 };
-
 export const checkAndReleaseStaleAssignments = async (req, res) => {
   try {
     const io = req.app.get("io");
@@ -513,7 +529,6 @@ export const getServiceWindowDetails = async (req, res) => {
   } catch (error) {}
 };
 
-
 export const getWorkingScholars = async (req, res) => {
   try {
     const workingScholars = await prisma.sasStaff.findMany({
@@ -543,20 +558,20 @@ export const getWorkingScholars = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Working Scholar accounts retrieved successfully.',
+      message: "Working Scholar accounts retrieved successfully.",
       data: formattedScholars,
     });
   } catch (error) {
-    console.error('Error retrieving working scholars:', error);
+    console.error("Error retrieving working scholars:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve Working Scholar accounts.',
+      message: "Failed to retrieve Working Scholar accounts.",
     });
   }
 };
 
 export const createWorkingScholar = async (req, res) => {
-   try {
+  try {
     const creatorId = req.user?.sasStaffId;
 
     const {
@@ -573,38 +588,61 @@ export const createWorkingScholar = async (req, res) => {
       !username?.trim() ||
       !firstName?.trim() ||
       !lastName?.trim() ||
-      !email?.trim() ||
-      !password
+      !email?.trim()
     ) {
       return res
         .status(400)
-        .json({ success: false, message: 'Missing required fields.' });
+        .json({ success: false, message: "Missing required fields." });
+    }
+
+    if (!password || !password.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Password cannot be empty",
+        field: "password",
+      });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Password and confirmation do not match.',
+        message: "Passwords do not match",
+        field: "password",
       });
     }
-
-    // Check uniqueness for username and email (regardless of isActive)
-    const existing = await prisma.sasStaff.findFirst({
+    const existingUsername = await prisma.sasStaff.findFirst({
       where: {
-        OR: [{ username }, { email }],
+        username,
+        deletedAt: null,
+        isActive: true,
       },
       select: { sasStaffId: true, username: true, email: true },
     });
 
-    if (existing) {
-      if (existing.username === username) {
-        return res
-          .status(409)
-          .json({ success: false, message: 'Username already exists.' });
-      }
-      return res
-        .status(409)
-        .json({ success: false, message: 'Email already exists.' });
+    if (existingUsername) {
+      return res.status(409).json({
+        success: false,
+        message: "Username already exists",
+        field: "username",
+      });
+    }
+
+    // ✅ Check email separately
+    const existingEmail = await prisma.sasStaff.findFirst({
+      where: {
+        email,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: { sasStaffId: true, username: true, email: true },
+    });
+
+    if (existingEmail) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists",
+        field: "email",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -635,7 +673,7 @@ export const createWorkingScholar = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Working Scholar account created successfully.',
+      message: "Working Scholar account created successfully.",
       data: {
         sasStaffId: newAccount.sasStaffId,
         username: newAccount.username,
@@ -645,10 +683,10 @@ export const createWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error creating working scholar account:', error);
+    console.error("Error creating working scholar account:", error);
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -674,19 +712,22 @@ export const updateWorkingScholar = async (req, res) => {
         email: true,
         isActive: true,
         role: true,
+        deletedAt: true,
+        createdBy: true,
       },
     });
 
-    if (!account || !account.isActive) {
+    // Check if account exists and is not soft deleted
+    if (!account || !account.isActive || account.deletedAt !== null) {
       return res
         .status(404)
-        .json({ success: false, message: 'Account not found or inactive.' });
+        .json({ success: false, message: "Account not found or inactive." });
     }
 
     if (account.role !== Role.WORKING_SCHOLAR) {
       return res.status(403).json({
         success: false,
-        message: 'Can only update Working Scholar accounts.',
+        message: "Can only update Working Scholar accounts.",
       });
     }
 
@@ -698,38 +739,55 @@ export const updateWorkingScholar = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          'Both newPassword and confirmPassword are required to change password.',
+          "Both newPassword and confirmPassword are required to change password.",
       });
     }
     if (newPassword && confirmPassword) {
       if (newPassword !== confirmPassword) {
-        return res
-          .status(400)
-          .json({ success: false, message: 'Password does not match.' });
+        return res.status(400).json({
+          success: false,
+          message: "Passwords do not match.",
+          field: "password",
+        });
       }
       hashedPassword = await bcrypt.hash(newPassword, 10);
     }
 
+    // Check if username is being changed and if it's available
     if (username && username !== account.username) {
       const existingUsername = await prisma.sasStaff.findFirst({
-        where: { username },
+        where: {
+          username,
+          deletedAt: null, // ✅ Only check active accounts
+          sasStaffId: { not: sasStaffId }, // ✅ Exclude current account
+        },
         select: { sasStaffId: true },
       });
       if (existingUsername) {
-        return res
-          .status(409)
-          .json({ success: false, message: 'Username already in use.' });
+        return res.status(409).json({
+          success: false,
+          message: "Username already in use.",
+          field: "username",
+        });
       }
     }
+
+    // Check if email is being changed and if it's available
     if (email && email !== account.email) {
       const existingEmail = await prisma.sasStaff.findFirst({
-        where: { email },
+        where: {
+          email,
+          deletedAt: null, // ✅ Only check active accounts
+          sasStaffId: { not: sasStaffId }, // ✅ Exclude current account
+        },
         select: { sasStaffId: true },
       });
       if (existingEmail) {
-        return res
-          .status(409)
-          .json({ success: false, message: 'Email already in use.' });
+        return res.status(409).json({
+          success: false,
+          message: "Email already in use.",
+          field: "email",
+        });
       }
     }
 
@@ -738,13 +796,12 @@ export const updateWorkingScholar = async (req, res) => {
       ...(username ? { username } : {}),
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
-      ...(typeof middleName !== 'undefined'
+      ...(typeof middleName !== "undefined"
         ? { middleName: middleName ?? null }
         : {}),
       ...(email ? { email } : {}),
-      ...(typeof hashedPassword !== 'undefined' ? { hashedPassword } : {}),
+      ...(typeof hashedPassword !== "undefined" ? { hashedPassword } : {}),
       updatedAt: new Date(),
-      createdBy: account.createdBy ?? updaterId ?? null, // keep createdBy if any; optional
     };
 
     const updated = await prisma.sasStaff.update({
@@ -764,7 +821,7 @@ export const updateWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Account updated successfully.',
+      message: "Account updated successfully.",
       data: {
         sasStaffId: updated.sasStaffId,
         username: updated.username,
@@ -774,15 +831,37 @@ export const updateWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error updating working scholar account:', error);
+    console.error("Error updating working scholar account:", error);
+
+    // ✅ Handle Prisma unique constraint errors
+    if (error.code === "P2002") {
+      const field = error.meta?.target?.[0];
+
+      if (field === "email") {
+        return res.status(409).json({
+          success: false,
+          message: "Email already in use.",
+          field: "email",
+        });
+      }
+
+      if (field === "username") {
+        return res.status(409).json({
+          success: false,
+          message: "Username already in use.",
+          field: "username",
+        });
+      }
+    }
+
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
   }
 };
 
 export const softDeleteWorkingScholar = async (req, res) => {
-   try {
+  try {
     const { sasStaffId } = req.params;
 
     const account = await prisma.sasStaff.findUnique({
@@ -793,20 +872,20 @@ export const softDeleteWorkingScholar = async (req, res) => {
     if (!account) {
       return res
         .status(404)
-        .json({ success: false, message: 'Account not found.' });
+        .json({ success: false, message: "Account not found." });
     }
 
     if (account.role !== Role.WORKING_SCHOLAR) {
       return res.status(403).json({
         success: false,
-        message: 'Can only delete Working Scholar accounts.',
+        message: "Can only delete Working Scholar accounts.",
       });
     }
 
     if (!account.isActive) {
       return res
         .status(400)
-        .json({ success: false, message: 'Account already deleted.' });
+        .json({ success: false, message: "Account already deleted." });
     }
 
     const deleted = await prisma.sasStaff.update({
@@ -828,7 +907,7 @@ export const softDeleteWorkingScholar = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Account deleted successfully.',
+      message: "Account deleted successfully.",
       data: {
         sasStaffId: deleted.sasStaffId,
         username: deleted.username,
@@ -839,9 +918,678 @@ export const softDeleteWorkingScholar = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error soft-deleting account:', error);
+    console.error("Error soft-deleting account:", error);
     return res
       .status(500)
-      .json({ success: false, message: 'Internal Server Error' });
+      .json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+export const manualWindowRelease = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const { windowNum: windowNoStr } = req.params;
+    const io = req.app.get("io");
+    const shift = getShiftTag();
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+    if (!isIntegerParam(windowNoStr)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid window number, must be anumerical type!",
+      });
+    }
+    const windowNum = parseInt(windowNoStr);
+
+    if (isNaN(windowNum)) {
+      return res.status(400).json({
+        success: false,
+        message: "An error occurred while parsing window number!",
+      });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const window = await tx.serviceWindow.findFirst({
+        where: {
+          windowNo: windowNum,
+        },
+        select: {
+          windowId: true,
+        },
+      });
+
+      const activeAssignment = await tx.windowAssignment.findFirst({
+        where: {
+          windowId: window.windowId,
+          shiftTag: shift,
+          releasedAt: null,
+        },
+        select: {
+          serviceWindow: {
+            select: {
+              windowName: true,
+            },
+          },
+          assignmentId: true,
+          windowId: true,
+        },
+      });
+
+      if (!activeAssignment) {
+        return res.status(200).json({
+          success: false,
+          message: "There is no active staff assigned to this window",
+          wasWindowAssigned: false,
+        });
+      }
+
+      const currentQueue = await tx.queue.findFirst({
+        where: {
+          windowId: activeAssignment.windowId,
+          queueStatus: Status.IN_SERVICE,
+          // servedAt: null, // Not yet completed
+        },
+        select: {
+          queueId: true,
+          queueNumber: true,
+        },
+      });
+
+      if (currentQueue) {
+        const updatedQueue = await tx.queue.update({
+          where: { queueId: currentQueue.queueId },
+          data: {
+            queueStatus: Status.WAITING,
+            windowId: null,
+            servedByStaff: null,
+            calledAt: null,
+          },
+          select: {
+            queueId: true,
+            windowId: true,
+            referenceNumber: true,
+          },
+        });
+
+        io.emit(QueueActions.QUEUE_RESET, {
+          queueId: updatedQueue.queueId,
+          windowId: updatedQueue.windowId,
+          referenceNumber: updatedQueue.referenceNumber,
+          previousWindowId: activeAssignment.windowId,
+        });
+      }
+      const released = await tx.windowAssignment.update({
+        where: {
+          assignmentId: activeAssignment.assignmentId,
+        },
+        data: {
+          releasedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        select: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+            },
+          },
+          windowId: true,
+          shiftTag: true,
+          assignedAt: true,
+          releasedAt: true,
+        },
+      });
+
+      return {
+        releasedCount: released.count,
+        windowId: activeAssignment.windowId,
+        windowName: activeAssignment.serviceWindow.windowName,
+        resetQueue: currentQueue,
+      };
+    });
+
+    io.to(`window:${result.windowId}`).emit(WindowEvents.RELEASE_WINDOW, {
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      sasStaffId,
+      releasedByAdmin: true,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+    sendDashboardUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      releasedByAdmin: true,
+
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    sendLiveDisplayUpdate({
+      windowId: result.windowId,
+      previousWindowId: result.windowId,
+      releasedByAdmin: true,
+
+      sasStaffId,
+      shift,
+      resetQueue: result.resetQueue
+        ? {
+            queueId: result.resetQueue.queueId,
+            queueNo: result.resetQueue.queueNumber,
+          }
+        : null,
+      message: `${result.windowName} was released.`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: result.resetQueue
+        ? `Window released and queue ${result.resetQueue.queueNumber} reset to waiting`
+        : "Window released successfully",
+      resetQueue: result.resetQueue,
+      wasWindowAssigned: true,
+      releasedByAdmin: true,
+    });
+  } catch (error) {
+    console.error("Manual window release error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!" || error.message,
+    });
+  }
+};
+
+export const manualResetQueueNumber = async (req, res) => {
+  try {
+    const { queueType } = req.params;
+    const { sasStaffId, role } = req.user;
+    const io = req.app.get("io");
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+
+    const normalizedType = queueType?.toUpperCase();
+    if (!["REGULAR", "PRIORITY"].includes(normalizedType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid queue type. Must be REGULAR or PRIORITY.",
+      });
+    }
+
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    return await prisma.$transaction(async (tx) => {
+      const session = await tx.queueSession.findFirst({
+        where: {
+          sessionDate: todayUTC,
+          isActive: true,
+          isServing: true,
+          isAcceptingNew: true,
+        },
+        orderBy: { sessionNumber: "desc" },
+      });
+
+      if (!session) {
+        return res.status(203).json({
+          success: false,
+          messsage: "There is no active session found!",
+          activeSessionFound: false,
+          noActiveQueue: true,
+        });
+      }
+
+      const lastQueue = await tx.queue.findFirst({
+        where: {
+          sessionId: session.sessionId,
+          queueType: normalizedType,
+          isActive: true,
+        },
+        orderBy: { sequenceNumber: "desc" },
+      });
+
+      if (!lastQueue) {
+        return res.status(203).json({
+          success: false,
+          message: `No ${normalizedType} queues found to reset.`,
+          noActiveQueue: true,
+        });
+        // throw new Error(`No ${normalizedType} queues found to reset.`);
+      }
+
+      // ===========================================================
+      // 🧠 Store the SEQUENCE NUMBER where reset happened
+      // ===========================================================
+      let resetInfo = req.app.get("manualResetTriggered") || {};
+
+      if (!resetInfo[normalizedType]) {
+        resetInfo[normalizedType] = {
+          resetAtSequence: null, // NEW: track where reset happened
+          iteration: 0,
+          timestamp: null,
+        };
+      }
+
+      const newIteration = resetInfo[normalizedType].iteration + 1;
+
+      // Get current count from session
+      const counterField =
+        normalizedType === "REGULAR" ? "regularCount" : "priorityCount";
+      const currentSequence =
+        normalizedType === "REGULAR"
+          ? session.regularCount
+          : session.priorityCount;
+
+      resetInfo = {
+        ...resetInfo,
+        [normalizedType]: {
+          resetAtSequence: currentSequence, // Remember THIS sequence number
+          iteration: newIteration,
+          timestamp: Date.now(),
+        },
+      };
+
+      req.app.set("manualResetTriggered", resetInfo);
+
+      // ===========================================================
+      // 🔔 Notify all clients via Socket.IO
+      // ===========================================================
+      io.emit("QUEUE_RESET", {
+        queueType: normalizedType,
+        sessionId: session.sessionId,
+        iteration: newIteration,
+        triggeredBy: sasStaffId,
+        resetAtSequence: currentSequence,
+        message: `${normalizedType} queue manually reset (iteration ${newIteration}).`,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `${normalizedType} queue manually reset successfully.`,
+        resetInfo: {
+          queueType: normalizedType,
+          newIteration,
+          nextDisplayNumber: 1,
+          autoWrapLimit: 500,
+          resetAtSequence: currentSequence,
+          triggeredAt: new Date().toISOString(),
+        },
+        activeSessionFound: true,
+        noActiveQueue: false,
+      });
+    });
+  } catch (error) {
+    console.error("❌ Manual reset error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to reset queue.",
+    });
+  }
+};
+
+export const manualResetSession = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const io = req.app.get("io");
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    return await prisma.$transaction(async (tx) => {
+      const session = await tx.queueSession.findFirst({
+        where: {
+          sessionDate: todayUTC,
+          isActive: true,
+          isServing: true,
+          isAcceptingNew: true,
+        },
+        orderBy: { sessionNumber: "desc" },
+        select: {
+          sessionId: true,
+          sessionNumber: true,
+        },
+      });
+
+      if (!session) {
+        return res.status(203).json({
+          success: false,
+          messsage: "There is no active session found!",
+          activeSessionFound: false,
+        });
+      }
+      const nextSessionNo = session.sessionNumber + 1;
+      await tx.queueSession.update({
+        where: {
+          sessionId: session.sessionId,
+        },
+        data: {
+          isAcceptingNew: false,
+        },
+      });
+
+      const newSession = await tx.queueSession.create({
+        data: {
+          sessionDate: todayUTC,
+          sessionNumber: nextSessionNo || 1,
+          maxQueueNo: 500,
+          currentQueueCount: 0,
+          regularCount: 0,
+          priorityCount: 0,
+          isAcceptingNew: true,
+          isServing: true,
+          isActive: true,
+        },
+      });
+
+      let dataClause;
+
+      if (newSession) {
+        dataClause = {
+          message: "Queue Session resetted successfully!",
+          session: {
+            sessionId: newSession.sessionId,
+            sessionNumber: newSession.sessionNumber,
+            maxQueueNo: newSession.maxQueueNo,
+            currentQueueCount: newSession.currentQueueCount,
+            regularCount: newSession.regularCount,
+            priorityCount: newSession.priorityCount,
+            isAcceptingNew: newSession.isAcceptingNew,
+            isServing: newSession.isServing,
+            isActive: newSession.isActive,
+          },
+          activeSessionFound: true,
+        };
+      } else {
+        dataClause = {
+          message: "An error occurred while resetting queue session!",
+        };
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: dataClause,
+      });
+    });
+  } catch (error) {
+    console.error("Manual reset error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!" || error.message,
+    });
+  }
+};
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const accountData = req.body.accountData || req.body;
+    const { username, firstName, lastName, middleName, email, newPassword } =
+      accountData;
+
+    if (!sasStaffId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! No Id and Role provided!",
+      });
+    }
+
+    if (role !== Role.PERSONNEL) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Role is not of PERSONNEL!",
+      });
+    }
+
+    const sasStaff = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: { role: true },
+    });
+
+    if (sasStaff.role !== role) {
+      return res.status(400).json({
+        success: false,
+        message: "Unauthorized Operation! Database Role is not of PERSONNEL!",
+      });
+    }
+
+    const account = await prisma.sasStaff.findUnique({
+      where: { sasStaffId },
+      select: {
+        sasStaffId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        email: true,
+        isActive: true,
+        role: true,
+      },
+    });
+
+    if (!account || !account.isActive) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Account not found or inactive." });
+    }
+
+    // Only hash password if it's provided
+    let hashedPassword = undefined;
+    if (newPassword && newPassword.trim() !== "") {
+      hashedPassword = await bcrypt.hash(newPassword, 10);
+    }
+
+    // Check for duplicate username
+    if (username && username !== account.username) {
+      const existingUsername = await prisma.sasStaff.findFirst({
+        where: {
+          username,
+          sasStaffId: { not: sasStaffId },
+        },
+        select: { sasStaffId: true },
+      });
+      if (existingUsername) {
+        return res
+          .status(409)
+          .json({ success: false, message: "Username already in use." });
+      }
+    }
+
+    // Check for duplicate email
+    if (email && email !== account.email) {
+      const existingEmail = await prisma.sasStaff.findFirst({
+        where: {
+          email,
+          sasStaffId: { not: sasStaffId },
+        },
+        select: { sasStaffId: true },
+      });
+      if (existingEmail) {
+        return res
+          .status(409)
+          .json({ success: false, message: "Email already in use." });
+      }
+    }
+    // Build update object with only changed fields
+    const updateData = {};
+
+    if (username && username !== account.username) {
+      updateData.username = username;
+      console.log("Username changed:", account.username, "→", username);
+    }
+
+    if (firstName && firstName !== account.firstName) {
+      updateData.firstName = firstName;
+      console.log("FirstName changed:", account.firstName, "→", firstName);
+    }
+
+    if (lastName && lastName !== account.lastName) {
+      updateData.lastName = lastName;
+      console.log("LastName changed:", account.lastName, "→", lastName);
+    }
+
+    // Fixed middleName handling
+    if (typeof middleName !== "undefined") {
+      const newMiddleName = middleName || null;
+      const currentMiddleName = account.middleName || null;
+
+      console.log("🔍 MiddleName comparison:", {
+        received: middleName,
+        normalized: newMiddleName,
+        current: currentMiddleName,
+        areEqual: newMiddleName === currentMiddleName,
+      });
+
+      if (newMiddleName !== currentMiddleName) {
+        updateData.middleName = newMiddleName;
+        console.log(
+          "MiddleName changed:",
+          currentMiddleName,
+          "→",
+          newMiddleName
+        );
+      }
+    }
+
+    if (email && email !== account.email) {
+      updateData.email = email;
+      console.log("Email changed:", account.email, "→", email);
+    }
+
+    if (hashedPassword) {
+      updateData.hashedPassword = hashedPassword;
+      console.log("Password changed");
+    }
+
+    console.log("📦 Update data object:", updateData);
+
+    if (Object.keys(updateData).length === 0) {
+      console.log("No changes detected - all values match database");
+      return res.status(203).json({
+        success: true,
+        hasChanges: false,
+        message: "No changes",
+      });
+    }
+
+    // Add updatedAt timestamp
+    updateData.updatedAt = new Date();
+
+    const updated = await prisma.sasStaff.update({
+      where: { sasStaffId },
+      data: updateData,
+      select: {
+        sasStaffId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        email: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    console.log("✅ Update successful:", updated);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account updated successfully.",
+      data: {
+        updated: updated,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating personnel profile:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 };

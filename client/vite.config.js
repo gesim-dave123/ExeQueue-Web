@@ -13,5 +13,21 @@ export default defineConfig({
       '.trycloudflare.com', // allow all subdomains
       'localhost'
     ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000', 
+        changeOrigin: true,
+        secure: false,
+        // The rest down here is logging
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Server Log:', req.method, req.url, '→', options.target + req.url);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('UWU AN ERROR HAS OCCURED:', err);
+          });
+        }
+      }
+    }
   },
 })

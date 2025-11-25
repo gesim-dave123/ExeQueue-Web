@@ -119,25 +119,70 @@
 //   );
 // }
 
-import { ArrowLeft, Camera, Clock } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import DateAndTimeFormatter, {
-  FORMATS,
-} from '../../../../server/utils/DateAndTimeFormatter';
+import { motion } from "framer-motion";
+import { ArrowLeft, Camera, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import DateAndTimeFormatter from "../../../../server/utils/DateAndTimeFormatter";
+import { searchQueue } from "../../api/student";
+import ConfirmModal from "../../components/modal/ConfirmModal";
 
 export default function SearchQueueResult() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { queues, searchType, searchValue } = location.state || {};
+  const {
+    queues: initialQueues,
+    searchType,
+    searchValue,
+  } = location.state || {};
   const [selectedQueueIndex, setSelectedQueueIndex] = useState(0);
+  const [queues, setQueues] = useState(initialQueues);
+  const [query, setQuery] = useState("");
+  const [showModal, setShowModal] = useState(false);
 
   // Redirect back if no data
   useEffect(() => {
     if (!queues || queues.length === 0) {
-      navigate('/student/queue/search');
+      navigate("/student/queue/search");
     }
   }, [queues, navigate]);
+
+  const checkQueue = async () => {
+    if (!query || query.trim() === "") {
+      setShowModal(true);
+      return;
+    }
+
+    console.log("🔍 Starting search from result page...");
+    console.log("Search Query:", query.trim());
+
+    try {
+      // Determine if it's a studentId or referenceNumber
+      const isReferenceNumber = query.includes("-");
+
+      const searchParams = isReferenceNumber
+        ? { referenceNumber: query.trim() }
+        : { studentId: query.trim() };
+
+      console.log("📤 Sending search params:", searchParams);
+
+      const result = await searchQueue(searchParams);
+
+      console.log("✅ Search result received:", result);
+      console.log("Queue data:", result.data);
+
+      // Update the current page with new queue data
+      setQueues(result.data);
+      setSelectedQueueIndex(0);
+      setQuery(""); // Clear the search input
+    } catch (err) {
+      console.error("❌ Search error:", err);
+      console.error("Error response:", err.response?.data);
+
+      // Show modal if queue not found
+      setShowModal(true);
+    }
+  };
 
   if (!queues || queues.length === 0) {
     return null;
@@ -147,27 +192,27 @@ export default function SearchQueueResult() {
 
   // Format queue number with prefix
   const formatQueueNumber = (queueNumber, queueType) => {
-    const prefix = queueType === 'PRIORITY' ? 'P' : 'R';
-    return `${prefix}${String(queueNumber).padStart(3, '0')}`;
+    const prefix = queueType === "PRIORITY" ? "P" : "R";
+    return `${prefix}${String(queueNumber).padStart(3, "0")}`;
   };
 
   const formatYearLevel = (yearLevel) => {
     const yearMap = {
-      1: 'First Year',
-      2: 'Second Year',
-      3: 'Third Year',
-      4: 'Fourth Year',
-      5: 'Fifth Year',
-      '1st': 'First Year',
-      '2nd': 'Second Year',
-      '3rd': 'Third Year',
-      '4th': 'Fourth Year',
-      '5th': 'Fifth Year',
-      first: 'First Year',
-      second: 'Second Year',
-      third: 'Third Year',
-      fourth: 'Fourth Year',
-      fifth: 'Fifth Year',
+      1: "First Year",
+      2: "Second Year",
+      3: "Third Year",
+      4: "Fourth Year",
+      5: "Fifth Year",
+      "1st": "First Year",
+      "2nd": "Second Year",
+      "3rd": "Third Year",
+      "4th": "Fourth Year",
+      "5th": "Fifth Year",
+      first: "First Year",
+      second: "Second Year",
+      third: "Third Year",
+      fourth: "Fourth Year",
+      fifth: "Fifth Year",
     };
 
     return yearMap[yearLevel?.toLowerCase()] || yearLevel;
@@ -176,7 +221,7 @@ export default function SearchQueueResult() {
   return (
     <div className="min-h-[90vh] w-full flex justify-center items-center flex-col px-4 py-6">
       {/* Multiple Queue Navigation */}
-      {queues.length > 1 && (
+      {/* {queues.length > 1 && (
         <div className="w-full max-w-md mb-6 bg-white rounded-xl shadow-md p-4">
           <p className="text-sm text-gray-600 mb-3 text-center">
             Found{' '}
@@ -201,32 +246,61 @@ export default function SearchQueueResult() {
             ))}
           </div>
         </div>
-      )}
+      )} */}
+
+      <div className="flex w-full max-w-md rounded-full overflow-hidden border border-[#1A73E8] bg-white focus-within:ring-2 focus-within:ring-blue-400 mb-15">
+        {/* Input Field */}
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search Queue"
+          className="flex-1 px-4 py-3 outline-none text-sm sm:text-base font-normal bg-white placeholder-gray-500"
+        />
+
+        {/* Search Button / Icon */}
+        <button
+          onClick={checkQueue}
+          className="w-18 h-md flex items-center justify-center bg-[#1A73E8] hover:bg-[#1557B0] transition-colors"
+        >
+          <img src="/assets/Search icon.png" alt="search" className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Note */}
-      <div className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-blue-600 text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+        className="w-full max-w-md border border-dashed bg-white border-blue-400 rounded-xl px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-4 text-[#1A73E8] text-xs sm:text-sm md:text-base font-semibold mb-4 flex items-center justify-center gap-2"
+      >
         <Camera size={18} className="flex-shrink-0" />
         <span className="text-center">
           Take a picture to keep note of your queue
         </span>
-      </div>
+      </motion.div>
 
       {/* Main Card */}
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col p-6 sm:p-8 items-center">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl flex flex-col p-6 sm:p-8 items-center"
+      >
         {/* Header */}
         <div className="w-full flex justify-between items-center mb-6">
           <span
-            className={`px-3 py-1 rounded-full text-sm font-medium ${
-              currentQueue.queueType === 'PRIORITY'
-                ? 'bg-[#FDE5B0] text-[#F9AB00]'
-                : 'bg-blue-100 text-blue-600'
+            className={`px-3 py-1 rounded-full text-sm font-semibold ${
+              currentQueue.queueType === "PRIORITY"
+                ? "bg-[#FDE5B0] text-[#F9AB00]"
+                : "bg-[#DDEAFC] text-[#1A73E8]"
             }`}
           >
-            {currentQueue.queueType === 'PRIORITY' ? 'Priority' : 'Regular'}
+            {currentQueue.queueType === "PRIORITY" ? "Priority" : "Regular"}
           </span>
           <p className="text-xs text-gray-500">
-            Ref no.{' '}
-            <span className="text-blue-600 font-semibold">
+            Ref no.{" "}
+            <span className="text-[#1456AE] font-semibold">
               {currentQueue.referenceNumber}
             </span>
           </p>
@@ -238,9 +312,9 @@ export default function SearchQueueResult() {
         </span>
         <h1
           className={`text-6xl sm:text-7xl font-bold mb-2 ${
-            currentQueue.queueType === 'PRIORITY'
-              ? 'text-[#F9AB00]'
-              : 'text-blue-600'
+            currentQueue.queueType === "PRIORITY"
+              ? "text-[#F9AB00]"
+              : "text-[#1A73E8]"
           }`}
         >
           {formatQueueNumber(currentQueue.queueNumber, currentQueue.queueType)}
@@ -252,42 +326,30 @@ export default function SearchQueueResult() {
         </div>
 
         {/* Details */}
-        <div className="w-full space-y-4 text-sm">
+        <div className="w-full space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Name:</span>
-            <span className="text-blue-600 font-medium">
-              {currentQueue.studentFullName}
+            <span className="text-[#1A73E8] font-semibold">
+              {currentQueue.studentFullName
+                .toLowerCase()
+                .split(" ")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Student ID:</span>
-            <span className="text-blue-600 font-medium">
+            <span className="text-[#1A73E8] font-semibold">
               {currentQueue.studentId}
             </span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Course:</span>
-            <span className="text-blue-600 font-medium">
-              {currentQueue.courseCode}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Year Level:</span>
-            <span className="text-blue-600 font-medium">
-              {formatYearLevel(currentQueue.yearLevel)}
-            </span>
-          </div>
-
           {/* Requests */}
           {currentQueue.requests && currentQueue.requests.length > 0 && (
             <div className="flex justify-between items-start">
               <span className="text-gray-600">Requests:</span>
-              <div className="flex flex-col items-end text-blue-600 font-medium text-right space-y-1">
+              <div className="flex flex-col items-end text-[#1A73E8] font-semibold text-right space-y-1">
                 {currentQueue.requests.map((request) => (
-                  <span
-                    key={request.requestId}
-                    className="hover:underline cursor-pointer"
-                  >
+                  <span key={request.requestId} className="">
                     {request.requestType.requestName}
                   </span>
                 ))}
@@ -297,9 +359,9 @@ export default function SearchQueueResult() {
 
           {/* Window Assignment (if available) */}
           {currentQueue.serviceWindow && (
-            <div className="flex justify-between">
+            <div className="flex justify-between">  
               <span className="text-gray-600">Window:</span>
-              <span className="text-blue-600 font-medium">
+              <span className="text-[#1A73E8] font-semibold">
                 {currentQueue.serviceWindow.windowName}
               </span>
             </div>
@@ -312,26 +374,51 @@ export default function SearchQueueResult() {
         </div>
 
         {/* Issued Date */}
-        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+        <div className="text-xs text-[#686969] mt-1  font-medium flex items-center gap-2">
           <Clock size={15} />
           <span>
-            Issued on{' '}
+            Issued on{" "}
             {DateAndTimeFormatter.formatInTimeZone(
               new Date(currentQueue.createdAt),
-              FORMATS.DISPLAY
+              "yyyy-MM-dd hh:mm a"
             )}
           </span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Footer Button */}
-      <div className="w-full max-w-md flex justify-end">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4, ease: "easeOut" }}
+        className="w-full max-w-md flex justify-end"
+      >
         <Link to="/" className="mt-10 mr-4">
-          <button className="mt-10 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center gap-2">
+          <button className="mt-10 bg-[#1A73E8] hover:bg-[#1456AE] cursor-pointer text-white text-sm font-medium px-4 py-4 rounded-xl flex items-center gap-2">
             <ArrowLeft size={17} /> Back to Homepage
           </button>
         </Link>
-      </div>
+      </motion.div>
+      {/* Modal */}
+      <ConfirmModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Queue Ticket Not Found"
+        titleClassName="text-xl font-semibold text-gray-800 text-center mb-4"
+        description={
+          <>
+            Make sure the Student ID or Queue Reference Number <br /> you
+            entered is correct.
+            <br />
+            <br />
+            If you do not have a queue ticket, <br /> please go back to the
+            homepage and generate one.
+          </>
+        }
+        descriptionClassName="text-gray-700 text-sm text-center px-3"
+        hideActions={true}
+        overlayClickClose={false}
+      />
     </div>
   );
 }

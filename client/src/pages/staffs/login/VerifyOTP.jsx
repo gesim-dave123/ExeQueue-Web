@@ -1,40 +1,79 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Mail } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
-// import { verifyOTP } from "../../api/auth";
+import { ArrowLeft } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { sendOTPtoEmail, verifyOTP } from "../../../api/auth";
+import { showToast } from "../../../components/toast/ShowToast";
+import { useFlow } from "../../../context/FlowProvider";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState(["", "", "", ""]);
+  const { flowToken, flowEmail, clearFlow } = useFlow();
   const [loading, setLoading] = useState(false);
   const inputRefs = [useRef(), useRef(), useRef(), useRef()];
+  const [isOtpCorrect, setOtpCorrect] = useState(true);
+  const [shake, setShake] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
-  const email = location.state?.email || "ian****@example.com";
+  // const email = location.state?.email;
 
+  // useEffect(() => {
+  //   if (!email) {
+  //     navigate("/staff/login", { replace: true });
+  //   }
+  // }, [email, navigate]);
+
+  useEffect(() => {
+    // If either the email or the flow token is missing, the flow is invalid.
+    if (!flowEmail || !flowToken) {
+      clearFlow(); // Clear any partial data
+      navigate("/staff/login", { replace: true });
+    }
+  }, [flowEmail, flowToken, navigate, clearFlow]);
+
+  const email = flowEmail;
+
+  // Focus first input on mount
+  useEffect(() => {
+    if (email) {
+      inputRefs[0].current?.focus();
+    }
+  }, [email]);
+
+  // Don't render if no email
+  if (!flowEmail || !flowToken) {
+    return null;
+  }
   // Mask email for display
   const maskedEmail = email.replace(/(.{3}).*(@.*)/, "$1****$2");
 
   useEffect(() => {
-    // Focus first input on mount
     inputRefs[0].current?.focus();
   }, []);
 
+  // Countdown timer effect
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => {
+        setResendCountdown(resendCountdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCountdown]);
+
   const handleChange = (index, value) => {
-    // Only allow numbers
     if (!/^\d*$/.test(value)) return;
 
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-focus next input
     if (value && index < 3) {
       inputRefs[index + 1].current?.focus();
     }
   };
 
   const handleKeyDown = (index, e) => {
-    // Handle backspace
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs[index - 1].current?.focus();
     }
@@ -43,27 +82,47 @@ export default function VerifyOTP() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const otpCode = otp.join("");
-    
+
     if (otpCode.length !== 4) return;
 
     setLoading(true);
-    const res = await verifyOTP({ email, code: otpCode });
-    
-    if (!res?.success) {
+    try {
+      const res = await verifyOTP(otpCode, flowToken, email);
+      if (res?.success) {
+        setOtpCorrect(true);
+        navigate("/staff/reset-password", {
+          state: { resetToken: res.resetToken, email },
+        });
+      } else {
+        setLoading(false);
+        setOtpCorrect(false);
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+        return;
+      }
+    } catch (error) {
+    } finally {
       setLoading(false);
-      // Handle error
-      return;
     }
-
-    // Navigate to reset password
-    navigate("/reset-password", { state: { email, code: otpCode } });
-    setLoading(false);
   };
 
-  const handleResend = () => {
-    // Trigger resend logic
+  const handleResend = async () => {
+    if (resendCountdown > 0) return;
+
     setOtp(["", "", "", ""]);
     inputRefs[0].current?.focus();
+    setResendCountdown(30);
+
+    try {
+      const res = await sendOTPtoEmail(email);
+      if (res?.success) {
+        showToast("A new OTP has been sent to your email!", "success");
+      } else {
+        showToast(res?.message || "Failed to resend OTP.", "error");
+      }
+    } catch (error) {
+      showToast("An unexpected error occurred.", "error");
+    }
   };
 
   return (
@@ -87,7 +146,11 @@ export default function VerifyOTP() {
 
         {/* OTP Input */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <div className="flex justify-center gap-3 mb-2">
+          <div
+            className={`flex justify-center gap-3 mb-2 ${
+              shake ? "animate-shake" : ""
+            }`}
+          >
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -97,30 +160,44 @@ export default function VerifyOTP() {
                 value={digit}
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className="w-16 h-16 text-center text-[#1A73E8] text-2xl font-bold border-2  border-[#1A73E8] rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                onFocus={() => setOtpCorrect(true)}
+                className={`w-16 h-16 text-center text-2xl font-bold border-2 rounded-2xl focus:outline-none focus:ring-2 transition-all ${
+                  !isOtpCorrect
+                    ? "border-red-500 text-red-600 focus:ring-red-500 focus:border-red-500"
+                    : "border-[#1A73E8] text-[#1A73E8] focus:ring-blue-500 focus:border-blue-500"
+                }`}
               />
             ))}
           </div>
 
           {/* Resend Link */}
           <div className="text-center">
-            <button
-              type="button"
-              onClick={handleResend}
-              className="text-sm text-[#1A73E8]  font-medium cursor-pointer"
-            >
-              Send Code
-            </button>
+            <p className="text-sm text-gray-600">
+              Didn't get any code?{" "}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCountdown > 0}
+                className={`font-medium ${
+                  resendCountdown > 0
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-[#1A73E8] cursor-pointer hover:underline"
+                }`}
+              >
+                Click to resend
+                {resendCountdown > 0 && ` (${resendCountdown}s)`}
+              </button>
+            </p>
           </div>
 
           {/* Verify Button */}
           <button
             type="submit"
             disabled={loading || otp.join("").length !== 4}
-            className={`w-full font-semibold py-3 rounded-xl transition-all cursor-pointer ${
+            className={`w-full font-semibold py-3 rounded-xl transition-all  ${
               loading || otp.join("").length !== 4
-                ? "bg-[#1A73E8] cursor-not-allowed text-white"
-                : "bg-[#1A73E8] hover:bg-blue-700 text-white"
+                ? "bg-[#1A73E8]/40 cursor-not-allowed text-white"
+                : "bg-[#1A73E8] hover:bg-[#1557B0] text-white cursor-pointer"
             }`}
           >
             {loading ? "Verifying..." : "Verify"}
@@ -131,13 +208,42 @@ export default function VerifyOTP() {
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-[#202124]" />
           <button
-            onClick={() => navigate("/staff/login")}
-            className="text-sm text-[#202124]  cursor-pointer font-medium "
+            onClick={() => {
+              clearFlow();
+              navigate("/staff/login");
+            }}
+            className="text-sm text-[#202124]  cursor-pointer hover:font-medium"
           >
             Back to Login
           </button>
         </div>
       </div>
+
+      {/* Shake animation styles */}
+      <style jsx>{`
+        @keyframes shake {
+          0%,
+          100% {
+            transform: translateX(0);
+          }
+          10%,
+          30%,
+          50%,
+          70%,
+          90% {
+            transform: translateX(-5px);
+          }
+          20%,
+          40%,
+          60%,
+          80% {
+            transform: translateX(5px);
+          }
+        }
+        .animate-shake {
+          animation: shake 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 }

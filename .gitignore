@@ -22,13 +22,14 @@ node_modules
 src/generated/prisma
 server/prisma/seed.js
 seed.js
-
+server/utils/runner.js
 server/prisma/seed.js
 
 server/prisma/_old_migrations
 server/prisma/prisma
 server/prisma/prisma/schema.prisma
 
+server/_test_scripts/*.js
 client/_test_scripts/*.js
 # Build outputs
 dist/
