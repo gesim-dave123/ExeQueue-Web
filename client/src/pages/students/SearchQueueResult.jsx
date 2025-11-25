@@ -359,9 +359,9 @@ export default function SearchQueueResult() {
 
           {/* Window Assignment (if available) */}
           {currentQueue.serviceWindow && (
-            <div className="flex justify-between">
+            <div className="flex justify-between">  
               <span className="text-gray-600">Window:</span>
-              <span className="text-[#1A73E8] font-medium">
+              <span className="text-[#1A73E8] font-semibold">
                 {currentQueue.serviceWindow.windowName}
               </span>
             </div>
