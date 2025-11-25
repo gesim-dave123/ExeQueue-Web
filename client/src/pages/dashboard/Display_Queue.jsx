@@ -128,7 +128,7 @@ export default function Display_Queue() {
 
   if (isPageLoading) {
     return (
-      <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-2xl">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
         <InlineLoading
           text="Loading Display Queue..."
           isVisible={true}
