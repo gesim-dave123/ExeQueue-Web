@@ -1,18 +1,21 @@
-import React, { useState } from "react";
-import { ArrowLeft, Lock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { sendOTPtoEmail } from "../../../api/auth";
+import { showToast } from "../../../components/toast/ShowToast.jsx";
+import { useFlow } from "../../../context/FlowProvider";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isEmptyError, setIsEmptyError] = useState(false); 
+  const [isEmptyError, setIsEmptyError] = useState(false);
   const [isInvalidEmail, setIsInvalidEmail] = useState(false);
   const [isNotGmail, setIsNotGmail] = useState(false); // New state for non-gmail emails
   const [error, setError] = useState("");
   const [isEmailFound, setIsEmailFound] = useState(true);
   const [reSendCode, setReSendCode] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const { startFlow, clearFlow } = useFlow();
   const navigate = useNavigate();
 
   // Email validation function
@@ -31,7 +34,7 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setIsEmptyError(false); 
+    setIsEmptyError(false);
     setIsInvalidEmail(false);
     setIsNotGmail(false);
 
@@ -54,19 +57,25 @@ export default function ForgotPassword() {
       setLoading(false);
       return;
     }
-    
-    const res = await sendOTPtoEmail(email);
-    
-    if (!res) {
-      console.log("Email not found");
+
+    try {
+      const res = await sendOTPtoEmail(email);
+      if (res?.success) {
+        showToast(res?.message, "success");
+        const userEmail = res?.email || email;
+        startFlow(userEmail, res?.flowToken);
+        setIsEmailFound(true);
+        navigate("/staff/verify-otp", { state: { userEmail } });
+        setReSendCode(true);
+      } else {
+        // showToast("Email not found", "error");
+        return;
+      }
+    } catch (error) {
+    } finally {
       setLoading(false);
       setIsEmailFound(false);
-      return;
     }
-    setIsEmailFound(true);
-    navigate("/staff/verify-otp", { state: { email } });
-    setLoading(false);
-    setReSendCode(true); // Show resend option after successful submission
   };
 
   const handleResend = () => {
@@ -86,7 +95,7 @@ export default function ForgotPassword() {
     }
 
     // If valid, submit again
-    handleSubmit(new Event('submit'));
+    handleSubmit(new Event("submit"));
   };
 
   return (
@@ -110,62 +119,80 @@ export default function ForgotPassword() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col">
           {/* Email Input */}
-         <div className="relative mb-3">
-  <label
-    htmlFor="email"
-    className={`absolute left-5 transition-all duration-200 pointer-events-none
-      ${(isEmptyError || isInvalidEmail || isNotGmail) && !isFocused ? "text-red-500" : "text-[#1A73E8]"}
+          <div className="relative mb-3">
+            <label
+              htmlFor="email"
+              className={`absolute left-5 transition-all duration-200 pointer-events-none
       ${
         (isEmptyError || isInvalidEmail || isNotGmail) && !isFocused
-          ? "-top-2.5 text-xs bg-white px-1 text-red-500" 
+          ? "text-red-500"
+          : "text-[#1A73E8]"
+      }
+      ${
+        (isEmptyError || isInvalidEmail || isNotGmail) && !isFocused
+          ? "-top-2.5 text-xs bg-white px-1 text-red-500"
           : ""
       }
       ${
-        email || isFocused || ((isEmptyError || isInvalidEmail || isNotGmail) && isFocused)
+        email ||
+        isFocused ||
+        ((isEmptyError || isInvalidEmail || isNotGmail) && isFocused)
           ? "-top-2.5 text-xs bg-white px-1 text-blue-500 "
           : "top-3.5 text-base text-gray-500 "
       }`}
-  >
-    Email
-  </label>
-  <input
-    type="email"
-    id="email"
-    value={email}
-    onFocus={() => {
-      setIsFocused(true);
-      setIsEmailFound(true);
-      setIsNotGmail(false);
-    }}
-    onBlur={() => {setIsFocused(false); }}
-    onChange={(e) => {
-      setEmail(e.target.value);
-      setError("");
-      setIsEmptyError(false);
-      setIsInvalidEmail(false);
-      setIsNotGmail(false);
-    }}
-    
-    className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all 
-      ${isFocused ? "border-[#1A73E8] border-2" : 
-        (isEmptyError || isInvalidEmail || isNotGmail) ? "border-red-500 border-2" :
-        !email ? "border-[#DDEAFC] border-2" : "border-[#1A73E8] border-2"
+            >
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onFocus={() => {
+                setIsFocused(true);
+                setIsEmailFound(true);
+                setIsNotGmail(false);
+              }}
+              onBlur={() => {
+                setIsFocused(false);
+              }}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+                setIsEmptyError(false);
+                setIsInvalidEmail(false);
+                setIsNotGmail(false);
+              }}
+              className={`w-full px-3 py-3 rounded-xl focus:outline-none transition-all 
+      ${
+        isFocused
+          ? "border-[#1A73E8] border-2"
+          : isEmptyError || isInvalidEmail || isNotGmail
+          ? "border-red-500 border-2"
+          : !email
+          ? "border-[#DDEAFC] border-2"
+          : "border-[#1A73E8] border-2"
       }
     `}
-  />
-  {/* Always reserve space for error message */}
-  <div className="h-5 mt-1">
-    {isEmptyError && !isFocused && (
-      <p className="text-red-500 text-left text-xs">Email is required</p>
-    )}
-    {isInvalidEmail && !isFocused && !isEmptyError &&  (
-      <p className="text-red-500 text-left text-xs">Please enter a valid email address</p>
-    )}
-    {isNotGmail && !isFocused && !isEmptyError && !isInvalidEmail && (
-      <p className="text-red-500 text-left text-xs">Please enter a valid email address</p>
-    )}
-  </div>
-</div>
+            />
+            {/* Always reserve space for error message */}
+            <div className="h-5 mt-1">
+              {isEmptyError && !isFocused && (
+                <p className="text-red-500 text-left text-xs">
+                  Email is required
+                </p>
+              )}
+              {isInvalidEmail && !isFocused && !isEmptyError && (
+                <p className="text-red-500 text-left text-xs">
+                  Please enter a valid email address
+                </p>
+              )}
+              {isNotGmail && !isFocused && !isEmptyError && !isInvalidEmail && (
+                <p className="text-red-500 text-left text-xs">
+                  Please enter a valid email address
+                </p>
+              )}
+            </div>
+          </div>
           {/* Send Code Button */}
           <button
             type="submit"
@@ -179,7 +206,7 @@ export default function ForgotPassword() {
             {loading ? "Sending..." : "Send Code"}
           </button>
         </form>
-        
+
         {reSendCode && !isEmptyError && !isInvalidEmail && !isNotGmail && (
           <div className="text-center mt-4">
             <p className="text-sm text-gray-600">
@@ -193,12 +220,15 @@ export default function ForgotPassword() {
             </p>
           </div>
         )}
-     
+
         {/* Back to Login */}
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
-            onClick={() => navigate("/staff/login")}
+            onClick={() => {
+              clearFlow();
+              navigate("/staff/login");
+            }}
             className="text-sm text-gray-700 cursor-pointer"
           >
             Back to Login
