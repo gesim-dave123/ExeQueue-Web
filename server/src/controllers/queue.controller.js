@@ -1,0 +1,1799 @@
+import { Queue_Type, Role, Status } from "@prisma/client";
+import prisma from "../../prisma/prisma.js";
+import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { QueueActions } from "../services/enums/SocketEvents.js";
+import {
+  sendDashboardUpdate,
+  sendLiveDisplayUpdate,
+} from "./statistics.controller.js";
+
+const isIntegerParam = (val) => /^\d+$/.test(val);
+
+export const manuallyFinalizeStalledRequests = async (req, res) => {
+  try {
+    const todayStart = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    const todayEnd = new Date(todayStart);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const stalledRequests = await prisma.request.findMany({
+      where: {
+        requestStatus: Status.STALLED,
+        updatedAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+        isActive: true,
+      },
+      include: {
+        queue: true,
+      },
+    });
+
+    let finalized = 0;
+
+    for (const request of stalledRequests) {
+      const existingTransaction = await prisma.transactionHistory.findFirst({
+        where: {
+          queueId: request.queueId,
+          requestId: request.requestId,
+          transactionStatus: Status.STALLED,
+        },
+      });
+
+      if (!existingTransaction) {
+        await prisma.transactionHistory.create({
+          data: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            performedById: request.processedBy,
+            performedByRole: "SYSTEM",
+            transactionStatus: Status.STALLED,
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
+        });
+        finalized++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Finalized ${finalized} STALLED requests`,
+      totalFound: stalledRequests.length,
+      finalized,
+    });
+  } catch (error) {
+    console.error("Error in manual STALLED finalization:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const manuallyCancelSkippedRequests = async (req, res) => {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    const skippedRequests = await prisma.request.findMany({
+      where: {
+        requestStatus: Status.SKIPPED,
+        updatedAt: {
+          lte: oneHourAgo,
+        },
+        isActive: true,
+      },
+      include: {
+        queue: true,
+      },
+    });
+
+    let cancelled = 0;
+
+    for (const request of skippedRequests) {
+      await prisma.$transaction(async (tx) => {
+        await tx.request.update({
+          where: { requestId: request.requestId },
+          data: {
+            requestStatus: Status.CANCELLED,
+            processedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+            updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
+        });
+
+        await tx.transactionHistory.updateMany({
+          where: {
+            queueId: request.queueId,
+            requestId: request.requestId,
+            transactionStatus: Status.SKIPPED,
+          },
+          data: {
+            transactionStatus: Status.CANCELLED,
+            createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+          },
+        });
+
+        cancelled++;
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Cancelled ${cancelled} SKIPPED requests (> 1 hour)`,
+      totalFound: skippedRequests.length,
+      cancelled,
+    });
+  } catch (error) {
+    console.error("Error in manual SKIPPED cancellation:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const viewQueues = async (req, res) => {
+  try {
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    const {
+      query: { filter, value },
+    } = req;
+
+    // Build where clause dynamically
+    let whereClause = {
+      queueDate: todayUTC,
+      isActive: true,
+      queueStatus: Status.WAITING,
+    };
+
+    // Add filter conditions to the database query if provided
+    if (filter && value) {
+      if (filter === "studentId") {
+        whereClause.schoolId = { equals: value, mode: "insensitive" };
+      } else if (filter === "fullName") {
+        whereClause.studentFullName = { contains: value, mode: "insensitive" };
+      } else if (filter === "referenceNumber") {
+        whereClause.referenceNumber = { equals: value, mode: "insensitive" };
+      } else if (filter === "queueType") {
+        if (
+          [Queue_Type.PRIORITY, Queue_Type.REGULAR].toString().includes(value)
+        ) {
+          whereClause.queueType =
+            value.toUpperCase() === "REGULAR"
+              ? Queue_Type.REGULAR
+              : Queue_Type.PRIORITY;
+        }
+      }
+    }
+
+    const queues = await prisma.queue.findMany({
+      where: whereClause,
+      orderBy: [{ queueSessionId: "desc" }, { queueNumber: "desc" }],
+      select: {
+        queueId: true,
+        studentFullName: true,
+        schoolId: true,
+        course: {
+          select: {
+            courseCode: true,
+          },
+        },
+        yearLevel: true,
+        queueSessionId: true,
+        queueStatus: true,
+        queueDate: true,
+        referenceNumber: true,
+        queueType: true,
+        queueNumber: true,
+        createdAt: true,
+        isActive: true,
+        requests: {
+          select: {
+            requestId: true,
+            requestStatus: true,
+            requestType: {
+              select: {
+                requestName: true,
+                description: true,
+              },
+            },
+          },
+          where: {
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!queues || queues.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No queues found for today",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Queues fetched successfully!",
+      queue: queues,
+    });
+  } catch (error) {
+    console.error("Error fetching queue:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch queue",
+    });
+  }
+};
+
+export const determineNextQueue = async (req, res) => {
+  try {
+    const { sasStaffId, role, serviceWindowId } = req.user;
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    if (!serviceWindowId || serviceWindowId === null) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "No window assigned detected! Please assign which window you are using first.",
+      });
+    }
+    // Get window rules
+    const windowRule = await prisma.serviceWindow.findUnique({
+      where: { windowId: serviceWindowId, isActive: true },
+      select: { canServePriority: true, canServeRegular: true },
+    });
+
+    if (!windowRule) {
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request: No valid window rule found!",
+      });
+    }
+
+    let allowedTypes = [];
+    if (windowRule.canServePriority) allowedTypes.push(Queue_Type.PRIORITY);
+    if (windowRule.canServeRegular) allowedTypes.push(Queue_Type.REGULAR);
+
+    if (allowedTypes.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "This window is not allowed to serve any queue types.",
+      });
+    }
+    console.log("Allowed Queue Types for this window:", allowedTypes);
+    // Use transaction with retry logic for concurrency
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Find and immediately update in one atomic operation
+        const nextQueue = await tx.queue.findFirst({
+          where: {
+            queueDate: todayUTC,
+            queueType: { in: allowedTypes },
+            queueStatus: Status.WAITING,
+            windowId: null, // Only unassigned queues
+          },
+          // include:{
+          //   requests: {
+          //     select: {
+          //       requestId: true,
+          //       requestStatus: true,
+          //       requestType: {
+          //         select: {
+          //           requestName: true,
+          //           description: true
+          //         }
+          //       }
+          //     },
+          //     where: {
+          //       isActive: true
+          //     }
+          //   },
+          // },
+          orderBy: [
+            { queueType: "desc" }, // PRIORITY first
+            { queueNumber: "asc" },
+          ],
+        });
+
+        if (!nextQueue) {
+          return res.status(404).json({
+            success: false,
+            message: "No waiting queue available for this window.",
+          });
+        }
+
+        // Atomic update with additional safety check
+        const updatedQueue = await tx.queue.updateMany({
+          where: {
+            queueId: nextQueue.queueId,
+            windowId: null, // Extra safety: only update if still unassigned
+            queueStatus: Status.WAITING, // Extra safety: only update if still waiting
+          },
+          data: {
+            windowId: serviceWindowId,
+            queueStatus: Status.IN_SERVICE, // Update status too!
+          },
+        });
+
+        // Check if update actually happened
+        if (updatedQueue.count === 0) {
+          throw new Error("QUEUE_ALREADY_ASSIGNED");
+        }
+
+        // Get the updated queue with full details
+        const finalQueue = await tx.queue.findUnique({
+          where: { queueId: nextQueue.queueId },
+          include: {
+            requests: {
+              include: { requestType: { select: { requestName: true } } },
+            },
+          },
+        });
+
+        return finalQueue;
+      },
+      {
+        // Transaction options for better concurrency handling
+        maxWait: 5000, // Maximum time to wait for a transaction slot
+        timeout: 10000, // Maximum time for the transaction to complete
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Next queue assigned to this window.",
+      nextQueue: result,
+    });
+  } catch (error) {
+    console.error("Error in Getting Next Queue Number:", error);
+
+    // Handle specific concurrency errors
+    if (error.message === "NO_QUEUE_AVAILABLE") {
+      return res.status(404).json({
+        success: false,
+        message: "No waiting queue available for this window.",
+      });
+    }
+
+    if (error.message === "QUEUE_ALREADY_ASSIGNED") {
+      return res.status(409).json({
+        success: false,
+        message: "Queue was assigned to another window. Please try again.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const getQueue = async (req, res) => {
+  try {
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    const { status, windowId: windowIdStr, requestStatus } = req.query;
+
+    const { queueId: queueIdStr, referenceNumber: referenceNumberStr } =
+      req.params;
+    const { role } = req.user;
+
+    // Role validation
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role.",
+      });
+    }
+
+    // Validate queueId
+    if (!queueIdStr) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required param: queueId",
+      });
+    }
+    if (!isIntegerParam(queueIdStr)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid param. 'queueId' must be an integer.",
+      });
+    }
+    const queueId = Number(queueIdStr);
+    const referenceNumber = referenceNumberStr.trim();
+
+    // 🎯 Base where clause
+    const whereClause = {
+      queueId,
+      referenceNumber,
+      isActive: true,
+      session: {
+        isActive: true,
+        isServing: true,
+      },
+    };
+
+    // 🧱 Optional filters
+    if (status) {
+      if (
+        ![
+          Status.WAITING,
+          Status.CANCELLED,
+          Status.COMPLETED,
+          Status.DEFERRED,
+          Status.IN_SERVICE,
+        ].includes(status)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Bad Request. Invalid Queue Status.",
+        });
+      }
+
+      whereClause.queueStatus = status;
+    } else {
+      whereClause.queueStatus = Status.WAITING;
+    }
+
+    if (referenceNumberStr) {
+      // Optional: simple validation for ref format
+      if (!/^[A-Z0-9-]+$/i.test(referenceNumberStr)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid reference number format.",
+        });
+      }
+      whereClause.referenceNumber = referenceNumberStr;
+    }
+
+    if (windowIdStr) {
+      if (!isIntegerParam(windowIdStr)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid param. 'windowId' must be an integer.",
+        });
+      }
+
+      whereClause.windowId = Number(windowIdStr);
+    }
+
+    // Handle requestStatus filter
+    const requestStatuses = Array.isArray(requestStatus)
+      ? requestStatus
+      : requestStatus
+      ? requestStatus.split(",")
+      : [];
+
+    const requestWhere =
+      requestStatuses.length > 0
+        ? { requestStatus: { in: requestStatuses } }
+        : { isActive: true };
+
+    // Query database
+    const newQueue = await prisma.queue.findFirst({
+      where: whereClause,
+      select: {
+        queueId: true,
+        studentId: true,
+        studentFullName: true,
+        courseCode: true,
+        yearLevel: true,
+        queueNumber: true,
+        queueType: true,
+        queueStatus: true,
+        referenceNumber: true,
+        isActive: true,
+        windowId: true,
+        createdAt: true,
+        requests: {
+          where: requestWhere,
+          select: {
+            requestId: true,
+            requestStatus: true,
+            requestType: {
+              select: {
+                requestName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // console.log("Fetched Queue:", newQueue);
+
+    if (!newQueue) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found.",
+      });
+    }
+
+    // ✅ Success response
+    return res.status(200).json({
+      success: true,
+      message: "Queue fetched successfully!",
+      queue: newQueue,
+    });
+  } catch (error) {
+    console.error("Error fetching queue:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch queue.",
+      error: error.message,
+    });
+  }
+};
+
+export const getQueueList = async (req, res) => {
+  try {
+    // const {sasStaffId, role, serviceWindowId} = req.user;
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    const regularQueue = await prisma.queue.findMany({
+      where: {
+        queueDate: todayUTC,
+        queueStatus: { in: [Status.WAITING, Status.IN_SERVICE] },
+        queueType: Queue_Type.REGULAR,
+        isActive: true,
+      },
+      orderBy: [{ queueType: "desc" }, { queueNumber: "asc" }],
+    });
+    const priorityQueue = await prisma.queue.findMany({
+      where: {
+        queueDate: todayUTC,
+        queueStatus: { in: [Status.WAITING, Status.IN_SERVICE] },
+        queueType: Queue_Type.PRIORITY,
+        isActive: true,
+      },
+      orderBy: [{ queueType: "desc" }, { queueNumber: "asc" }],
+    });
+
+    const queues = [
+      {
+        regularQueue,
+        priorityQueue,
+      },
+    ];
+    if (!queues) {
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request, Error in queue list",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        queues.length === 0
+          ? "There are no queues currently in the system, please wait a moment"
+          : "Queues successfully retrieved!",
+      queues: queues,
+    });
+  } catch (error) {
+    console.error("Error in getting queue list: ", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const getQueueListByQuery = async (req, res) => {
+  try {
+    const {
+      status,
+      limit = 100,
+      offset = 0,
+      include_total = false,
+      windowId: windowIdStr,
+      requestStatus,
+      search: searchStr,
+    } = req.query;
+
+    // [All your validation code stays the same]
+    // Validate status
+    if (
+      ![
+        Status.WAITING,
+        Status.CANCELLED,
+        Status.COMPLETED,
+        Status.DEFERRED,
+        Status.IN_SERVICE,
+      ].includes(status)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Bad Request, Invalid Queue Status!",
+      });
+    }
+
+    const limitNum = parseInt(limit, 10);
+    const offsetNum = parseInt(offset, 10);
+
+    if (isNaN(limitNum) || limitNum < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid param. 'limit' must be a positive integer.",
+      });
+    }
+
+    if (isNaN(offsetNum) || offsetNum < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid param. 'offset' must be a positive integer.",
+      });
+    }
+
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    // Build where clause
+    const whereClause = {
+      isActive: true,
+      session: {
+        sessionDate: todayUTC,
+        isServing: true,
+        isActive: true,
+      },
+      queueStatus: status,
+    };
+
+    if (windowIdStr) {
+      if (!isIntegerParam(windowIdStr)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid param. 'windowId' must be an integer.",
+        });
+      }
+      const windowId = Number(windowIdStr);
+      whereClause.windowId = windowId;
+    }
+
+    if (searchStr) {
+      const normalizedSearch = searchStr.trim();
+      const isSearchAQueueNumber = normalizedSearch.match(/^[PR](\d{3,})$/i);
+      if (isSearchAQueueNumber) {
+        const prefix = isSearchAQueueNumber[0].toUpperCase()[0];
+        whereClause.queueType =
+          prefix === "P" ? Queue_Type.PRIORITY : Queue_Type.REGULAR;
+        whereClause.queueNumber = parseInt(isSearchAQueueNumber[1]);
+      } else if (/^\d+$/.test(normalizedSearch)) {
+        const numValue = parseInt(normalizedSearch);
+        if (normalizedSearch.length <= 3) {
+          whereClause.queueNumber = numValue;
+        } else if (normalizedSearch.length >= 4) {
+          whereClause.studentId = {
+            contains: normalizedSearch,
+            mode: "insensitive",
+          };
+        }
+      } else if (normalizedSearch.length >= 2) {
+        whereClause.OR = [
+          {
+            studentFullName: {
+              equals: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+          {
+            studentFullName: {
+              startsWith: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+          {
+            studentFullName: {
+              contains: normalizedSearch,
+              mode: "insensitive",
+            },
+          },
+        ];
+      }
+    }
+
+    const requestStatuses = requestStatus ? requestStatus.split(",") : null;
+    const shouldFilterByMajority =
+      requestStatuses && requestStatuses.length === 1;
+
+    console.log("Request Statuses:", requestStatuses);
+    console.log("Should Filter By Majority:", shouldFilterByMajority);
+
+    // Common select fields
+    const selectFields = {
+      queueId: true,
+      studentId: true,
+      studentFullName: true,
+      courseCode: true,
+      courseName: true,
+      yearLevel: true,
+      queueNumber: true,
+      queueType: true,
+      queueStatus: true,
+      referenceNumber: true,
+      isActive: true,
+      windowId: true,
+      createdAt: true,
+      requests: {
+        where: { isActive: true },
+        select: {
+          requestId: true,
+          requestStatus: true,
+          requestType: {
+            select: {
+              requestName: true,
+            },
+          },
+        },
+      },
+    };
+
+    let queues;
+    let totalCount = 0;
+
+    if (requestStatus) {
+      // Get ALL queues with requests for filtering
+      const allQueues = await prisma.queue.findMany({
+        where: whereClause,
+        select: selectFields,
+        orderBy: [
+          { session: { sessionNumber: "asc" } },
+          { sequenceNumber: "asc" },
+        ],
+      });
+
+      // Filter queues based on request status criteria
+      const filteredQueues = allQueues.filter((queue) => {
+        if (queue.requests.length === 0) return false;
+
+        if (shouldFilterByMajority) {
+          const targetStatus = requestStatuses[0];
+          const statusCounts = queue.requests.reduce((acc, request) => {
+            acc[request.requestStatus] = (acc[request.requestStatus] || 0) + 1;
+            return acc;
+          }, {});
+
+          const stalledCount = statusCounts[Status.STALLED] || 0;
+          const skippedCount = statusCounts[Status.SKIPPED] || 0;
+          const majorityStatus =
+            stalledCount >= skippedCount ? Status.STALLED : Status.SKIPPED;
+
+          return majorityStatus === targetStatus;
+        } else {
+          return queue.requests.some((request) =>
+            requestStatuses.includes(request.requestStatus)
+          );
+        }
+      });
+
+      totalCount = filteredQueues.length;
+      // console.log("filtered Queues: ", filteredQueues);
+      // // Apply pagination
+      // console.log("Filtered Queues Length:", filteredQueues.length);
+      // console.log("Offset:", offsetNum);
+      // console.log("Limit:", limitNum);
+      // console.log("Slicing from", offsetNum, "to", offsetNum + limitNum);
+
+      // Apply pagination
+      queues = filteredQueues.slice(offsetNum, offsetNum + limitNum);
+
+      // console.log("Paginated Queues Length:", queues.length);
+      // console.log("Paginated Queues:", queues);
+    } else {
+      // No request status filtering - use direct Prisma query with pagination
+      queues = await prisma.queue.findMany({
+        where: whereClause,
+        select: selectFields,
+        skip: offsetNum,
+        take: limitNum,
+        orderBy: [
+          { session: { sessionNumber: "asc" } },
+          { sequenceNumber: "asc" },
+        ],
+      });
+
+      // Get total count if requested
+      if (include_total === "true") {
+        totalCount = await prisma.queue.count({ where: whereClause });
+      }
+    }
+
+    // Build response
+    const response = {
+      success: true,
+      message: windowIdStr
+        ? `${status} queues for window ${windowIdStr}`
+        : `Current Queue List that are ${status}`,
+      queues: queues,
+      pagination: {
+        limit: limitNum,
+        offset: offsetNum,
+        returned: queues.length,
+        ...(totalCount > 0 && { total: totalCount }),
+      },
+    };
+
+    // Handle empty results
+    if (queues.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: windowIdStr
+          ? `No ${status} queues for window ${windowIdStr}`
+          : `There are no current ${status} queues!`,
+        queues: [],
+        pagination: {
+          limit: limitNum,
+          offset: offsetNum,
+          returned: 0,
+          ...(totalCount > 0 && { total: totalCount }),
+        },
+      });
+    }
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error("An error occurred in getQueueListByQuery:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
+  }
+};
+
+export const getRequest = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const { queueType } = req.body;
+    if (!serviceWindowId || serviceWindowId === null) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "No window assigned detected! Please assign which window you are using first.",
+      });
+    }
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+  } catch (error) {}
+};
+
+export const setRequestStatus = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+    const { sasStaffId, role } = req.user;
+    const {
+      queueId: queueIdStr,
+      requestId: requestIdStr,
+      windowId: windowIdStr,
+      requestStatus,
+    } = req.params;
+
+    console.log("Request Params:", req.params);
+
+    if (
+      !isIntegerParam(queueIdStr) ||
+      !isIntegerParam(requestIdStr) ||
+      !isIntegerParam(windowIdStr)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid param(s). queueId, requestId, and windowId must be integers.",
+      });
+    }
+
+    const queueId = Number(queueIdStr);
+    const requestId = Number(requestIdStr);
+    const windowId = Number(windowIdStr);
+
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access – invalid role.",
+      });
+    }
+
+    if (!requestStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required field. (requestStatus)",
+      });
+    }
+
+    if (isNaN(queueId) || isNaN(requestId) || isNaN(windowId)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid Type, should receive a number but received a string (queueId, requestId, windowId).",
+      });
+    }
+
+    if (
+      ![
+        Status.STALLED,
+        Status.COMPLETED,
+        Status.CANCELLED,
+        Status.SKIPPED,
+      ].includes(requestStatus.toUpperCase())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status update. Please provide a valid status.",
+      });
+    }
+
+    const queueCheck = await prisma.queue.findUnique({
+      where: { queueId },
+      select: { windowId: true, queueStatus: true },
+    });
+
+    if (!queueCheck) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found.",
+      });
+    }
+
+    if (Number(queueCheck.windowId) !== Number(windowId)) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This queue is being served by another window. Cannot update request status.",
+      });
+    }
+
+    if (
+      queueCheck.queueStatus === Status.WAITING ||
+      queueCheck.queueStatus === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Queue must not be WAITING to update request status.",
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const newStatus = mapToStatus(requestStatus);
+
+      const requestUpdate = await tx.request.update({
+        where: { requestId },
+        data: {
+          requestStatus: newStatus,
+          processedBy: sasStaffId,
+          processedAt:
+            newStatus === Status.COMPLETED
+              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              : null,
+          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        include: {
+          requestType: true,
+        },
+      });
+
+      //UPSERT transaction history (update if exists, create if doesn't)
+      // await createTransactionHistorySafe(tx, {
+      //   queueId: queueId,
+      //   requestId: requestId,
+      //   performedById: sasStaffId,
+      //   performedByRole: role,
+      //   transactionStatus: newStatus,
+      //   createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+      // });
+
+      return { requestUpdate };
+    });
+
+    // io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+    //   queueId: queueId,
+    //   requestId: updated.requestUpdate.requestId,
+    //   requestStatus: updated.requestUpdate.requestStatus,
+    //   updatedRequest: updated.requestUpdate,
+    //   updatedBy: sasStaffId,
+    // });
+
+    return res.status(200).json({
+      success: true,
+      status: updated.requestUpdate.requestStatus,
+      message: `Request ${requestId} updated successfully.`,
+      data: updated.requestUpdate,
+    });
+  } catch (error) {
+    console.error("Error setting request status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+async function createTransactionHistorySafe(tx, data) {
+  // Find existing transaction for this specific queueId + requestId combination
+  const existingTransaction = await tx.transactionHistory.findFirst({
+    where: {
+      queueId: data.queueId,
+      requestId: data.requestId || null,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  if (existingTransaction) {
+    //UPDATE existing transaction
+    console.log("Updating existing transaction:", {
+      id: existingTransaction.transactionHistoryId,
+      queueId: data.queueId,
+      requestId: data.requestId,
+      oldStatus: existingTransaction.transactionStatus,
+      newStatus: data.transactionStatus,
+    });
+
+    const updated = await tx.transactionHistory.update({
+      where: {
+        transactionHistoryId: existingTransaction.transactionHistoryId,
+      },
+      data: {
+        transactionStatus: data.transactionStatus,
+        performedById: data.performedById,
+        performedByRole: data.performedByRole,
+        createdAt: data.createdAt,
+      },
+    });
+
+    return updated;
+  }
+
+  // CREATE new transaction
+  console.log("Creating new transaction:", {
+    queueId: data.queueId,
+    requestId: data.requestId,
+    status: data.transactionStatus,
+  });
+
+  const created = await tx.transactionHistory.create({ data });
+
+  return created;
+}
+
+export const setDeferredRequestStatus = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+    const { sasStaffId, role } = req.user;
+
+    const {
+      queueId: queueIdStr,
+      requestId: requestIdStr,
+      windowId: windowIdStr,
+      requestStatus,
+    } = req.params;
+
+    if (
+      !isIntegerParam(queueIdStr) ||
+      !isIntegerParam(requestIdStr) ||
+      !isIntegerParam(windowIdStr)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid param(s). queueId, requestId, and windowId must be integers.",
+      });
+    }
+
+    const queueId = Number(queueIdStr);
+    const requestId = Number(requestIdStr);
+    const windowId = Number(windowIdStr);
+
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized access – invalid role.",
+      });
+    }
+
+    if (!requestStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required field. (requestStatus)",
+      });
+    }
+
+    if (
+      ![
+        Status.STALLED,
+        Status.COMPLETED,
+        Status.CANCELLED,
+        Status.SKIPPED,
+      ].includes(requestStatus.toUpperCase())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status update. Please provide a valid status.",
+      });
+    }
+
+    const queueCheck = await prisma.queue.findUnique({
+      where: { queueId },
+      select: { windowId: true, queueStatus: true },
+    });
+
+    if (!queueCheck) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found.",
+      });
+    }
+
+    if (Number(queueCheck.windowId) !== windowId) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "This queue is being served by another window. Cannot update request status.",
+      });
+    }
+
+    if (
+      queueCheck.queueStatus === Status.WAITING ||
+      queueCheck.queueStatus === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Queue must not be WAITING to update deferred request status.",
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const newStatus = mapToStatus(requestStatus);
+
+      const requestUpdate = await tx.request.update({
+        where: { requestId },
+        data: {
+          requestStatus: newStatus,
+          processedBy: sasStaffId,
+          processedAt:
+            newStatus === Status.COMPLETED
+              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              : null,
+          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        select: {
+          requestId: true,
+          requestStatus: true,
+          requestType: {
+            select: {
+              requestTypeId: true,
+              requestName: true,
+            },
+          },
+          processedBy: true,
+          processedAt: true,
+          updatedAt: true,
+        },
+      });
+
+      //UPSERT transaction history
+      await createTransactionHistorySafe(tx, {
+        queueId: queueId,
+        requestId: requestId,
+        performedById: sasStaffId,
+        performedByRole: role,
+        transactionStatus: newStatus,
+        createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+      });
+
+      return { requestUpdate };
+    });
+
+    // ✅ Broadcast ONLY the specific request update to ALL window
+    io.emit(QueueActions.REQUEST_DEFERRED_UPDATED, {
+      queueId: queueId,
+      requestId: updated.requestUpdate.requestId,
+      requestStatus: updated.requestUpdate.requestStatus,
+      updatedRequest: updated.requestUpdate,
+      updatedBy: sasStaffId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      status: updated.requestUpdate.requestStatus,
+      message: `Deferred request ${requestId} updated successfully.`,
+      data: updated.requestUpdate,
+    });
+  } catch (error) {
+    console.error("Error setting deferred request status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+export const createQueueSession = async (req, res) => {
+  // const { sessionName } = req.body;
+
+  try {
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.queueSession.updateMany({
+        where: { isActive: true },
+        data: { isActive: false },
+      });
+
+      const lastSession = await tx.queueSession.findFirst({
+        where: { sessionDate: todayUTC },
+        orderBy: { sessionNo: "desc" },
+      });
+
+      const nextSessionNo = lastSession ? lastSession.sessionNo + 1 : 1;
+      const newSession = await tx.queueSession.create({
+        data: {
+          sessionNo: nextSessionNo,
+          sessionDate: todayUTC,
+          isActive: true,
+        },
+      });
+
+      await tx.$executeRawUnsafe(
+        `ALTER SEQUENCE queue_regular_seq RESTART WITH 1`
+      );
+      await tx.$executeRawUnsafe(
+        `ALTER SEQUENCE queue_priority_seq RESTART WITH 1`
+      );
+
+      return newSession;
+    });
+    console.log("New queue session created:", result);
+    return res.status(201).json({
+      success: true,
+      message:
+        "New queue session created, previous session deactivated, and sequences reset",
+      session: result,
+    });
+  } catch (error) {
+    console.error("Error creating queue session:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create queue session",
+      error: error.message,
+    });
+  }
+};
+
+export const markQueueStatus = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+    const { sasStaffId, role } = req.user;
+    const { queueId: queueIdStr, windowId: windowIdStr } = req.params;
+
+    if (!isIntegerParam(queueIdStr) || !isIntegerParam(windowIdStr)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid param. 'queueId' and 'windowId' must be integers.",
+      });
+    }
+
+    const queueId = Number(queueIdStr);
+    const windowId = Number(windowIdStr);
+
+    if (isNaN(windowId) || isNaN(queueId)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "An error occurred. Expecting a number but received a string. (queueId, windowId)",
+      });
+    }
+
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role.",
+      });
+    }
+
+    const existingQueue = await prisma.queue.findUnique({
+      where: { queueId },
+      include: {
+        requests: true,
+      },
+    });
+
+    if (!existingQueue) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue not found.",
+      });
+    }
+
+    if (existingQueue.windowId !== windowId) {
+      return res.status(403).json({
+        success: false,
+        message: "This queue is being served by another window.",
+      });
+    }
+
+    const requests = existingQueue.requests || [];
+
+    if (requests.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot mark queue with no requests.",
+      });
+    }
+
+    const allCompleted = requests.every(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const allCancelled = requests.every(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
+    const anyStalled = requests.some((r) => r.requestStatus === Status.STALLED);
+    const anySkipped = requests.some((r) => r.requestStatus === Status.SKIPPED);
+    const hasCompleted = requests.some(
+      (r) => r.requestStatus === Status.COMPLETED
+    );
+    const hasCancelled = requests.some(
+      (r) => r.requestStatus === Status.CANCELLED
+    );
+
+    let finalStatus = Status.IN_SERVICE;
+
+    if (allCompleted) finalStatus = Status.COMPLETED;
+    else if (allCancelled) finalStatus = Status.CANCELLED;
+    else if (anyStalled || anySkipped) finalStatus = Status.DEFERRED;
+    else if (hasCompleted && hasCancelled)
+      finalStatus = Status.PARTIALLY_COMPLETE;
+
+    const updatedQueue = await prisma.$transaction(async (tx) => {
+      const queueUpdate = await tx.queue.update({
+        where: { queueId },
+        data: {
+          queueStatus: finalStatus,
+          completedAt:
+            finalStatus === Status.COMPLETED || finalStatus === Status.CANCELLED
+              ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
+              : null,
+          updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+        select: {
+          queueId: true,
+          referenceNumber: true,
+          windowId: true,
+        },
+      });
+
+      // CRITICAL FIX: Create transaction history for each request individually
+      // This prevents duplicates and ensures correct request tracking
+      if (finalStatus !== Status.DEFERRED) {
+        console.log(
+          "[---IMPORTANT---]Creating transaction history for all requests..."
+        );
+      }
+      const updatedRequests = await tx.request.findMany({
+        where: {
+          queueId: queueUpdate.queueId,
+        },
+        select: {
+          requestId: true,
+          requestStatus: true,
+        },
+      });
+      for (const request of updatedRequests) {
+        if (
+          !(
+            request.requestStatus === Status.STALLED ||
+            request.requestStatus === Status.SKIPPED
+          )
+        ) {
+          const existingTransaction = await tx.transactionHistory.findFirst({
+            where: {
+              queueId,
+              requestId: request.requestId,
+              transactionStatus: request.requestStatus,
+            },
+          });
+
+          if (!existingTransaction) {
+            await tx.transactionHistory.create({
+              data: {
+                queueId,
+                requestId: request.requestId,
+                performedById: sasStaffId,
+                performedByRole: role,
+                transactionStatus: request.requestStatus,
+                createdAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+              },
+            });
+            console.log(
+              `Created transaction for request ${request.requestId} with status ${request.requestStatus}`
+            );
+          } else {
+            console.log(
+              `Skipped duplicate transaction for request ${request.requestId}`
+            );
+          }
+        }
+      }
+      return queueUpdate;
+    });
+
+    const actionMap = {
+      [Status.DEFERRED]: QueueActions.QUEUE_DEFERRED,
+      [Status.COMPLETED]: QueueActions.QUEUE_COMPLETED,
+      [Status.CANCELLED]: QueueActions.QUEUE_CANCELLED,
+      [Status.PARTIALLY_COMPLETE]: QueueActions.QUEUE_PARTIALLY_COMPLETE,
+    };
+    const event = actionMap[finalStatus] || QueueActions.QUEUE_STATUS_UPDATED;
+
+    // io.emit(event, newQueueData);
+    // io.to(`window:${windowId}`).emit(event, newQueueData);
+    console.log("Updated Queue", updatedQueue);
+    io.emit(event, updatedQueue);
+
+    console.log(
+      `📣 Emitted ${event} for queue ${updatedQueue.referenceNumber} → window:${windowId}`
+    );
+    // ✅ Add this line
+    sendDashboardUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
+
+    sendLiveDisplayUpdate({
+      message: `Queue ${updatedQueue.queueStatus}`,
+      queueId: updatedQueue.queueId,
+      status: updatedQueue.queueStatus,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Queue automatically marked as ${updatedQueue.queueStatus}.`,
+      queue: updatedQueue,
+    });
+  } catch (error) {
+    console.error("Error in markQueueStatus:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+//Check if a skipped queue returned within 1 hour.
+export const restoreSkippedQueue = async (req, res) => {
+  try {
+    const { queueId } = req.body;
+    const queue = await prisma.queue.findUnique({ where: { queueId } });
+
+    if (!queue) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Queue not found." });
+    }
+
+    if (queue.queueStatus !== Status.SKIPPED) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Queue is not marked as skipped." });
+    }
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    if (queue.calledAt < oneHourAgo) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot restore skipped queue. More than 1 hour has passed.",
+      });
+    }
+
+    const restored = await prisma.queue.update({
+      where: { queueId },
+      data: {
+        queueStatus: Status.IN_SERVICE,
+        updatedAt: new Date(),
+      },
+    });
+
+    await prisma.transactionHistory.create({
+      data: {
+        queueId,
+        transactionStatus: Status.IN_SERVICE,
+        performedById: null,
+        performedByRole: null,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Skipped queue restored to IN_SERVICE.",
+      queue: restored,
+    });
+  } catch (error) {
+    console.error("Error restoring skipped queue:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error." });
+  }
+};
+
+export const callNextQueue = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+    const { sasStaffId, role } = req.user;
+    const windowId = parseInt(req.params.windowId, 10);
+
+    if (isNaN(windowId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid windowId parameter",
+      });
+    }
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    const result = await prisma.$transaction(async (tx) => {
+      const lastServed = await tx.queue.findFirst({
+        where: {
+          servedByStaff: sasStaffId,
+          queueStatus: {
+            in: [
+              Status.COMPLETED,
+              Status.PARTIALLY_COMPLETE,
+              Status.CANCELLED,
+              Status.DEFERRED,
+            ],
+          },
+          session: { sessionDate: todayUTC, isActive: true, isServing: true },
+          windowId: windowId,
+        },
+        orderBy: { calledAt: "desc" },
+      });
+      let nextType = Queue_Type.PRIORITY;
+      if (lastServed?.queueType === Queue_Type.PRIORITY.toString())
+        nextType = Queue_Type.REGULAR;
+
+      let nextQueue = await tx.queue.findFirst({
+        where: {
+          queueStatus: Status.WAITING,
+          queueType: nextType,
+          session: { sessionDate: todayUTC, isActive: true, isServing: true },
+        },
+        orderBy: [
+          {
+            session: { sessionNumber: "asc" },
+          },
+          { sequenceNumber: "asc" },
+        ],
+      });
+      if (!nextQueue) {
+        nextQueue = await tx.queue.findFirst({
+          where: {
+            queueStatus: Status.WAITING,
+            session: { sessionDate: todayUTC, isActive: true, isServing: true },
+          },
+          orderBy: [
+            { queueType: "desc" },
+            {
+              session: { sessionNumber: "asc" },
+            },
+            { sequenceNumber: "asc" },
+          ],
+        });
+      }
+      if (!nextQueue) return null;
+      const updated = await tx.queue.updateMany({
+        where: {
+          queueId: nextQueue.queueId,
+          queueStatus: Status.WAITING,
+        },
+        data: {
+          queueStatus: Status.IN_SERVICE,
+          windowId,
+          servedByStaff: sasStaffId,
+          calledAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
+        },
+      });
+
+      if (updated.count === 0) return "TAKEN";
+
+      return await tx.queue.findUnique({
+        where: { queueId: nextQueue.queueId },
+        include: { requests: { include: { requestType: true } } },
+      });
+    });
+
+    if (result === null)
+      return res
+        .status(200)
+        .json({ success: false, noQueues: true, message: "No queues left." });
+
+    if (result === "TAKEN")
+      return res.status(409).json({
+        success: false,
+        message: "Queue already taken by another window.",
+      });
+
+    // Broadcast: remove this queue globally
+    io.emit(QueueActions.QUEUE_TAKEN, { queueId: result.queueId });
+
+    console.log(
+      `📣 Window ${windowId} called next queue ${result.referenceNumber}`
+    );
+    sendDashboardUpdate({
+      message: "Queue called - status changed to IN_SERVICE",
+      queueId: result.queueId,
+    });
+    sendLiveDisplayUpdate({
+      message: "Queue called - status changed to IN_SERVICE",
+      queueId: result.queueId,
+    });
+    res.status(200).json({
+      success: true,
+      message: `Now serving ${result.referenceNumber}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error in callNextQueue:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
+  }
+};
+
+export const currentServedQueue = async (req, res) => {
+  try {
+    const { sasStaffId, role } = req.user;
+    const { windowId: windowIdStr } = req.params;
+    const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
+      new Date(),
+      "Asia/Manila"
+    );
+    if (!isIntegerParam(windowIdStr)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid param. 'windowId' must be integers.",
+      });
+    }
+
+    const windowId = Number(windowIdStr);
+    if (isNaN(windowId)) {
+      return res.status(400).json({
+        // Fixed typo: sttaus → status
+        success: false,
+        message:
+          "An error occurred. Expecting a number but received a string. (windowId)",
+      });
+    }
+
+    if (![Role.PERSONNEL, Role.WORKING_SCHOLAR].includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized role.",
+      });
+    }
+
+    if (!sasStaffId) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid Operation. SaS Staff ID not found!",
+      });
+    }
+    const currentQueue = await prisma.queue.findFirst({
+      where: {
+        windowId: windowId,
+        // servedByStaff: sasStaffId
+        queueStatus: Status.IN_SERVICE,
+        session: {
+          sessionDate: todayUTC,
+          isServing: true,
+          isActive: true,
+        },
+        isActive: true,
+      },
+      include: {
+        requests: {
+          include: {
+            requestType: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          session: {
+            sessionNumber: "asc",
+          },
+        },
+        { sequenceNumber: "asc" },
+      ],
+    });
+
+    if (!currentQueue) {
+      return res.status(200).json({
+        success: true,
+        message: "No active queue for this window",
+        queue: null,
+      });
+    }
+
+    const isDifferentStaff = currentQueue.servedByStaff !== sasStaffId;
+
+    if (isDifferentStaff) {
+      console.log(
+        `Transferring queue ${currentQueue.queueNo} from staff ${currentQueue.servedByStaff} to ${sasStaffId}`
+      );
+
+      // Update the queue to be owned by the new staff
+      const updatedQueue = await prisma.queue.update({
+        where: { queueId: currentQueue.queueId },
+        data: {
+          servedByStaff: sasStaffId,
+          updatedAt: new Date(),
+        },
+        include: {
+          requests: {
+            include: {
+              requestType: true,
+            },
+          },
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Queue inherited from previous staff",
+        queue: updatedQueue,
+        isInherited: true,
+        previousStaff: currentQueue.servedByStaff,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Current queue retrieved successfully",
+      queue: currentQueue,
+      isInherited: false,
+    });
+  } catch (error) {
+    console.error("Error fetching current served queue:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch current queue",
+      error: error.message,
+    });
+  }
+};
+
+function mapToStatus(statusString) {
+  const statusMap = {
+    completed: Status.COMPLETED,
+    stalled: Status.STALLED,
+    skipped: Status.SKIPPED,
+    cancelled: Status.CANCELLED,
+  };
+  return statusMap[statusString.toLowerCase()];
+}

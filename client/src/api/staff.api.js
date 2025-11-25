@@ -1,0 +1,255 @@
+import axios from "axios";
+import backendConnection from "./backendConnection.js";
+
+// GET - Get Window Data
+export const getWindowData = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/window/get`,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (response.status === 200 && response.data.success) {
+      return {
+        windows: response.data.windows,
+      };
+    }
+  } catch (error) {
+    console.error("Error Occured in Get Window Api: ", error);
+    return null;
+  }
+};
+
+export const checkAvailableWindow = async (windowIds) => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/staff/window/check`,
+      { windowIds },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (response.status === 200 && response.data.success) {
+      return response.data;
+    } else {
+      console.warn("Unexpected API response:", response.data);
+      return { availableWindows: [] };
+    }
+  } catch (error) {
+    console.error("Error Occured in Check Available Window api: ", error);
+    return null;
+  }
+};
+export const assignServiceWindow = async (windowId) => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/staff/window/${windowId}/assign`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      } // Include auth cookies/tokens
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error assigning window:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to assign window",
+    };
+  }
+};
+
+export const releaseServiceWindow = async () => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/window/release`,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (
+      response.status === 200 &&
+      response.data.success &&
+      response.data.wasWindowAssigned
+    ) {
+      return response.data;
+    } else if (!response.data.wasWindowAssigned) {
+      return response.data;
+    } else {
+      return response.data.error;
+    }
+  } catch (error) {
+    console.error("Error releasing window:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to release window",
+    };
+  }
+};
+
+export const getMyWindowAssignment = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/staff/window/get/own`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error getting window assignment:", error);
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to get assignment",
+      assignment: null,
+    };
+  }
+};
+
+export const overrideQueueNumberReset = async (queueType) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/queue/reset/${queueType.toString()}`,
+      {},
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response.status === 200 && response.data.success) {
+      return response.data;
+    } else if (!response.data.activeSessionFound) {
+      return response.data;
+    } else {
+      throw new Error(response.data.error);
+    }
+  } catch (error) {
+    console.error("Error in manual override api: ", error);
+    return null;
+  }
+};
+
+export const overrideSessionReset = async () => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/session/reset`,
+      {},
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (response.status === 200 && response.data.success) {
+      return response.data;
+    } else if (!response.data.activeSessionFound) {
+      return response.data;
+    } else {
+      throw new Error(response.data.error);
+    }
+  } catch (error) {
+    console.error("Error in manual session override  api: ", error);
+    return null;
+  }
+};
+
+export const overrideWindowRelease = async (windowNum) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/window/release/${windowNum}`,
+      {},
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+
+    if (
+      response.status === 200 &&
+      response.data.success &&
+      response.data.wasWindowAssigned
+    ) {
+      return response.data;
+    } else if (!response.data.wasWindowAssigned) {
+      return response.data;
+    } else {
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in manual release window override api: ", error);
+    return null;
+  }
+};
+
+export const updateHeartbeatInterval = async (windowId) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/window/update/heartbeat`,
+      {
+        windowId,
+      },
+      {
+        header: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    if (response?.status === 200 && response?.data.success) {
+      return response.data;
+    } else {
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in update last heartbeat api: ", error);
+    return null;
+  }
+};
+
+export const updateAdminProfile = async (accountData) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/staff/personnel/profile-setting`,
+      { accountData },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        withCredentials: true,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      return error.response.data;
+    } else if (error.request) {
+      return { success: false, message: "No response from server" };
+    } else {
+      return { success: false, message: "An unexpected error occurred" };
+    }
+  }
+};

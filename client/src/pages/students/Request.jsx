@@ -1,19 +1,22 @@
 import { motion } from "framer-motion";
-import { ArrowLeft, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 // import { getCourseData } from "../../api/course.js";
 // import { getRequestType } from "../../api/request.js";
 import {
+  generateQueue,
   getCourseData,
   getRequestType,
-  submitQueueDetail,
 } from "../../api/student.js";
-import { showToast } from "../../components/toast/ShowToast";
-import Loading from "../../components/Loading";
 import ConfirmModal from "../../components/modal/ConfirmModal.jsx";
+import { showToast } from "../../components/toast/ShowToast";
 
 export default function Request() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedQueue, setSelectedQueue] = useState(null);
@@ -49,28 +52,98 @@ export default function Request() {
   const staticCourseData = [
     {
       courseId: 1,
-      courseCode: "BSIT",
-      courseName: "Bachelor of Science in Information Technology",
-    },
-    {
-      courseId: 2,
-      courseCode: "BSCS",
-      courseName: "Bachelor of Science in Computer Science",
-    },
-    {
-      courseId: 3,
-      courseCode: "BSECE",
-      courseName: "Bachelor of Science in Electronics Engineering",
-    },
-    {
-      courseId: 4,
       courseCode: "BSCE",
       courseName: "Bachelor of Science in Civil Engineering",
     },
     {
-      courseId: 5,
+      courseId: 2,
+      courseCode: "BSCpE",
+      courseName: "Bachelor of Science in Computer Engineering",
+    },
+    {
+      courseId: 3,
       courseCode: "BSEE",
       courseName: "Bachelor of Science in Electrical Engineering",
+    },
+    {
+      courseId: 4,
+      courseCode: "BSECE",
+      courseName: "Bachelor of Science in Electronics Engineering",
+    },
+    {
+      courseId: 5,
+      courseCode: "BSME",
+      courseName: "Bachelor of Science in Mechanical Engineering",
+    },
+    {
+      courseId: 6,
+      courseCode: "BSCS",
+      courseName: "Bachelor of Science in Computer Science",
+    },
+    {
+      courseId: 7,
+      courseCode: "BSIT",
+      courseName: "Bachelor of Science in Information Technology",
+    },
+    {
+      courseId: 8,
+      courseCode: "BSIS",
+      courseName: "Bachelor of Science in Information Systems",
+    },
+    {
+      courseId: 9,
+      courseCode: "BSA",
+      courseName: "Bachelor of Science in Accountancy",
+    },
+    {
+      courseId: 10,
+      courseCode: "BSMA",
+      courseName: "Bachelor of Science in Management Accounting",
+    },
+    {
+      courseId: 11,
+      courseCode: "BSBA-MM",
+      courseName: "BSBA Major in Marketing Management",
+    },
+    {
+      courseId: 12,
+      courseCode: "BSBA-HRM",
+      courseName: "BSBA Major in Human Resource Management",
+    },
+    {
+      courseId: 13,
+      courseCode: "BSEd",
+      courseName: "Bachelor of Secondary Education",
+    },
+    {
+      courseId: 14,
+      courseCode: "BSN",
+      courseName: "Bachelor of Science in Nursing",
+    },
+    {
+      courseId: 15,
+      courseCode: "BSCrim",
+      courseName: "Bachelor of Science in Criminology",
+    },
+    {
+      courseId: 16,
+      courseCode: "BSMT",
+      courseName: "Bachelor of Science in Marine Transportation",
+    },
+    {
+      courseId: 17,
+      courseCode: "BSMarE",
+      courseName: "Bachelor of Science in Marine Engineering",
+    },
+    {
+      courseId: 18,
+      courseCode: "BS-Psych",
+      courseName: "Bachelor of Science in Psychology",
+    },
+    {
+      courseId: 19,
+      courseCode: "BSPharm",
+      courseName: "Bachelor of Science in Pharmacy",
     },
   ];
   const staticRequestTypes = [
@@ -105,7 +178,16 @@ export default function Request() {
       icon: "fa-solid fa-right-left",
     },
   ];
-
+  const [yearSearchTerm, setYearSearchTerm] = useState("");
+  const [isYearOpen, setIsYearOpen] = useState(false);
+  const yearDropdownRef = useRef(null);
+  const yearOptions = [
+    "1st Year",
+    "2nd Year",
+    "3rd Year",
+    "4th Year",
+    "Irregular",
+  ];
   // useEffect(() => {
   //   const fetchCourseData = async () => {
   //     try {
@@ -129,13 +211,100 @@ export default function Request() {
   //     fetchCourseData();
   //   }, []);
 
-  useEffect(() => {
+   useEffect(() => {
     if (selectedQueue) {
       sessionStorage.setItem("hasRequestInProgress", "true");
     } else {
       sessionStorage.removeItem("hasRequestInProgress");
     }
   }, [selectedQueue]);
+
+  // Add these states
+const [showBrowserBackModal, setShowBrowserBackModal] = useState(false);
+const [isFormDirty, setIsFormDirty] = useState(false);
+
+// Check if form has data
+useEffect(() => {
+  const hasData = 
+    selectedQueue || 
+    formData.lastName || 
+    formData.firstName || 
+    formData.studentId || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasData);
+}, [selectedQueue, formData, selectedServices]);
+
+// Handle browser back button
+// Track if user has started filling the form
+const [hasUserInteracted, setHasUserInteracted] = useState(false);
+
+// Check if form has substantial data (not just started typing)
+useEffect(() => {
+  const hasSubstantialData = 
+    selectedQueue || 
+    (formData.lastName && formData.lastName.length > 1) || 
+    (formData.firstName && formData.firstName.length > 1) || 
+    (formData.studentId && formData.studentId.length >= 4) || 
+    formData.courseId || 
+    formData.yearLevel || 
+    selectedServices.length > 0;
+  
+  setIsFormDirty(hasSubstantialData);
+}, [selectedQueue, formData, selectedServices]);
+
+// Improved browser back button handler
+useEffect(() => {
+  const handlePopState = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      setShowBrowserBackModal(true);
+      // Use replaceState to avoid adding to history stack
+      window.history.replaceState(null, '', window.location.href);
+    }
+  };
+
+  // Only push state if form is dirty
+  if (isFormDirty) {
+    window.history.pushState(null, '', window.location.href);
+  }
+
+  window.addEventListener('popstate', handlePopState);
+
+  return () => {
+    window.removeEventListener('popstate', handlePopState);
+  };
+}, [isFormDirty]);
+
+// Improved page refresh/close handler
+useEffect(() => {
+  const handleBeforeUnload = (event) => {
+    if (isFormDirty) {
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [isFormDirty]);
+
+// Handle browser back confirmation
+const handleBrowserBackConfirm = () => {
+  sessionStorage.removeItem("hasRequestInProgress");
+  setShowBackConfirmModal(false);
+  setIsFormDirty(false);
+  setShowBrowserBackModal(false);
+  navigate('/');
+};
+
+const handleBrowserBackCancel = () => {
+  setShowBrowserBackModal(false);
+};
+
 
   const validateStep1 = () => {
     if (!selectedQueue) {
@@ -156,7 +325,7 @@ export default function Request() {
     } else if (!/^\d{8}$/.test(formData.studentId)) {
       newErrors.studentId = "Student ID must be exactly 8 digits";
     }
-    if (!formData.courseId.trim()) newErrors.course = "Course is required";
+    if (!formData.courseId) newErrors.course = "Course is required";
     if (!formData.yearLevel.trim())
       newErrors.yearLevel = "Year level is required";
 
@@ -219,7 +388,7 @@ export default function Request() {
         setShowBackConfirmModal(true);
       } else {
         // Navigate back immediately if no queue selected
-        navigate(-1);
+        navigate("/");
       }
     }
   };
@@ -234,7 +403,54 @@ export default function Request() {
   const handleBackCancel = () => {
     setShowBackConfirmModal(false);
   };
+  // Filter courses based on search
+  const filteredCourses = courseData.filter(
+    (course) =>
+      course.courseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.courseCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+      if (
+        yearDropdownRef.current &&
+        !yearDropdownRef.current.contains(event.target)
+      ) {
+        setIsYearOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const handleSelect = (courseId, courseName, courseCode) => {
+    setFormData((prev) => ({ ...prev, courseId }));
+    setSearchTerm(`${courseName} - ${courseCode}`);
+    setIsOpen(false);
+  };
 
+  const handleInputChange = (e) => {
+    setSearchTerm(e.target.value);
+    setIsOpen(true);
+    if (!e.target.value) {
+      setFormData((prev) => ({ ...prev, courseId: "" }));
+    }
+  };
+
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen);
+  };
   // const handleChange = (e) => {
   //   setFormData({ ...formData, [e.target.name]: e.target.value });
   //   // Clear error when user starts typing
@@ -294,35 +510,110 @@ export default function Request() {
     }
   };
 
+  const formatNamePart = (name) => {
+    if (!name || typeof name !== "string") return "";
+
+    return name
+      .trim()
+      .split(/\s+/)
+      .map((word) => {
+        if (word.length === 0) return "";
+        if (word.length === 1) return word.toUpperCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
+  };
+
+  const handleNameBlur = (e) => {
+    const { name, value } = e.target;
+
+    if (value.trim()) {
+      const formattedValue = formatNamePart(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formattedValue,
+      }));
+    }
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     setProgress(0);
 
     try {
-      // Simulate request with progress updates (10 steps)
+      const selectedCourse = staticCourseData.find(
+        (course) => course.courseId.toString() === formData.courseId.toString()
+      );
+
+      if (!selectedCourse) {
+        throw new Error("Course not found in staticCourseData");
+      }
+      const studentName = [
+        formData.firstName,
+        formData.middleName,
+        formData.lastName,
+      ];
+      const formattedNames = studentName.map(
+        (n) => n.slice(0).toUpperCase() + n.slice(1, n.length - 1).toLowerCase()
+      );
+      console.log("Student Name: ", formattedNames);
+      const fullName = formData.middleName
+        ? `${formData.lastName}, ${formData.firstName} ${formData.middleName}`
+        : `${formData.lastName}, ${formData.firstName}`;
+      const formattedFormData = {
+        fullName: fullName.trim(),
+        studentId: formData.studentId,
+        courseId: formData.courseId,
+        courseCode: selectedCourse.courseCode,
+        yearLevel: formData.yearLevel.replace(" Year", ""),
+        queueType: selectedQueue,
+        serviceRequests: selectedServices.map((service) => ({
+          requestTypeId: service.requestTypeId,
+          requestName: service.requestName,
+        })),
+      };
+
+      console.log("🟢 Formatted Data being sent:", formattedFormData);
+
       for (let i = 1; i <= 10; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 200)); // chunk delay
-        setProgress(i * 11); // update progress (10%, 20%, ... 100%)
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        setProgress(i * 11);
       }
 
-      console.log("Form submitted:", {
-        queueType: selectedQueue,
-        services: selectedServices,
-        formData: formData,
-      });
+      console.log("📤 Sending queue details to backend:", formattedFormData);
+      const response = await generateQueue(formattedFormData);
 
-      // Clear session storage
-      sessionStorage.removeItem("hasRequestInProgress");
-      setShowModal(false);
-      setShowConfirmModal(false);
+      if (response?.success) {
+        console.log("✅ Queue created successfully:", response);
+        sessionStorage.removeItem("hasRequestInProgress");
+        setShowModal(false);
+        setShowConfirmModal(false);
+        console.log("Response", response);
+        const referenceNumber = response?.queueData?.referenceNumber;
+        const queueId = response?.queueData?.queueId;
 
-      // Optionally reset form here
+        if (queueId) {
+          navigate(`/student/queue/display/${queueId}`, {
+            state: { referenceNumber },
+          });
+        } else {
+          console.warn("⚠️ No reference number found in response:", response);
+          // navigate("/student/queue/display");
+          navigate("/");
+        }
+      } else {
+        console.error(
+          "❌ Backend error:",
+          response?.message || "Unknown error"
+        );
+      }
     } catch (error) {
       console.error("Error submitting form:", error);
     } finally {
       setLoading(false);
     }
   };
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -474,13 +765,13 @@ export default function Request() {
   return (
     <div className="min-h-[90vh] w-full p-4 flex justify-center items-center">
       <motion.div
-        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col mt- p-10"
+        className="w-full md:w-4/5 lg:w-2/3 xl:w-2/4 flex flex-col xl:p-5"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <div className="mb-6 md:mb-8 px-15">
+        <div className="mb-6 md:mb-8  sm:px-15">
           {currentStep === 1 && (
             <>
               <h1 className="text-2xl md:text-3xl text-left font-bold text-blue-600 mb-2 md:mb-4">
@@ -528,11 +819,11 @@ export default function Request() {
         </div>
 
         {/* Step Indicator */}
-        <div className="mb-8 md:mb-10">
-          <p className="text-sm text-left text-gray-500 mb-2 px-15">
+        <div className="mb-8 md:mb-10 ">
+          <p className="text-sm text-left text-gray-500 mb-2  sm:px-15">
             Step {currentStep} of 4
           </p>
-          <div className="flex space-x-2 px-15">
+          <div className="flex space-x-2  sm:px-15">
             {[1, 2, 3, 4].map((step) => (
               <div
                 key={step}
@@ -563,10 +854,12 @@ export default function Request() {
 
             {/* Standard Queue */}
             <motion.div
-              className={`border rounded-xl p-4 md:p-5 cursor-pointer transition-all duration-200 ${
+              className={`border rounded-xl p-4 md:p-5  cursor-pointer transition-all duration-200 ${
                 selectedQueue === "Standard"
                   ? "border-blue-500 bg-blue-50 shadow-sm"
-                  : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                  : selectedQueue === "Priority"
+                  ? "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+                  : "border-[#1A73E8] bg-blue-50 hover:border-blue-300 hover:bg-blue-50"
               } ${errors.step1 ? "border-red-300" : ""}`}
               onClick={() => handleQueueSelect("Regular")}
               variants={itemVariants}
@@ -575,7 +868,7 @@ export default function Request() {
             >
               <div className="flex items-start">
                 <div
-                  className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center mr-3 md:mr-4 ${
+                  className={`flex-shrink-0 w-5 h-5 mt-1 rounded-full border flex items-center justify-center  mr-3 md:mr-4 ${
                     selectedQueue === "Regular"
                       ? "border-blue-500 bg-blue-500 text-white"
                       : "border-gray-400"
@@ -602,7 +895,8 @@ export default function Request() {
                     Regular Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For general inquiries and regular services.
+                    For general inquiries and regular services. Most visitors
+                    should select this option
                   </p>
                 </div>
               </div>
@@ -613,7 +907,7 @@ export default function Request() {
               className={`border rounded-xl p-4 md:p-5 cursor-pointer transition-all duration-200 ${
                 selectedQueue === "Priority"
                   ? "border-blue-500 bg-blue-50 shadow-sm"
-                  : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                  : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
               } ${errors.step1 ? "border-red-300" : ""}`}
               onClick={() => handleQueueSelect("Priority")}
               variants={itemVariants}
@@ -649,7 +943,8 @@ export default function Request() {
                     Priority Queue
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    For seniors, pregnant individuals, PWD, or urgent needs.
+                    For seniors, pregnant individuals, people with disabilities,
+                    or those with urgent needs.
                   </p>
                 </div>
               </div>
@@ -658,18 +953,19 @@ export default function Request() {
         )}
 
         {/* Step 2: Your Information */}
+        {Object.keys(errors).length > 0 && (
+              <div className="bg-red-50 border text-left border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm mb-5">
+                Required fields must be filled in.
+              </div>
+            )}
         {currentStep === 2 && (
           <motion.form
-            className="space-y-4 mb-8 bg-white shadow-sm p-10 rounded-2xl md:mb-10 text-left"
+            className="space-y-4 mb-8 bg-white shadow-sm p-6 sm:p-10 rounded-2xl md:mb-10 text-left"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            {Object.keys(errors).length > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                Please fill out all required fields
-              </div>
-            )}
+            
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <motion.div
@@ -677,17 +973,18 @@ export default function Request() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.1 }}
               >
-                <label className="block text-sm font-medium text-gray-700">
-                  Last name <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-[#202124]">
+                  Last name<span className="">*</span>
                 </label>
                 <input
                   type="text"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
+                  onBlur={handleNameBlur}
                   placeholder="Last name"
                   className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                    errors.lastName ? "border-red-500" : "border-gray-300"
+                    errors.lastName ? "border-red-500" : "border-[#DDEAFC]"
                   }`}
                 />
                 {errors.lastName && (
@@ -699,16 +996,17 @@ export default function Request() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
-                <label className="block text-sm font-medium text-gray-700">
-                  Middle name <span className="text-gray-400">(optional)</span>
+                <label className="block text-sm font-semibold text-[#202124]">
+                  Middle name <span className="text-gray-400 text-xs ">(optional)</span>
                 </label>
                 <input
                   type="text"
                   name="middleName"
                   value={formData.middleName}
+                  onBlur={handleNameBlur}
                   onChange={handleChange}
                   placeholder="Middle name"
-                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="mt-1 w-full border border-[#DDEAFC] rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </motion.div>
             </div>
@@ -718,17 +1016,18 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                First name <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                First name<span className="">*</span>
               </label>
               <input
                 type="text"
                 name="firstName"
                 value={formData.firstName}
+                onBlur={handleNameBlur}
                 onChange={handleChange}
                 placeholder="First name"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.firstName ? "border-red-500" : "border-gray-300"
+                  errors.firstName ? "border-red-500" : "border-[#DDEAFC]"
                 }`}
               />
               {errors.firstName && (
@@ -741,8 +1040,8 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.4 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Student ID No. <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                Student ID No.<span className="">*</span>
               </label>
               {/* <input
                 type="text"
@@ -757,7 +1056,7 @@ export default function Request() {
               {errors.studentId && (
                 <p className="mt-1 text-sm text-red-600">{errors.studentId}</p>
               )} */}
-              <input
+              <input           
                 type="text"
                 name="studentId"
                 value={formData.studentId}
@@ -767,9 +1066,12 @@ export default function Request() {
                 inputMode="numeric"
                 maxLength="8"
                 className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.studentId ? "border-red-500" : "border-gray-300"
+                  errors.studentId ? "border-red-500" : "border-[#DDEAFC]"
                 }`}
               />
+              {errors.studentId && (
+                <p className="mt-1 text-sm text-red-600">{errors.studentId}</p>
+              )}
             </motion.div>
 
             <motion.div
@@ -777,32 +1079,80 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Course <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124] mb-2">
+                Course<span className="">*</span>
               </label>
-              <select
-                name="courseId"
-                value={formData.courseId}
-                onChange={handleChange}
-                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.course ? "border-red-500" : "border-gray-300"
-                }`}
-              >
-                <option value="" disabled>
-                  Select your course
-                </option>
-                {/* <option value="BSIT">BSIT (Bachelor of Science in Information Technology)</option>
-                <option value="BSCS">BSCS</option>
-                <option value="BSECE">BSECE</option>
-                <option value="BSCE">BSCE</option>
-                <option value="BSEE">BSEE</option> */}
-                {courseData.map((course) => (
-                  <option key={course.courseId} value={course.courseId}>
-                    {course.courseCode} ({course.courseName})
-                  </option>
-                ))}
-                ;
-              </select>
+
+              <div className="relative" ref={dropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsOpen(true)}
+                    placeholder="Select your course"
+                    className={`w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
+                      isOpen
+                        ? "border-blue-500"
+                        : errors.course
+                        ? "border-red-500"
+                        : "border-[#DDEAFC]"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleDropdown}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  >
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {isOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-64 overflow-y-auto custom-scrollbar">
+                    {filteredCourses.length > 0 ? (
+                      filteredCourses.map((course, index) => (
+                        <div
+                          key={course.courseId}
+                          onClick={() =>
+                            handleSelect(
+                              course.courseId,
+                              course.courseName,
+                              course.courseCode
+                            )
+                          }
+                          className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
+                            formData.courseId === course.courseId
+                              ? "bg-blue-50"
+                              : ""
+                          } ${index === 0 ? "rounded-t-2xl" : ""} ${
+                            index === filteredCourses.length - 1
+                              ? "rounded-b-2xl"
+                              : ""
+                          }`}
+                        >
+                          <div className="text-sm text-gray-900">
+                            {course.courseName} - {course.courseCode}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-5 py-3 text-gray-500 text-sm">
+                        No courses found
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Hidden input to store the actual courseId value */}
+              <input type="hidden" name="courseId" value={formData.courseId} />
+
               {errors.course && (
                 <p className="mt-1 text-sm text-red-600">{errors.course}</p>
               )}
@@ -813,28 +1163,73 @@ export default function Request() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.6 }}
             >
-              <label className="block text-sm font-medium text-gray-700">
-                Year Level <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#202124]">
+                Year Level<span className="">*</span>
               </label>
-              <select
+
+              <div className="relative" ref={yearDropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    readOnly
+                    value={formData.yearLevel || ""}
+                    onFocus={() => setIsYearOpen(true)}
+                    placeholder="Select your year level"
+                    className={`mt-1 w-full border rounded-xl px-4 py-2 pr-12 focus:ring-0 focus:outline-none ${
+                      isYearOpen
+                        ? "border-blue-500"
+                        : errors.yearLevel
+                        ? "border-red-500"
+                        : "border-[#DDEAFC]"
+                    }`}
+                  />
+                 <button
+                    type="button"
+                    onClick={() => setIsYearOpen((s) => !s)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-600"
+                  >
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform ${
+                        isYearOpen 
+                          ? "max-md:rotate-0 md:rotate-180" 
+                          : "max-md:rotate-180 md:rotate-0"  
+                      }`}
+                    />
+                </button>
+                </div>
+
+                {isYearOpen && (
+                  <div className=" bottom-full lg:-bottom-45 absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg max-h-44 overflow-y-auto custom-scrollbar">
+                    {yearOptions.map((y, idx, arr) => (
+                      <div
+                        key={y}
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, yearLevel: y }));
+                          setIsYearOpen(false);
+                          if (errors.yearLevel) {
+                            setErrors((prev) => ({ ...prev, yearLevel: "" }));
+                          }
+                        }}
+                        className={`px-5 py-3 hover:bg-blue-50 cursor-pointer ${
+                          formData.yearLevel === y ? "bg-blue-50" : ""
+                        } ${idx === 0 ? "rounded-t-2xl" : ""} ${
+                          idx === arr.length - 1 ? "rounded-b-2xl" : ""
+                        }`}
+                      >
+                        <div className="text-sm text-gray-900">{y}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* keep hidden input for form semantics */}
+              <input
+                type="hidden"
                 name="yearLevel"
                 value={formData.yearLevel}
-                onChange={handleChange}
-                className={`mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                  errors.yearLevel ? "border-red-500" : "border-gray-300"
-                }`}
-              >
-                <option value="" disabled>
-                  Select your year level
-                </option>
-                <option value="1st Year">1st Year</option>
-                <option value="2nd Year">2nd Year</option>
-                <option value="3rd Year">3rd Year</option>
-                <option value="4th Year">4th Year</option>
-                <option value="5th Year">5th Year</option>
-                <option value="6th Year">6th Year</option>
-                <option value="Irregular">Irregular</option>
-              </select>
+              />
 
               {errors.yearLevel && (
                 <p className="mt-1 text-sm text-red-600">{errors.yearLevel}</p>
@@ -852,7 +1247,7 @@ export default function Request() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {/* [
               { label: "Good Moral Certificate", icon: "fa-solid fa-file" },
               { label: "Insurance Payment", icon: "fa-solid fa-shield-halved" },
@@ -871,12 +1266,12 @@ export default function Request() {
                     delay: idx * 0.1, // Stagger delay based on index
                     ease: "easeInOut",
                   }}
-                  className={`flex flex-col items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
+                  className={`flex flex-col   items-center  justify-center border rounded-xl p-4 md:p-9 cursor-pointer transition-all duration-200 ${
                     selectedServices.some(
                       (s) => s.requestTypeId === service.requestTypeId
                     )
-                      ? "border-blue-500 bg-blue-50 shadow-sm"
-                      : "border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                      ? "border-[#1456AE] bg-[#DDEAFC] shadow-sm"
+                      : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50"
                   } ${errors.step3 ? "border-red-300" : ""}`}
                   onClick={() => toggleService(service)}
                   whileHover={{ scale: 1.03 }}
@@ -1054,7 +1449,7 @@ export default function Request() {
         <div className="flex justify-between items-center mt-auto pt-4">
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 px-4 md:px-7 py-2 md:py-2.5 rounded-3xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition  text-sm md:text-base cursor-pointer"
+            className="flex items-center gap-2 px-4 md:px-7 py-2 md:py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition  text-sm md:text-base cursor-pointer"
           >
             <ArrowLeft size={16} />
             Back
@@ -1066,14 +1461,14 @@ export default function Request() {
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
             }
-            className={`px-5 md:px-6 py-2 md:py-2.5 rounded-3xl font-medium transition-colors duration-200 text-sm md:text-base ${
+            className={`px-6 md:px-7 py-3 md:py-3.5 rounded-xl font-medium transition-colors duration-200 text-sm md:text-base ${
               (currentStep === 1 && !selectedQueue) ||
               (currentStep === 3 && selectedServices.length === 0)
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-[#1A73E8] text-white hover:bg-blue-700 cursor-pointer"
+                : "bg-[#1A73E8] text-white hover:bg-[#1557B0] cursor-pointer transition-colors"
             }`}
           >
-            {currentStep === 4 ? "Submit Request" : "Continue"}
+            {currentStep === 4 ? "Confirm" : "Continue"}
           </button>
         </div>
 
@@ -1097,7 +1492,7 @@ export default function Request() {
           showLoading={true}
           showCloseButton={false}
           hideActions={false}
-          loadingText="Submitting your request..."
+          loadingText="Submitting..."
         />
         {/* {showConfirmModal && (
           <motion.div
@@ -1168,7 +1563,7 @@ export default function Request() {
         <ConfirmModal
           isOpen={showBackConfirmModal}
           onClose={() => setShowBackConfirmModal(false)}
-          onConfirm={handleBackConfirm}
+          onConfirm={handleBrowserBackConfirm}
           loading={loading}
           progress={progress}
           icon="/assets/Caution Icon.png"
@@ -1186,7 +1581,20 @@ export default function Request() {
             </>
           }
         />
-
+        {/* Browser Back Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showBrowserBackModal}
+        onClose={handleBrowserBackCancel}
+        onConfirm={handleBrowserBackConfirm}
+        showCloseButton={false}
+        icon="/assets/Caution Icon.png"
+        iconAlt="Warning"
+        iconSize="w-12 h-12"
+        title="Leave Request Page?"
+        description="You have unsaved changes. Are you sure you want to leave this page?"
+        confirmText="Confirm"
+        cancelText="Cancel"
+      />
         {/* {showBackConfirmModal && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-xs flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 w-md sm:w-[55vh] mx-4 shadow-2xl">

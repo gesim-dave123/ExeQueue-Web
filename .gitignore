@@ -13,6 +13,7 @@ pnpm-debug.log*
 .env.production.local
 .env.online
 
+/Documentation
 
 node_modules
 # Keep environment variables out of version control
@@ -21,14 +22,15 @@ node_modules
 src/generated/prisma
 server/prisma/seed.js
 seed.js
-
+server/utils/runner.js
 server/prisma/seed.js
 
 server/prisma/_old_migrations
 server/prisma/prisma
 server/prisma/prisma/schema.prisma
 
-client/_test_scripts/*
+server/_test_scripts/*.js
+client/_test_scripts/*.js
 # Build outputs
 dist/
 build/
@@ -215,3 +217,6 @@ vite.config.ts.timestamp-*
 #package Lock json
 # package-lock.json
 # package.json
+
+#Functions that popultae the database
+populateDatabase.js

@@ -1,60 +1,66 @@
 // File: hooks/useSocket.js
-import { useEffect, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
-import backendConnection from '../../api/backendConnection'; // Adjust path as needed
+import { useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
+import backendConnection from "../../api/backendConnection"; // Adjust path as needed
+import { showToast } from "../../components/toast/ShowToast";
 
-export const useSocket = () => {
+export const useSocket = (onDisconnectOrCleanup) => {
   const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Create socket instance only once
     if (!socketRef.current) {
       socketRef.current = io(backendConnection(), {
         withCredentials: true,
-        // Optional: Add reconnection settings
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
         timeout: 20000,
       });
 
-      // Set up connection status listeners
-      socketRef.current.on('connect', () => {
-        console.log('🟢 Socket connected:', socketRef.current.id);
+      setSocket(socketRef.current); // ✅ Set socket in state
+
+      socketRef.current.on("connect", () => {
+        console.log("Connected:", socketRef.current.id);
+        showToast("Connected", "success");
         setIsConnected(true);
       });
 
-      socketRef.current.on('disconnect', (reason) => {
-        console.log('🔴 Socket disconnected:', reason);
+      socketRef.current.on("disconnect", (reason) => {
+        console.log("Disconnected:", reason);
+        onDisconnectOrCleanup?.();
+        showToast("Disconnected", "error");
         setIsConnected(false);
       });
 
-      socketRef.current.on('connect_error', (error) => {
-        console.log('❌ Socket connection error:', error);
+      socketRef.current.on("connect_error", (error) => {
+        console.error("Cconnection error:", error);
+        onDisconnectOrCleanup?.();
+        showToast("Connection error", "error");
         setIsConnected(false);
       });
     }
 
-    // Cleanup function
     return () => {
       if (socketRef.current) {
-        console.log('🧹 Cleaning up socket connection');
-        socketRef.current.off('connect');
-        socketRef.current.off('disconnect');
-        socketRef.current.off('connect_error');
+        console.log("🧹 Cleaning up socket connection");
+        onDisconnectOrCleanup?.();
+        socketRef.current.off("connect");
+        socketRef.current.off("disconnect");
+        socketRef.current.off("connect_error");
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocket(null); // ✅ Clear state too
       }
     };
-  }, []); // Empty dependency array - runs only once
+  }, []);
 
   return {
-    socket: socketRef.current,
-    isConnected
+    socket, // ✅ Return from state, not ref
+    isConnected,
   };
 };
-
 // Alternative: If you want a singleton socket (shared across all components)
 let globalSocket = null;
 
@@ -72,12 +78,12 @@ export const useGlobalSocket = () => {
         timeout: 20000,
       });
 
-      globalSocket.on('connect', () => {
-        console.log('🟢 Global socket connected:', globalSocket.id);
+      globalSocket.on("connect", () => {
+        console.log("🟢 Global socket connected:", globalSocket.id);
       });
 
-      globalSocket.on('disconnect', (reason) => {
-        console.log('🔴 Global socket disconnected:', reason);
+      globalSocket.on("disconnect", (reason) => {
+        console.log("🔴 Global socket disconnected:", reason);
       });
     }
 
@@ -85,21 +91,21 @@ export const useGlobalSocket = () => {
     const handleConnect = () => setIsConnected(true);
     const handleDisconnect = () => setIsConnected(false);
 
-    globalSocket.on('connect', handleConnect);
-    globalSocket.on('disconnect', handleDisconnect);
+    globalSocket.on("connect", handleConnect);
+    globalSocket.on("disconnect", handleDisconnect);
 
     // Set initial state
     setIsConnected(globalSocket.connected);
 
     // Cleanup local listeners only (don't disconnect global socket)
     return () => {
-      globalSocket.off('connect', handleConnect);
-      globalSocket.off('disconnect', handleDisconnect);
+      globalSocket.off("connect", handleConnect);
+      globalSocket.off("disconnect", handleDisconnect);
     };
   }, []);
 
   return {
     socket: globalSocket,
-    isConnected
+    isConnected,
   };
 };

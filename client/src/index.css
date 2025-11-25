@@ -1,12 +1,64 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Lobster&family=Dancing+Script:wght@400;700&display=swap");
 @import "tailwindcss";
 
-/* Apply Poppins globally */
 body {
   font-family: "Poppins", sans-serif;
-  /* background: linear-gradient(to bottom right, #eff6ff, #ffffff, #fef3c7); */
-  /* margin-left: 20px; */
+
 }
 html {
   scroll-behavior: smooth;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #F3F4F6;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3B82F6;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #2563EB;
+}
+
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+}
+.custom-scrollbar {
+    scroll-behavior: smooth;
+
+  scrollbar-width:thick;
+  scrollbar-color: #1A73E8 #F3F4F6;
+}
+.recharts-wrapper,
+.recharts-surface,
+.recharts-wrapper,
+.recharts-surface ,
+div[class="recharts"] {
+  outline: none !important;
+}
+
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface:focus-visible {
+  outline: none !important;
+  border: none !important;
+}
+
+@layer base {
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px white inset !important; 
+    box-shadow: 0 0 0 1000px white inset !important;
+    -webkit-text-fill-color: #1e293b !important;
+    transition: background-color 9999s ease-in-out 0s !important;
+  }
 }
