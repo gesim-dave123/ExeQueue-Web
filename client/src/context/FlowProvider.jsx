@@ -17,7 +17,7 @@ const FlowProvider = ({ children }) => {
   const [flowToken, setFlowToken] = useState(null);
   const [flowEmail, setFlowEmail] = useState(null);
   const navigate = useNavigate();
-  const TIMER_DURATION = 3 * 60 * 1000;
+  const TIMER_DURATION = 5 * 60 * 1000;
   const expirationTimer = useRef(null);
 
   const clearFlow = useCallback(() => {

@@ -207,7 +207,7 @@ export const requestPasswordReset = async (req, res) => {
         purpose: "otp-flow",
       },
       process.env.JWT_SECRET,
-      { expiresIn: "3m" }
+      { expiresIn: "5m" }
     );
 
     return res.status(200).json({
