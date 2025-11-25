@@ -165,7 +165,7 @@ export const requestPasswordReset = async (req, res) => {
   if (!correctEmail(email))
     return res.status(400).json({
       success: false,
-      message: "Invalid email format. Must be a Gmail address",
+      message: "Invalid email format. Must be a valid Gmail address",
     });
 
   try {
@@ -181,21 +181,21 @@ export const requestPasswordReset = async (req, res) => {
     if (!user)
       return res
         .status(404)
-        .json({ success: false, message: "Email not found in database" });
+        .json({ success: false, message: "Email not found." });
 
     const OTPcode = generateCode();
 
     sendCodeToEmail(user.email, OTPcode)
       .then((success) => {
         if (success) {
-          console.log(`✅ OTP sent to ${email}`);
+          console.log(`OTP sent to ${email}`);
         } else {
-          console.error(`❌ Failed to send OTP to ${user.email}`);
-          deleteOTP(user.email); // Clean up if email fails
+          console.error(`Failed to send OTP to ${user.email}`);
+          deleteOTP(user.email);
         }
       })
       .catch((error) => {
-        console.error(`❌ Error sending OTP to ${user.email}:`, error);
+        console.error(`Error sending OTP to ${user.email}:`, error);
         deleteOTP(user.email);
       });
 
@@ -231,7 +231,7 @@ export const verifyEmail = async (req, res) => {
     if (!receivedOTP)
       return res
         .status(400)
-        .json({ success: false, message: "Code is Required" });
+        .json({ success: false, message: "OTP is Required" });
 
     if (!email)
       return res
@@ -240,15 +240,14 @@ export const verifyEmail = async (req, res) => {
     if (!flowToken)
       return res.status(401).json({
         success: false,
-        message:
-          "Flow token required. Please restart the password reset process.",
+        message: "Token required. Please try again.",
       });
 
     const decodedFlow = jwt.verify(flowToken, process.env.JWT_SECRET);
     if (decodedFlow.purpose !== "otp-flow" || decodedFlow.email !== email) {
       return res.status(401).json({
         success: false,
-        message: "Invalid or mismatched flow token.",
+        message: "Invalid or mismatched token.",
       });
     }
 
@@ -257,7 +256,7 @@ export const verifyEmail = async (req, res) => {
     if (!OTPcode)
       return res.status(404).json({
         success: false,
-        message: "OTP not found or has expired. Please try again",
+        message: "OTP has expired. Please try again",
       });
 
     if (Date.now() > OTPcode.expires_at) {
