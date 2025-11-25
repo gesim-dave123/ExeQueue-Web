@@ -10,7 +10,7 @@ import Home from "./Home";
 
 export default function Landing() {
   return (
-    <div className="min-h-screen w-full  flex flex-col items-center  px-4 sm:px-6 md:px-8 relative overflow-hidden py-8">
+    <div className="min-h-screen w-full  flex flex-col items-center  px-4 sm:px-6 md:px-8 relative overflow-hidden pb-8 md:py-8">
       <section id="home" className="  ">
         <Home />
       </section>
@@ -18,7 +18,7 @@ export default function Landing() {
       {/* About Us Section */}
       <section
         id="about"
-        className="min-h-screen flex items-center justify-center "
+        className="min-h-[80vh] w-full  sm:px-10 lg:px-15 flex items-center justify-center "
       >
         <Help />
       </section>
@@ -26,19 +26,19 @@ export default function Landing() {
       {/* Help Section */}
       <section
         id="help"
-        className="min-h-[80vh] flex items-center justify-center "
+        className="min-h-[80vh] w-full   sm:px-10 lg:px-15 flex items-center justify-center "
       >
         <AboutUs />
       </section>
       <section
         id="faq"
-        className="min-h-[80vh] flex items-center justify-center"
+        className="min-h-[80vh] w-full  sm:px-10 lg:px-15  flex items-center justify-center"
       >
         <FAQs />
       </section>
       <section
         id="faq"
-        className="min-h-[50vh] flex items-center justify-center"
+        className="min-h-[50vh] w-full  sm:px-10 lg:px-15  flex items-center justify-center"
       >
         <Contact />
       </section>

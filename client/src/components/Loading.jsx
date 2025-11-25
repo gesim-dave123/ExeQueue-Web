@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function Loading({
-  text = "Loading...",
+  text = "Logging in...",
   progress = 0,
   isVisible = true,
 }) {
@@ -22,16 +22,16 @@ export default function Loading({
           <div className="mb-6">
             <div className="w-16 h-16 flex items-center justify-center rounded-full">
               <img
-                src="/assets/icon.svg"
+                src="/assets/Logo.png"
                 alt="Queue Logo"
-                className="w-30 h-30"
+                className="w-20 h-14"
               />
             </div>
           </div>
 
           <div className="w-64 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-2 bg-blue-500 transition-[width] duration-[2000ms] ease-in-out"
+              className="h-2 bg-[#1A73E8] transition-[width] duration-[2000ms] ease-in-out"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
@@ -42,3 +42,4 @@ export default function Loading({
     </AnimatePresence>
   );
 }
+
