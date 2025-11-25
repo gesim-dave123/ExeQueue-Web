@@ -37,7 +37,9 @@ export const sendOTPtoEmail = async (email) => {
 
     if (response.status === 200) {
       showToast(response.data.message, "success");
-      return true;
+      return response.data;
+    } else {
+      return false;
     }
   } catch (error) {
     if (error.response) {
@@ -51,13 +53,14 @@ export const sendOTPtoEmail = async (email) => {
   }
 };
 
-export const verifyOTP = async (otp, email) => {
+export const verifyOTP = async (otp, flowToken, email) => {
   try {
     const response = await axios.post(
       `${backendConnection()}/api/auth/verify-email`,
       {
         receivedOTP: otp,
         email: email,
+        flowToken: flowToken,
       },
       {
         headers: { "Content-Type": "application/json" },
