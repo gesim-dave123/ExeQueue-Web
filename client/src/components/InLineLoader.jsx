@@ -1,36 +1,51 @@
 import { AnimatePresence, motion } from "framer-motion";
-
 export const InlineLoading = ({
   text = "Loading...",
   isVisible = true,
-  size = "medium", // small | medium | large | largest
-  textSize, // Optional: Override text size independently
+  size = "medium",
+  textSize,
+  textWrap = "normal", // 'normal' | 'balance' | 'nowrap'
+  maxWidth = "xs", // Control max width for text container
 }) => {
   const sizeClasses = {
     small: {
-      container: "py-2",
-      spinner: "w-5 h-5",
-      text: "text-sm",
+      container: "py-2 md:py-3",
+      spinner: "w-4 h-4 sm:w-5 sm:h-5",
+      text: "text-xs sm:text-sm",
     },
     medium: {
-      container: "py-4",
-      spinner: "w-8 h-8",
-      text: "text-base",
+      container: "py-3 md:py-4",
+      spinner: "w-6 h-6 sm:w-8 sm:h-8",
+      text: "text-sm sm:text-base",
     },
     large: {
-      container: "py-6",
-      spinner: "w-10 h-10",
-      text: "text-lg",
+      container: "py-4 md:py-6",
+      spinner: "w-8 h-8 sm:w-10 sm:h-10",
+      text: "text-base sm:text-lg",
     },
     largest: {
-      container: "py-6",
-      spinner: "w-12 h-12", // Changed from w-15 h-15 (not a valid Tailwind class)
-      text: "text-xl",
+      container: "py-4 md:py-6",
+      spinner: "w-10 h-10 sm:w-12 sm:h-12",
+      text: "text-lg sm:text-xl",
     },
   };
 
+  const wrapClasses = {
+    normal: "break-words whitespace-normal",
+    balance: "break-words whitespace-normal text-balance", // CSS text-balance for better distribution
+    nowrap: "whitespace-nowrap truncate",
+  };
+
+  const maxWidthClasses = {
+    xs: "max-w-xs",
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    full: "max-w-full",
+  };
+
   const styles = sizeClasses[size];
-  const textClass = textSize || styles.text; // Use custom textSize if provided, otherwise use default
+  const textClass = textSize || styles.text;
 
   return (
     <AnimatePresence>
@@ -42,11 +57,10 @@ export const InlineLoading = ({
           transition={{ duration: 0.25, ease: "easeOut" }}
           className={`flex flex-col items-center justify-center ${styles.container}`}
         >
-          {/* Spinner */}
           <div role="status">
             <svg
               aria-hidden="true"
-              className={`${styles.spinner} text-gray-200 animate-spin fill-blue-600`}
+              className={`${styles.spinner} text-[#E2E3E4] animate-spin fill-[#1A73E8]`}
               viewBox="0 0 100 101"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -77,15 +91,23 @@ export const InlineLoading = ({
                 fill="currentFill"
               />
             </svg>
-
             <span className="sr-only">Loading...</span>
           </div>
 
-          {/* Optional Text */}
           {text && (
-            <p className={`mt-3 text-gray-700 font-medium ${textClass}`}>
-              {text}
-            </p>
+            <div
+              className={`mt-2 sm:mt-3 text-center ${maxWidthClasses[maxWidth]}`}
+            >
+              <p
+                className={`
+                text-gray-700 font-medium
+                ${wrapClasses[textWrap]}
+                ${textClass}
+              `}
+              >
+                {text}
+              </p>
+            </div>
           )}
         </motion.div>
       )}
