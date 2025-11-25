@@ -74,6 +74,8 @@ export const verifyOTP = async (otp, flowToken, email) => {
         message: response.data.message,
         resetToken: response.data.resetToken, // Get token from response
       };
+    } else {
+      return false;
     }
   } catch (error) {
     if (error.response) {
@@ -102,8 +104,9 @@ export const resetPassword = async (resetToken, newPassword) => {
     );
 
     if (response.status === 200) {
-      showToast(response.data.message, "success");
       return { success: true, message: response.data.message };
+    } else {
+      return false;
     }
   } catch (error) {
     if (error.response) {

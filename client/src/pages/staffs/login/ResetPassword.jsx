@@ -2,6 +2,7 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { resetPassword } from "../../../api/auth";
+import { showToast } from "../../../components/toast/ShowToast";
 import { useFlow } from "../../../context/FlowProvider";
 
 export default function ResetPassword() {
@@ -57,7 +58,6 @@ export default function ResetPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Reset errors
     setErrors({
       newPassword: "",
       confirmPassword: "",
@@ -79,29 +79,31 @@ export default function ResetPassword() {
       });
       return;
     }
-    // console.log("Reset Token:", resetToken);
     setLoading(true);
-    const res = await resetPassword(resetToken, formData.newPassword);
+    try {
+      const res = await resetPassword(resetToken, formData.newPassword);
 
-    if (!res?.success) {
-      setErrors({
-        newPassword: res?.message || "Failed to reset password",
-        confirmPassword: "",
-      });
-      if (res?.message.includes("expired")) {
-        clearFlow();
-        navigate("/staff/forgot-password", { replace: true });
-        showToast("Reset token expired. Please try again.", "error");
-        return;
+      if (res?.success) {
+        showToast(res?.message, "success");
+        console.log("Navigating to success reset");
+        navigate("/staff/success-reset", {
+          state: { message: "Password reset successfully!" },
+        });
+      } else {
+        setErrors({
+          newPassword: res?.message || "Failed to reset password",
+          confirmPassword: "",
+        });
+        if (res?.message.includes("expired")) {
+          navigate("/staff/forgot-password", { replace: true });
+          showToast("Reset token expired. Please try again.", "error");
+          return;
+        }
       }
+    } catch (error) {
+    } finally {
       setLoading(false);
-      return;
     }
-    clearFlow();
-    navigate("/staff/success-reset", {
-      state: { message: "Password reset successfully!" },
-    });
-    setLoading(false);
   };
 
   return (

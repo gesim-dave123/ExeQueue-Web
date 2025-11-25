@@ -86,21 +86,24 @@ export default function VerifyOTP() {
     if (otpCode.length !== 4) return;
 
     setLoading(true);
-    const res = await verifyOTP(otpCode, flowToken, email);
-
-    if (!res?.success) {
+    try {
+      const res = await verifyOTP(otpCode, flowToken, email);
+      if (res?.success) {
+        setOtpCorrect(true);
+        navigate("/staff/reset-password", {
+          state: { resetToken: res.resetToken, email },
+        });
+      } else {
+        setLoading(false);
+        setOtpCorrect(false);
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+        return;
+      }
+    } catch (error) {
+    } finally {
       setLoading(false);
-      setOtpCorrect(false);
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      return;
     }
-    setOtpCorrect(true);
-    navigate("/staff/reset-password", {
-      state: { resetToken: res.resetToken, email },
-    });
-    console.log(res.resetToken);
-    setLoading(false);
   };
 
   const handleResend = async () => {
