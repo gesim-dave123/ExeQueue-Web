@@ -798,7 +798,7 @@ export default function Transactions() {
         </div>
 
         <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex flex-col min-h-[500px]">
-          <div className="overflow-x-auto flex-1">
+          <div className={`flex-1 ${dataLoading ? "" : "overflow-x-auto"}`}>
             <table className="min-w-full divide-y divide-gray-200 h-full">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
