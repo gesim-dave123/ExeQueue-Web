@@ -1,7 +1,8 @@
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { resetPassword } from "../../../api/auth";
+import { useFlow } from "../../../context/FlowProvider";
 
 export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
@@ -9,6 +10,7 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [isNPasswordFocused, setIsNPasswordFocused] = useState(false);
   const [isCPasswordFocused, setIsCPasswordFocused] = useState(false);
+  const { flowEmail, clearFlow } = useFlow();
   const [formData, setFormData] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -24,6 +26,15 @@ export default function ResetPassword() {
   const email = location.state?.email;
   const resetToken = location.state?.resetToken;
 
+  useEffect(() => {
+    if (!resetToken || !flowEmail) {
+      clearFlow();
+      navigate("/staff/login", { replace: true });
+    }
+  }, [resetToken, flowEmail, navigate, clearFlow]);
+  if (!resetToken || !flowEmail) {
+    return null;
+  }
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -77,10 +88,16 @@ export default function ResetPassword() {
         newPassword: res?.message || "Failed to reset password",
         confirmPassword: "",
       });
+      if (res?.message.includes("expired")) {
+        clearFlow();
+        navigate("/staff/forgot-password", { replace: true });
+        showToast("Reset token expired. Please try again.", "error");
+        return;
+      }
       setLoading(false);
       return;
     }
-
+    clearFlow();
     navigate("/staff/success-reset", {
       state: { message: "Password reset successfully!" },
     });
@@ -257,7 +274,10 @@ export default function ResetPassword() {
         <div className="flex justify-center items-center mt-6">
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
-            onClick={() => navigate("/staff/login")}
+            onClick={() => {
+              clearFlow();
+              navigate("/staff/login");
+            }}
             className="text-sm text-gray-700 cursor-pointer"
           >
             Back to Login
