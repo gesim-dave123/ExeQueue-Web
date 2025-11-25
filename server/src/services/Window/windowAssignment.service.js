@@ -7,7 +7,7 @@ import {
 import { QueueActions, WindowEvents } from "../enums/SocketEvents.js";
 
 const activeTimers = new Map();
-const GRACE_PERIOD = 10 * 60 * 1000; // 10 mins
+const GRACE_PERIOD = 30 * 60 * 1000; // 10 mins
 
 export function scheduleAssignmentTimer(assignmentId, lastHeartbeat, io) {
   const delay = Math.max(

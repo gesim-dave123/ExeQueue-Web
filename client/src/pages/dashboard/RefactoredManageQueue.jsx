@@ -75,6 +75,7 @@ export default function Manage_Queue() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const debouncedDeferredSearchTerm = useDebounce(deferredSearchTerm, 500);
+  const HEARTBEAT_INTERVAL = 2 * 60 * 1000;
   const isNumeric = (val) => /^\d+$/.test(val);
 
   const onDisconnectOrCleanUp = () => {
@@ -176,10 +177,9 @@ export default function Manage_Queue() {
       await updateHeartbeatInterval(windowId);
       heartbeatRef.current = setInterval(async () => {
         await updateHeartbeatInterval(windowId);
-        console.log("Updating heartbeat...");
-      }, 2 * 60 * 1000);
+      }, HEARTBEAT_INTERVAL);
 
-      console.log("Heartbeat interval activated for window Id no: ", windowId);
+      // console.log("Heartbeat interval activated for window Id no: ", windowId);
     } catch (error) {
       console.error(
         "Error occurred in start heartbeat interval function: ",

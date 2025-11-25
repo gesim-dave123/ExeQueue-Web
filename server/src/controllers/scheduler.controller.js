@@ -15,7 +15,7 @@ const FIVEMIN = "*/5 * * * *";
 const TWOMIN = "*/2 * * * * *";
 const THIRTYMIN = "*/30 * * * * *";
 const TIMEZONE = "Asia/Manila";
-const GRACE_PERIOD = 10 * 60 * 1000;
+const GRACE_PERIOD = 30 * 60 * 1000;
 const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
   new Date(),
   "Asia/Manila"
@@ -23,9 +23,7 @@ const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
 const manilaNow = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
 
 // Queue Schedulers
-
 export function startStalledRequestFinalizer() {
-  // Run daily at 11:59 PM Manila time
   cron.schedule(
     TEN_PM,
     async () => {
@@ -307,63 +305,7 @@ async function updateQueueStatus(queueId, io) {
   }
 }
 
-// Transaction History Schedulers
-
-// export const scheduleSkippedToCancelledRequest = async () => {
-//   cron.schedule("*/5 * * * *", async () => {
-//     console.log("Checking for expired skipped requests...");
-
-//     try {
-//       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-//       const expiredRequests = await prisma.request.findMany({
-//         where: {
-//           requestStatus: Status.SKIPPED,
-//           updatedAt: {
-//             lt: oneHourAgo,
-//           },
-//           isActive: true,
-//         },
-//         include: {
-//           queue: true,
-//         },
-//       });
-
-//       console.log(`Found ${expiredRequests.length} expired skipped requests`);
-
-//       for (const request of expiredRequests) {
-//         await prisma.request.update({
-//           where: { requestId: request.requestId },
-//           data: {
-//             requestStatus: Status.CANCELLED,
-//             updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-//           },
-//         });
-
-//         await prisma.transactionHistory.create({
-//           data: {
-//             queueId: request.queueId,
-//             requestId: request.requestId,
-//             performedById: request.processedBy || "system",
-//             performedByRole: "PERSONNEL",
-//             transactionStatus: Status.CANCELLED,
-//           },
-//         });
-
-//         console.log(
-//           `Auto-cancelled skipped request ${request.requestId} after 1 hour`
-//         );
-//       }
-
-//       console.log("Skipped request check completed");
-//     } catch (error) {
-//       console.error("Error in skipped-to-cancelled check:", error);
-//     }
-//   });
-// };
-
 // Queue Session Schedulers
-
 export const scheduleSessionClose = async () => {
   cron.schedule(
     TEN_PM,
@@ -453,7 +395,6 @@ export const scheduleSessionCreate = async () => {
 };
 
 // Window Schedulers
-
 export function scheduleInactiveWindow() {
   cron.schedule(
     FIFTEENMIN,
@@ -523,7 +464,7 @@ export function scheduleInactiveWindow() {
 }
 export function scheduleInactiveWindowFailsafe(io) {
   cron.schedule(
-    FIFTEENMIN, // every 15 mins
+    FIFTEENMIN,
     async () => {
       try {
         const cutOffTime = new Date(Date.now() - GRACE_PERIOD);
@@ -805,199 +746,3 @@ export function startEndOfDayQueueCleanup() {
     { timezone: TIMEZONE }
   );
 }
-// export function startWaitingQueueCleanUp() {
-//   cron.schedule(
-//     TEN_PM,
-//     async () => {
-//       console.log("Running queue clean up for unattended queues (10 pm)");
-//       try {
-//         const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
-//           new Date(),
-//           "Asia/Manila"
-//         );
-//         const cleanup = await prisma.$transaction(async (tx) => {
-//           const waitingQueues = await tx.queue.findMany({
-//             where: {
-//               session: {
-//                 sessionDate: todayUTC,
-//               },
-//               queueStatus: {
-//                 in: [Status.WAITING, Status.IN_SERVICE],
-//               },
-//               isActive: true,
-//             },
-//             select: {
-//               queueId: true,
-//               queueStatus: true,
-//               requests: {
-//                 where: {
-//                   isActive: true,
-//                 },
-//                 select: {
-//                   requestStatus: true,
-//                 },
-//               },
-//             },
-//           });
-//           for (const queue of waitingQueues) {
-//             const requests = queue.requests;
-
-//             const allCompleted = requests.every(
-//               (r) => r.requestStatus === Status.COMPLETED
-//             );
-//             const allCancelled = requests.every(
-//               (r) => r.requestStatus === Status.CANCELLED
-//             );
-//             const hasStalled = requests.some(
-//               (r) => r.requestStatus === Status.STALLED
-//             );
-//             const hasSkipped = requests.some(
-//               (r) => r.requestStatus === Status.SKIPPED
-//             );
-//             const hasCompleted = requests.some(
-//               (r) => r.requestStatus === Status.COMPLETED
-//             );
-//             const hasCancelled = requests.some(
-//               (r) => r.requestStatus === Status.CANCELLED
-//             );
-//             const allWaiting = requests.every(
-//               (r) => r.requestStatus === Status.WAITING
-//             );
-
-//             let finalStatus = Status.DEFERRED;
-
-//             if (allCompleted) {
-//               finalStatus = Status.COMPLETED;
-//             } else if (allCancelled) {
-//               finalStatus = Status.CANCELLED;
-//             } else if (allWaiting) {
-//               finalStatus = Status.CANCELLED;
-//             } else if (hasStalled || hasSkipped) {
-//               finalStatus = Status.DEFERRED;
-//             } else if (hasCompleted && hasCancelled) {
-//               finalStatus = Status.PARTIALLY_COMPLETE;
-//             }
-//             await tx.queue.update({
-//               where: { queueId: queue.queueId },
-//               data: {
-//                 queueStatus: finalStatus,
-//                 completedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-//                 updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-//                 requests: {
-//                   data: {
-//                     requestStatus: allWaiting
-//                       ? Status.CANCELLED
-//                       : queue.requestStatus,
-//                   },
-//                 },
-//               },
-//             });
-//           }
-//         });
-//       } catch (error) {
-//         console.error("Error in cleaning waiting queues: ", error);
-//       }
-//     },
-//     { timezone: TIMEZONE }
-//   );
-// }
-
-// export function startDeferredQueueCleanUp() {
-//   cron.schedule(
-//     TEN_PM,
-//     async () => {
-//       console.log("[10 PM] Running deferred queue finalization...");
-
-//       try {
-//         const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
-//           new Date(),
-//           "Asia/Manila"
-//         );
-
-//         const deferredQueues = await prisma.queue.findMany({
-//           where: {
-//             queueStatus: Status.DEFERRED,
-//             session: {
-//               sessionDate: todayUTC,
-//               // isActive: true,
-//             },
-//           },
-//           select: {
-//             queueId: true,
-//             referenceNumber: true,
-//             requests: {
-//               where: {
-//                 isActive: true,
-//               },
-//               select: {
-//                 requestStatus: true,
-//               },
-//             },
-//           },
-//         });
-
-//         console.log(
-//           `Found ${deferredQueues.length} deferred queues to finalize`
-//         );
-
-//         for (const queue of deferredQueues) {
-//           const requests = queue.requests;
-
-//           const allCompleted = requests.every(
-//             (r) => r.requestStatus === Status.COMPLETED
-//           );
-//           const allCancelled = requests.every(
-//             (r) => r.requestStatus === Status.CANCELLED
-//           );
-//           const hasStalled = requests.some(
-//             (r) => r.requestStatus === Status.STALLED
-//           );
-//           const hasSkipped = requests.some(
-//             (r) => r.requestStatus === Status.SKIPPED
-//           );
-//           const hasCompleted = requests.some(
-//             (r) => r.requestStatus === Status.COMPLETED
-//           );
-//           const hasCancelled = requests.some(
-//             (r) => r.requestStatus === Status.CANCELLED
-//           );
-
-//           let finalStatus = Status.DEFERRED;
-
-//           if (allCompleted) {
-//             finalStatus = Status.COMPLETED;
-//           } else if (allCancelled) {
-//             finalStatus = Status.CANCELLED;
-//           } else if (hasStalled || hasSkipped) {
-//             finalStatus = Status.DEFERRED;
-//           } else if (hasCompleted && hasCancelled) {
-//             finalStatus = Status.PARTIALLY_COMPLETE;
-//           }
-
-//           await prisma.queue.update({
-//             where: { queueId: queue.queueId },
-//             data: {
-//               queueStatus: finalStatus,
-//               completedAt:
-//                 finalStatus === Status.COMPLETED ||
-//                 finalStatus === Status.CANCELLED
-//                   ? DateAndTimeFormatter.nowInTimeZone("Asia/Manila")
-//                   : null,
-//               updatedAt: DateAndTimeFormatter.nowInTimeZone("Asia/Manila"),
-//             },
-//           });
-//           console.log(
-//             `Finalized queue ${queue.referenceNumber} → ${finalStatus}`
-//           );
-//         }
-
-//         console.log("Deferred finalization completed");
-//       } catch (error) {
-//         console.error("Error in deferred finalization:", error);
-//       }
-//     },
-//     {
-//       timezone: TIMEZONE,
-//     }
-//   );
-// }
