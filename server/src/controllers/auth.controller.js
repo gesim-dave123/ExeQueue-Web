@@ -15,70 +15,19 @@ export const loginUser = async (req, res) => {
 
   try {
     if (!username || !password) {
-      return res.status(403).json({
+      return res.status(400).json({
         success: false,
         message: "Required fields are missing!",
       });
     }
 
-    const existingToken = req.cookies.access_token;
-
-    if (existingToken) {
-      try {
-        const decoded = jwt.verify(existingToken, process.env.JWT_SECRET);
-
-        const userAlreadyLoggedIn = await prisma.sasStaff.findFirst({
-          where: { username: username, deletedAt: null },
-          select: { sasStaffId: true, isActive: true },
-        });
-
-        if (!userAlreadyLoggedIn) {
-          return res.status(404).json({
-            success: false,
-            message: "Account not found!",
-          });
-        }
-
-        if (!userAlreadyLoggedIn.isActive) {
-          return res.status(401).json({
-            success: false,
-            message: "Account is not active.",
-          });
-        }
-
-        if (
-          userAlreadyLoggedIn &&
-          decoded.id === userAlreadyLoggedIn.sasStaffId
-        ) {
-          return res.status(200).json({
-            success: true,
-            message: "You are already logged in.",
-            alreadyLoggedIn: true,
-            sameAccount: true,
-          });
-        }
-
-        // Different user trying to login → BLOCK
-        return res.status(400).json({
-          success: false,
-          message: "Another account is already logged in. Please logout first.",
-          alreadyLoggedIn: true,
-          sameAccount: false,
-        });
-      } catch (err) {
-        console.log("Existing token invalid → continue login");
-      }
-    }
     const user = await prisma.sasStaff.findFirst({
-      where: {
-        username: username,
-        deletedAt: null,
-      },
+      where: { username, isActive: true, deletedAt: null },
       select: {
         sasStaffId: true,
         hashedPassword: true,
         role: true,
-        isActive: true,
+        username: true,
       },
     });
 
@@ -89,31 +38,25 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: "Account is not active.",
-      });
-    }
-
     const decrypt = await bcrypt.compare(password, user.hashedPassword);
-
     if (!decrypt) {
       return res.status(403).json({
         success: false,
         message: "Invalid Credentials",
       });
     }
+
+    // Generate token *only after password is correct*
     const token = jwt.sign(
-      {
-        id: user.sasStaffId,
-        role: user.role,
-        isActive: user.isActive,
-      },
+      { id: user.sasStaffId, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "12h" }
     );
 
+    // Clear old token only now
+    res.clearCookie("access_token");
+
+    // Set new token
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -124,12 +67,15 @@ export const loginUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Logged In Successfully!",
-      role: user.role,
-      token,
+      message: "Login Successful",
+      user: {
+        id: user.sasStaffId,
+        username: user.username,
+        role: user.role,
+      },
     });
-  } catch (error) {
-    console.error("Error in Login:", error);
+  } catch (err) {
+    console.error("Login error:", err);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error!",
@@ -151,7 +97,7 @@ export const logoutUser = (req, res) => {
   });
 };
 
-// ✅ NEW: Force logout endpoint (clears cookie even if token is invalid)
+// Force logout endpoint (clears cookie even if token is invalid)
 export const forceLogout = (req, res) => {
   res.clearCookie("access_token", {
     httpOnly: true,
@@ -166,7 +112,7 @@ export const forceLogout = (req, res) => {
   });
 };
 
-// ✅ NEW: Check login status endpoint
+//Check login status endpoint
 export const checkLoginStatus = (req, res) => {
   try {
     const token = req.cookies.access_token;
@@ -255,9 +201,20 @@ export const requestPasswordReset = async (req, res) => {
 
     storeOTP(user.email, OTPcode);
 
+    const flowToken = jwt.sign(
+      {
+        email: user.email,
+        purpose: "otp-flow",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "3m" }
+    );
+
     return res.status(200).json({
       success: true,
       message: "Verification code sent successfully",
+      email: user.email,
+      flowToken: flowToken,
     });
   } catch (error) {
     console.error("Error in requestPasswordReset:", error);
@@ -269,8 +226,8 @@ export const requestPasswordReset = async (req, res) => {
 };
 
 export const verifyEmail = async (req, res) => {
+  const { receivedOTP, email, flowToken } = req.body;
   try {
-    const { receivedOTP, email } = req.body;
     if (!receivedOTP)
       return res
         .status(400)
@@ -280,6 +237,20 @@ export const verifyEmail = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Email is Required" });
+    if (!flowToken)
+      return res.status(401).json({
+        success: false,
+        message:
+          "Flow token required. Please restart the password reset process.",
+      });
+
+    const decodedFlow = jwt.verify(flowToken, process.env.JWT_SECRET);
+    if (decodedFlow.purpose !== "otp-flow" || decodedFlow.email !== email) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or mismatched flow token.",
+      });
+    }
 
     const OTPcode = getOTP(email);
 
@@ -325,6 +296,12 @@ export const verifyEmail = async (req, res) => {
     });
   } catch (error) {
     console.error("Verify email error:", error);
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "The password reset session has expired. Please restart.",
+      });
+    }
     return res.status(500).json({
       success: false,
       message: "An error occurred. Please try again later",
@@ -436,11 +413,22 @@ export const resetPassword = async (req, res) => {
 
 export const verifyUser = (req, res) => {
   try {
-    res.status(200).json({ success: true, user: req.user });
-  } catch (error) {
-    console.error("Error in verifying user: ", error);
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal Server Error!" });
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        user: null,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error("Verify error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error!",
+    });
   }
 };
