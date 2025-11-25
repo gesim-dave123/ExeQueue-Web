@@ -77,7 +77,7 @@ model WindowAssignment {
 
 model SasStaff {
   sasStaffId     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid @map("sas_staff_id")
-  username       String    @unique @db.VarChar(100)
+  username       String    @db.VarChar(100)
   hashedPassword String    @db.VarChar(255) @map("hashed_password")
   firstName      String    @db.VarChar(100) @map("first_name")
   lastName       String    @db.VarChar(100) @map("last_name")
@@ -97,6 +97,8 @@ model SasStaff {
   assignments          WindowAssignment[]   @relation("StaffAssignments")
 
   // @@unique([email], map: "unique_active_email")
+  @@unique([email, deletedAt], map: "unique_email_active")
+  @@unique([username, deletedAt], map: "unique_username_active")
   @@index([username, isActive], map: "idx_sas_staff_username_active")
   @@index([email, isActive], map: "idx_sas_staff_email_active")
   @@index([role, isActive], map: "idx_sas_staff_role_active")
