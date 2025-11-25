@@ -8,8 +8,10 @@ export default function Display_Queue() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef(null);
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isDataLoading, setIsDataLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const isFetchingRef = useRef(false); // Prevent concurrent fetches
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -28,8 +30,19 @@ export default function Display_Queue() {
     }
   };
 
-  const getStats = async () => {
-    setLoading(true);
+  const getStats = async (isInitialLoad = false) => {
+    // Prevent concurrent requests
+    if (isFetchingRef.current) {
+      console.log("Fetch already in progress, skipping...");
+      return;
+    }
+
+    isFetchingRef.current = true;
+
+    if (isInitialLoad) {
+      setIsDataLoading(true);
+    }
+
     try {
       const response = await fetchLiveDataStats();
       console.log("Live Data Stats Response:", response);
@@ -43,21 +56,31 @@ export default function Display_Queue() {
       console.error("Error fetching dashboard stats:", error);
       setErrorMsg("Failed to load dashboard data");
     } finally {
-      setLoading(false);
+      isFetchingRef.current = false;
+
+      if (isInitialLoad) {
+        setIsDataLoading(false);
+        // Only set page loading to false after initial data is loaded
+        setIsPageLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    getStats();
+    getStats(true);
 
+    // Set up SSE subscription
     SSE.subscribe("statistics/queue/live", (data) => {
       if (data.type === "live-display-update") {
         console.log("Received live display update:", data);
-        getStats();
+        // Silent updates - don't show loading indicator
+        getStats(false);
       }
     });
 
-    return () => SSE.unsubscribe("statistics/queue/live");
+    return () => {
+      SSE.unsubscribe("statistics/queue/live");
+    };
   }, []);
 
   useEffect(() => {
@@ -103,15 +126,19 @@ export default function Display_Queue() {
   const totalRegularWaiting = totals.totalRegularWaiting || 0;
   const totalPriorityWaiting = totals.totalPriorityWaiting || 0;
 
-  return loading ? (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
-      <InlineLoading
-        text="Fetching display queue data..."
-        isVisible={loading}
-        size="largest"
-      />
-    </div>
-  ) : (
+  if (isPageLoading) {
+    return (
+      <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-2xl">
+        <InlineLoading
+          text="Loading Display Queue..."
+          isVisible={true}
+          size="largest"
+        />
+      </div>
+    );
+  }
+
+  return (
     <div className="h-screen w-full overflow-hidden flex flex-col bg-[#F5F5F5]">
       <div
         ref={containerRef}
@@ -272,7 +299,6 @@ export default function Display_Queue() {
                     ))}
                   </div>
                 ) : (
-                  // Empty state when no next in line
                   <div className="h-full flex items-center justify-center text-gray-400 text-xs xs:text-sm sm:text-base md:text-lg">
                     No one in line
                   </div>
