@@ -55,7 +55,7 @@ export const InlineLoading = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -5 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
-          className={`flex flex-col items-center justify-center ${styles.container}`}
+          className={`flex w-[40vh] mr-5 flex-col items-center justify-center ${styles.container}`}
         >
           <div role="status">
             <svg
