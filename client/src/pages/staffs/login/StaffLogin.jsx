@@ -251,7 +251,7 @@ export default function StaffLogin() {
             <button
               type="button"
               onClick={() => navigate("/staff/forgot-password")}
-              className="text-sm text-[#1A73E8] cursor-pointer"
+              className="text-sm text-[#1A73E8] cursor-pointer hover:underline"
             >
               Forgot Password?
             </button>
@@ -276,7 +276,7 @@ export default function StaffLogin() {
           <ArrowLeft size={16} className="mr-2 text-gray-700" />
           <button
             onClick={() => navigate("/")}
-            className="text-sm text-gray-700 cursor-pointer"
+            className="text-sm text-gray-700 cursor-pointer hover:font-medium"
           >
             Back to Homepage
           </button>

@@ -229,7 +229,7 @@ export default function ForgotPassword() {
               clearFlow();
               navigate("/staff/login");
             }}
-            className="text-sm text-gray-700 cursor-pointer"
+            className="text-sm text-gray-700 cursor-pointer hover:font-medium"
           >
             Back to Login
           </button>
