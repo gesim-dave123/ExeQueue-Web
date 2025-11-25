@@ -313,7 +313,7 @@ export default function Analytics() {
   return loading ? (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
       <InlineLoading
-        text="Fetching analytics data..."
+        text="Loading Analytics.."
         isVisible={loading}
         size="largest"
       />

@@ -684,8 +684,10 @@ export default function Transactions() {
   return initialLoading && !dataLoading ? (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
       <InlineLoading
-        text="Fetching transaction history data..."
+        text="Loading Transaction History..."
         isVisible={initialLoading}
+        textWrap="normal"
+        maxWidth="xxs"
         size="largest"
       />
     </div>
@@ -826,7 +828,7 @@ export default function Transactions() {
                     <td colSpan="6" className="px-4 sm:px-6 py-8 text-center">
                       <div className="flex items-center justify-center gap-3">
                         <InlineLoading
-                          text="Getting transaction data..."
+                          text="Fetching Transactions..."
                           isVisible={dataLoading}
                           textSize={"text-md"}
                           size="medium"

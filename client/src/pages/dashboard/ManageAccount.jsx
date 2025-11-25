@@ -31,12 +31,7 @@ export default function ManageAccount() {
   const fetchAccounts = async () => {
     try {
       setFetchLoading(true);
-      console.log("🔄 Fetching working scholars...");
-
       const result = await getWorkingScholars();
-
-      console.log("✅ Accounts fetched:", result.data);
-
       const transformedAccounts = result.data.map((scholar) => ({
         id: scholar.sasStaffId,
         sasStaffId: scholar.sasStaffId,
@@ -229,7 +224,7 @@ export default function ManageAccount() {
       <td colSpan="5" className="py-8 text-center">
         <div className="flex flex-col items-center justify-center gap-3">
           <InlineLoading
-            text="Updating accounts data..."
+            text="Fetching Accounts..."
             isVisible={tableLoading}
             textSize={"text-md"}
             size="medium"
@@ -308,7 +303,7 @@ export default function ManageAccount() {
   return fetchLoading && !tableLoading ? (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
       <InlineLoading
-        text="Fetching accounts data..."
+        text="Loading Manage Accounts..."
         isVisible={fetchLoading}
         size="largest"
       />

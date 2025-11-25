@@ -73,7 +73,7 @@ export default function Dashboard() {
   return loading ? (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
       <InlineLoading
-        text="Fetching dashboard data..."
+        text="Loading Dashboard.."
         progress={progress}
         isVisible={loading}
         size="largest"
