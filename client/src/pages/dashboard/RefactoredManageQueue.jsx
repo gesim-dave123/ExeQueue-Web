@@ -467,7 +467,13 @@ export default function Manage_Queue() {
   };
 
   const handleDeferredAction = async (requestId, action) => {
-    if (!selectedQueue) return;
+    if (!selectedQueue || !selectedQueue.queueId || !selectedQueue.windowId) {
+      console.error(
+        "Pre-condition failed: selectedQueue or its IDs are missing."
+      );
+      showToast("Queue selection information is missing.", "error");
+      return;
+    }
 
     const statusMap = {
       done: "Completed",
@@ -477,11 +483,17 @@ export default function Manage_Queue() {
     };
 
     const requestStatus = statusMap[action];
-    if (!requestStatus) return;
+    if (!requestStatus) {
+      console.error(`Invalid action provided: ${action}`);
+      showToast(`Invalid action: ${action}`, "error");
+      return;
+    }
 
     const snapshot = {
       selectedQueue: JSON.parse(JSON.stringify(selectedQueue)),
-      deferredQueue: JSON.parse(JSON.stringify(deferredQueue)),
+      deferredQueue: deferredQueue
+        ? JSON.parse(JSON.stringify(deferredQueue))
+        : null,
     };
 
     try {
@@ -497,17 +509,24 @@ export default function Manage_Queue() {
           response.message || "Failed to update deferred request"
         );
 
-      setSelectedQueue((prev) => ({
-        ...prev,
-        requests: prev.requests.map((r) =>
-          r.id === requestId ? { ...r, status: requestStatus } : r
-        ),
-      }));
+      setSelectedQueue((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          requests: Array.isArray(prev.requests)
+            ? prev.requests.map((r) =>
+                r.id === requestId ? { ...r, status: requestStatus } : r
+              )
+            : [],
+        };
+      });
       setHasChanges(true);
       showToast(`Request updated to ${requestStatus}`, "info");
     } catch (error) {
-      console.error("❌ Error updating deferred request:", error);
-      setSelectedQueue(snapshot.selectedQueue);
+      console.error("Error updating deferred request:", error);
+      if (snapshot.selectedQueue) {
+        setSelectedQueue(snapshot.selectedQueue);
+      }
       showToast(error.message || "Error updating deferred request", "error");
     }
   };
