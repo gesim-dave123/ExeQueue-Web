@@ -1,7 +1,6 @@
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../../../api/auth.js";
 import { showToast } from "../../../components/toast/ShowToast.jsx";
 import { useAuth } from "../../../context/AuthProvider";
 import { useLoading } from "../../../context/LoadingProvider";
@@ -13,7 +12,7 @@ export default function StaffLogin() {
   const [formData, setFormData] = useState({ username: "", password: "" });
 
   const navigate = useNavigate();
-  const { refreshAuth, user } = useAuth();
+  const { refreshAuth, user, loginOperation } = useAuth();
   const { setIsLoading, setProgress, setLoadingText } = useLoading();
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
@@ -46,14 +45,8 @@ export default function StaffLogin() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) {
-      return;
-    }
 
-    // if (user) {
-    //   showToast("You are already logged in", "info");
-    //   return;
-    // }
+    if (!validateForm()) return;
 
     setIsLoading(true);
     setLoading(true);
@@ -62,29 +55,20 @@ export default function StaffLogin() {
 
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
-        if (prev < 90) {
-          return prev + Math.random() * 15;
-        }
+        if (prev < 90) return prev + Math.random() * 15;
         return prev;
       });
     }, 200);
 
     try {
-      const res = await login(formData);
+      const res = await loginOperation(formData);
       clearInterval(progressInterval);
 
       if (res?.success) {
         setProgress(100);
         await new Promise((resolve) => setTimeout(resolve, 800));
 
-        await refreshAuth();
-
-        // ✅ Notify other tabs about successful login
-        localStorage.setItem("auth_login_event", Date.now().toString());
-        localStorage.removeItem("auth_login_event"); // Clean up immediately
-
         showToast(res?.message, "success");
-        await new Promise((resolve) => setTimeout(resolve, 100));
         navigate("/staff/dashboard", { replace: true });
 
         setTimeout(() => {
@@ -95,17 +79,13 @@ export default function StaffLogin() {
       }
 
       if (res?.alreadyLoggedIn) {
-        showToast(
-          res?.message || "You are already logged in. Please logout first.",
-          "info"
-        );
+        showToast(res?.message, "info");
         setIsLoading(false);
         setLoading(false);
         return;
       }
 
       if (!res?.hasAccount) {
-        console.log("Login failed:", res);
         setErrors({
           username: res?.message || "Account not found!",
           password: res?.message || "Account not found!",
@@ -113,7 +93,6 @@ export default function StaffLogin() {
         setFormData({ ...formData, password: "" });
         showToast(res?.message, "error");
       } else if (res?.invalidCred) {
-        console.log("Login failed:", res);
         setErrors({
           username: res?.message || "Invalid Credentials",
           password: res?.message || "Invalid Credentials",
@@ -128,7 +107,7 @@ export default function StaffLogin() {
       setLoading(false);
     } catch (error) {
       clearInterval(progressInterval);
-      showToast(error?.message || "An unexpected error occurred", "error");
+      showToast(error?.message || "Unexpected error", "error");
       setIsLoading(false);
       setLoading(false);
     }
@@ -144,7 +123,6 @@ export default function StaffLogin() {
     return () => window.removeEventListener("focus", handleFocus);
   }, [refreshAuth]);
 
-  // Helper functions to determine styling
   const getFieldErrorStyle = (fieldName) => {
     return errors[fieldName]
       ? "border-red-500 border-1 focus:ring-red-500"
