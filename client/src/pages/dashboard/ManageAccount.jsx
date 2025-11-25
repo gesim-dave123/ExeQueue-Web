@@ -310,7 +310,7 @@ export default function ManageAccount() {
     </div>
   ) : (
     <div className="min-h-screen pt-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-8 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
+      <div className="flex flex-col min-h-[90vh] w-full pb-5 sm:-pb-0 xl:pb-8 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
         {/* Header */}
         <div className="flex-col sm:flex-row flex items-start justify-between mb-7">
           <div>
@@ -363,14 +363,16 @@ export default function ManageAccount() {
           <div
             className={`overflow-x-auto w-full text-left ${
               filteredAccounts.length > 7
-                ? "overflow-y-scroll custom-scrollbar max-h-[65vh]"
-                : "h-[55vh] sm:h-[65vh]"
+                ? "overflow-y-scroll custom-scrollbar h-[57vh] sm:h-[64vh] md:h-[70vh] lg:h-[75vh] xl:h-[64vh]"
+                : "h-[57vh] sm:h-[64vh] md:h-[70vh] lg:h-[75vh] xl:h-[64vh]"
             }`}
           >
             <table className="w-full">
               <thead
                 className={`sticky ${
-                  filteredAccounts.length > 7 ? "top-0 bg-white z-10" : ""
+                  filteredAccounts.length > 7
+                    ? "top-0 bg-white z-10"
+                    : ""
                 }`}
               >
                 <tr className=" border-gray-100 border-b">

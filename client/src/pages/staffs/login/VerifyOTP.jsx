@@ -212,7 +212,7 @@ export default function VerifyOTP() {
               clearFlow();
               navigate("/staff/login");
             }}
-            className="text-sm text-[#202124]  cursor-pointer"
+            className="text-sm text-[#202124]  cursor-pointer hover:font-medium"
           >
             Back to Login
           </button>
