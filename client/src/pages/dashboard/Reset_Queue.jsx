@@ -127,10 +127,10 @@ export default function Reset_Queue() {
           <div className="flex w-full items-start md:items-center flex-col md:flex-row justify-between gap-4 md:gap-6">
             <div className="w-full md:flex-1 flex flex-col items-start gap-3 sm:gap-4 md:gap-6">
               <h3 className="font-semibold text-lg sm:text-xl lg:text-2xl">
-                Reset Priority Queue
+                Restart Priority Queue
               </h3>
               <span className="text-sm sm:text-base lg:text-xl text-left">
-                Restart regular queue numbering from P-001 (keeps existing
+                Restart priority queue numbering from P-001 (keeps existing
                 queues).
               </span>
             </div>
@@ -138,7 +138,7 @@ export default function Reset_Queue() {
               className="w-full cursor-pointer md:w-auto md:min-w-[180px] lg:min-w-[200px] xl:min-w-[220px] bg-[#E2E3E4] py-3 px-4 sm:px-5 rounded-lg sm:rounded-xl text-[#EA4335] text-sm sm:text-base lg:text-lg font-semibold hover:bg-[#d0d1d2] transition-colors whitespace-nowrap flex-shrink-0"
               onClick={() => handleOpenModal("priority")}
             >
-              Reset Priority Queue
+              Restart Priority Queue
             </button>
           </div>
 
@@ -149,7 +149,7 @@ export default function Reset_Queue() {
                 Restart Regular Queue
               </h3>
               <span className="text-sm sm:text-base lg:text-xl text-left">
-                Restart priority queue numbering from R-001 (keeps existing
+                Restart regular queue numbering from R-001 (keeps existing
                 queues).
               </span>
             </div>
@@ -157,7 +157,7 @@ export default function Reset_Queue() {
               className="w-full cursor-pointer md:w-auto md:min-w-[180px] lg:min-w-[200px] xl:min-w-[220px] bg-[#E2E3E4] py-3 px-4 sm:px-5 rounded-lg sm:rounded-xl text-[#EA4335] text-sm sm:text-base lg:text-lg font-semibold hover:bg-[#d0d1d2] transition-colors whitespace-nowrap flex-shrink-0"
               onClick={() => handleOpenModal("regular")}
             >
-              Reset Regular Queue
+              Restart Regular Queue
             </button>
           </div>
 
@@ -177,7 +177,7 @@ export default function Reset_Queue() {
               className="w-full cursor-pointer md:w-auto md:min-w-[180px] lg:min-w-[190px] xl:min-w-[200px] bg-[#EA4335] text-white py-3 px-4 sm:px-5 rounded-xl text-base sm:text-lg font-semibold hover:bg-[#d32f2f] transition-colors whitespace-nowrap text-center flex-shrink-0"
               onClick={() => handleOpenModal("all")}
             >
-              Reset All Queues
+              Restart All Queues
             </button>
           </div>
         </div>

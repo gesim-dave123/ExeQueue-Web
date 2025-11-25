@@ -73,7 +73,7 @@ export default function Dashboard() {
   return loading ? (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 w-full">
       <InlineLoading
-        text="Loading Dashboard.."
+        text="Loading Dashboard..."
         progress={progress}
         isVisible={loading}
         size="largest"
@@ -81,7 +81,7 @@ export default function Dashboard() {
     </div>
   ) : (
     <div className="min-h-screen py-15 xl:py-0 flex bg-transparent w-full">
-      <div className="flex-1 pr-3 xl:pt-17 md:px-3 lg:pr-7 md:pl-15 xl:pl-9 xl:pb-5 transition-all duration-300 ease-in-out">
+      <div className="flex-1 pr-3 xl:pt-17 md:px-3 lg:pr-7 md:pl-15 xl:pl-9 xl:pb-8 transition-all duration-300 ease-in-out">
         {/* Header */}
         <div className="mb-6 text-left">
           <h2 className="text-3xl font-semibold text-[#202124]">Dashboard</h2>

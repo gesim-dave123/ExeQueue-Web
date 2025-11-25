@@ -4,57 +4,7 @@ import { getTodayAnalytics, getWeeklyAnalytics } from "../../api/statistics";
 import BarGraph from "../../components/graphs/BarGraph";
 import DoughnutChart from "../../components/graphs/DoughnutChart";
 import { InlineLoading } from "../../components/InLineLoader";
-// Dummy data for daily request breakdown
-const dummyDailyBreakdown = {
-  Monday: [
-    { requestType: "Good Moral Certificate", total: 15 },
-    { requestType: "Insurance Payment", total: 8 },
-    { requestType: "Transmittal Letter", total: 12 },
-    { requestType: "Temporary Gate Pass", total: 6 },
-    { requestType: "Uniform Exemption", total: 4 },
-    { requestType: "Enrollment/Transfer", total: 10 },
-  ],
-  Tuesday: [
-    { requestType: "Good Moral Certificate", total: 18 },
-    { requestType: "Insurance Payment", total: 10 },
-    { requestType: "Transmittal Letter", total: 9 },
-    { requestType: "Temporary Gate Pass", total: 7 },
-    { requestType: "Uniform Exemption", total: 5 },
-    { requestType: "Enrollment/Transfer", total: 12 },
-  ],
-  Wednesday: [
-    { requestType: "Good Moral Certificate", total: 20 },
-    { requestType: "Insurance Payment", total: 12 },
-    { requestType: "Transmittal Letter", total: 15 },
-    { requestType: "Temporary Gate Pass", total: 8 },
-    { requestType: "Uniform Exemption", total: 6 },
-    { requestType: "Enrollment/Transfer", total: 14 },
-  ],
-  Thursday: [
-    { requestType: "Good Moral Certificate", total: 16 },
-    { requestType: "Insurance Payment", total: 9 },
-    { requestType: "Transmittal Letter", total: 11 },
-    { requestType: "Temporary Gate Pass", total: 5 },
-    { requestType: "Uniform Exemption", total: 7 },
-    { requestType: "Enrollment/Transfer", total: 13 },
-  ],
-  Friday: [
-    { requestType: "Good Moral Certificate", total: 22 },
-    { requestType: "Insurance Payment", total: 14 },
-    { requestType: "Transmittal Letter", total: 18 },
-    { requestType: "Temporary Gate Pass", total: 10 },
-    { requestType: "Uniform Exemption", total: 8 },
-    { requestType: "Enrollment/Transfer", total: 16 },
-  ],
-  Saturday: [
-    { requestType: "Good Moral Certificate", total: 10 },
-    { requestType: "Insurance Payment", total: 5 },
-    { requestType: "Transmittal Letter", total: 7 },
-    { requestType: "Temporary Gate Pass", total: 4 },
-    { requestType: "Uniform Exemption", total: 3 },
-    { requestType: "Enrollment/Transfer", total: 6 },
-  ],
-};
+
 
 export default function Analytics() {
   const [view, setView] = useState("week");
@@ -320,7 +270,7 @@ export default function Analytics() {
     </div>
   ) : (
     <div className="min-h-screen bg-transparent">
-      <div className="w-full min-h-[80vh] mx-auto pr-3 pt-5 lg:pr-7 md:pl-15 xl:pl-9 xl:pr-7 xl:pt-7">
+      <div className="w-full min-h-[80vh] mx-auto pr-3 pt-5 lg:pr-7 md:pl-15 xl:pl-9 xl:pr-7 xl:pt-7 xl:pb-3">
         {/* Header */}
         <div className="mb-8 pt-10">
           <h1 className="text-3xl text-left font-semibold text-[#202124]">

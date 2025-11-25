@@ -310,9 +310,9 @@ export default function ManageAccount() {
     </div>
   ) : (
     <div className="min-h-screen pt-9 flex lg:w-[100%]">
-      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-0 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
+      <div className="flex flex-col min-h-[90vh] w-full pb-15 xl:pb-8 pr-3 pt-6 xl:pt-8 md:px-3 lg:pr-7 md:pl-15 xl:pl-9">
         {/* Header */}
-        <div className="sm:flex flex items-start justify-between mb-7">
+        <div className="flex-col sm:flex-row flex items-start justify-between mb-7">
           <div>
             <h1 className="text-3xl font-semibold text-left text-[#202124]">
               Manage Accounts
@@ -321,11 +321,11 @@ export default function ManageAccount() {
               Personnel account management
             </p>
           </div>
-          <div className="mt-4 sm:mt-0 flex items-center justify-end">
+          <div className="mt-4 sm:mt-0 w-full sm:w-auto flex items-center justify-end">
             <button
               onClick={handleAddAccount}
               disabled={loading || tableLoading}
-              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-[#1557B0] transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full sm:w-auto"
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3.5 bg-[#1A73E8] text-white rounded-xl sm:rounded-2xl hover:bg-[#1557B0] transition font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base w-full md:w-auto"
             >
               <div className="inline-block w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0">
                 <img
@@ -364,15 +364,13 @@ export default function ManageAccount() {
             className={`overflow-x-auto w-full text-left ${
               filteredAccounts.length > 7
                 ? "overflow-y-scroll custom-scrollbar max-h-[65vh]"
-                : ""
+                : "h-[55vh] sm:h-[65vh]"
             }`}
           >
             <table className="w-full">
               <thead
-                className={`${
-                  filteredAccounts.length > 7
-                    ? "sticky top-0 bg-white z-10"
-                    : ""
+                className={`sticky ${
+                  filteredAccounts.length > 7 ? "top-0 bg-white z-10" : ""
                 }`}
               >
                 <tr className=" border-gray-100 border-b">
