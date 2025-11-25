@@ -36,7 +36,6 @@ export const sendOTPtoEmail = async (email) => {
     );
 
     if (response.status === 200) {
-      showToast(response.data.message, "success");
       return response.data;
     } else {
       return false;
