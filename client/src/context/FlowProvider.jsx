@@ -20,6 +20,13 @@ const FlowProvider = ({ children }) => {
   const TIMER_DURATION = 3 * 60 * 1000;
   const expirationTimer = useRef(null);
 
+  const clearFlow = useCallback(() => {
+    if (expirationTimer.current) {
+      clearTimeout(expirationTimer.current);
+    }
+    setFlowToken(null);
+    setFlowEmail(null);
+  }, []);
   const startFlow = useCallback(
     (email, token) => {
       if (expirationTimer.current) {
@@ -38,14 +45,6 @@ const FlowProvider = ({ children }) => {
     },
     [navigate, clearFlow]
   );
-
-  const clearFlow = useCallback(() => {
-    if (expirationTimer.current) {
-      clearTimeout(expirationTimer.current);
-    }
-    setFlowToken(null);
-    setFlowEmail(null);
-  }, []);
 
   const value = {
     flowToken,
