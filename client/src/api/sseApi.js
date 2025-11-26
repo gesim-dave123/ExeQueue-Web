@@ -16,11 +16,12 @@ export const SSE = {
       return activeConnections[feature];
     }
 
-    const endpoint = `${backendConnection()}/api/${feature}/stream`;
+    const token = sessionStorage.getItem("auth_token");
+    const endpoint = `${backendConnection()}/api/${feature}/stream?token=${token}`;
     const eventSource = new EventSource(endpoint, { withCredentials: true });
 
     eventSource.onopen = () => {
-      console.log(`🟢 SSE connected to '${feature}'`);
+      console.log(`SSE connected to '${feature}'`);
       options.onOpen?.();
     };
 
@@ -34,7 +35,7 @@ export const SSE = {
     };
 
     eventSource.onerror = (error) => {
-      console.error(`🔴 SSE error (${feature}):`, error);
+      console.error(`SSE error (${feature}):`, error);
       options.onError?.(error);
     };
 
