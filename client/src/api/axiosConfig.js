@@ -40,7 +40,7 @@ axiosInstance.interceptors.request.use(
     // 1. Not a public endpoint
     // 2. No manual Authorization header
     if (!isPublicEndpoint && !hasManualAuth) {
-      const token = localStorage.getItem("auth_token");
+      const token = sessionStorage.getItem("auth_token");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -68,7 +68,7 @@ axiosInstance.interceptors.response.use(
 
       // Handle 401 Unauthorized (token expired/invalid)
       if (status === 401) {
-        localStorage.removeItem("auth_token");
+        sessionStorage.removeItem("auth_token");
 
         // Optional: Redirect to login (uncomment if needed)
         // window.location.href = '/login';

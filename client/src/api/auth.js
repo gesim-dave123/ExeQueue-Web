@@ -4,10 +4,9 @@ import { showToast } from "../components/toast/ShowToast.jsx";
 export const login = async (formData) => {
   try {
     const response = await axios.post("/api/auth/staff/login", formData);
-
-    // Store token for mobile fallback
     if (response.data.success && response.data.token) {
-      localStorage.setItem("auth_token", response.data.token);
+      sessionStorage.removeItem("auth_token");
+      sessionStorage.setItem("auth_token", response.data.token);
     }
 
     return response.data;
@@ -114,8 +113,8 @@ export const logout = async () => {
   try {
     const response = await axios.post("/api/auth/logout", {});
 
-    // Clear token from localStorage
     localStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_token");
 
     if (response.status === 200) {
       return true;
@@ -123,6 +122,7 @@ export const logout = async () => {
   } catch (error) {
     // Still clear token even if API call fails
     localStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_token");
     console.error("Error in logout:", error.response?.data?.message);
     showToast("An error occurred when logging out!", "error");
     return false;
