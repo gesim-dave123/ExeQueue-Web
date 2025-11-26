@@ -1,17 +1,15 @@
-import axios from "axios";
-import { showToast } from "../components/toast/ShowToast";
-import backendConnection from "./backendConnection.js";
+import axios from "../api/axiosConfig.js"; // Import configured instance
+import { showToast } from "../components/toast/ShowToast.jsx";
 
 export const login = async (formData) => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/staff/login`,
-      formData,
-      {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.post("/api/auth/staff/login", formData);
+
+    // Store token for mobile fallback
+    if (response.data.success && response.data.token) {
+      localStorage.setItem("auth_token", response.data.token);
+    }
+
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -26,14 +24,7 @@ export const login = async (formData) => {
 
 export const sendOTPtoEmail = async (email) => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/getOTP`,
-      { email },
-      {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.post("/api/auth/getOTP", { email });
 
     if (response.status === 200) {
       return response.data;
@@ -54,32 +45,28 @@ export const sendOTPtoEmail = async (email) => {
 
 export const verifyOTP = async (otp, flowToken, email) => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/verify-email`,
-      {
-        receivedOTP: otp,
-        email: email,
-        flowToken: flowToken,
-      },
-      {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.post("/api/auth/verify-email", {
+      receivedOTP: otp,
+      email: email,
+      flowToken: flowToken,
+    });
 
     if (response.status === 200) {
       showToast(response.data.message, "success");
       return {
         success: true,
         message: response.data.message,
-        resetToken: response.data.resetToken, // Get token from response
+        resetToken: response.data.resetToken,
       };
     } else {
       return false;
     }
   } catch (error) {
     if (error.response) {
-      showToast(error.response.data.message || "OTP found", "error");
+      showToast(
+        error.response.data.message || "OTP verification failed",
+        "error"
+      );
     } else if (error.request) {
       showToast("No response from server", "error");
     } else {
@@ -92,14 +79,12 @@ export const verifyOTP = async (otp, flowToken, email) => {
 export const resetPassword = async (resetToken, newPassword) => {
   try {
     const response = await axios.patch(
-      `${backendConnection()}/api/auth/reset-password`,
+      "/api/auth/reset-password",
       { newPassword },
       {
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${resetToken}`,
+          Authorization: `Bearer ${resetToken}`, // Manual token for password reset
         },
-        withCredentials: true,
       }
     );
 
@@ -127,16 +112,18 @@ export const resetPassword = async (resetToken, newPassword) => {
 
 export const logout = async () => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/logout`,
-      {},
-      { withCredentials: true }
-    );
+    const response = await axios.post("/api/auth/logout", {});
+
+    // Clear token from localStorage
+    localStorage.removeItem("auth_token");
+
     if (response.status === 200) {
       return true;
     }
   } catch (error) {
-    console.error("Error in logout: ", error.response?.data?.message);
+    // Still clear token even if API call fails
+    localStorage.removeItem("auth_token");
+    console.error("Error in logout:", error.response?.data?.message);
     showToast("An error occurred when logging out!", "error");
     return false;
   }
@@ -144,32 +131,26 @@ export const logout = async () => {
 
 export const verifyUser = async () => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/verify`,
-      {},
-      { withCredentials: true }
-    );
+    const response = await axios.post("/api/auth/verify", {});
     if (response.status === 200) {
       return response.data.user;
     }
   } catch (error) {
-    console.error("Error in verifyUser: ", error.response?.data?.message);
+    console.error("Error in verifyUser:", error.response?.data?.message);
     return null;
   }
 };
 
 export const forceLogout = async () => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/staff/force-logout`,
-      {},
-      {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.post("/api/auth/staff/force-logout", {});
+
+    // Clear token on force logout
+    localStorage.removeItem("auth_token");
+
     return response.data;
   } catch (error) {
+    localStorage.removeItem("auth_token");
     if (error.response) {
       return error.response.data;
     } else if (error.request) {
@@ -182,14 +163,7 @@ export const forceLogout = async () => {
 
 export const checkLoginStatus = async () => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/auth/staff/check-login`,
-      {},
-      {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.post("/api/auth/staff/check-login", {});
     return response.data;
   } catch (error) {
     if (error.response) {
