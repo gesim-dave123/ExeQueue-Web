@@ -4,13 +4,25 @@ import jwt from "jsonwebtoken";
 export const socketAuthentication = (io) => {
   io.use((socket, next) => {
     try {
+      let token = null;
       const cookies = cookie.parse(socket.handshake.headers.cookie || "");
-      const token = cookies.access_token;
-
+      token = cookies.access_token;
+      if (!token) {
+        const authHeader =
+          socket.handshake.headers.authorization ||
+          socket.handshake.auth?.token;
+        if (authHeader) {
+          console.log("Auth Header", authHeader);
+          if (authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+          }
+        }
+      }
       if (!token) {
         console.warn("No Token Provided, Socket disconnecting...");
         return next(new Error("No token provided!"));
       }
+      console.log("Token", token);
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       if (!["PERSONNEL", "WORKING_SCHOLAR"].includes(decoded.role.toString())) {
