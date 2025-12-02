@@ -580,10 +580,10 @@ export const getAnalyticsData = async (req, res) => {
 
     console.log("Queue Summary:", queueSummary);
 
-    const orderedRequestTypes = [
-      "Good Moral Certificat",
+    const defaultOrderedRequestNames = [
+      "Good Moral Certificate",
       "Insurance",
-      "Approval/Transmittal Letter",
+      "Transmittal Letter",
       "Temporary Gate Pass",
       "Uniform Exception",
       "Enrollment/Transfer",
@@ -621,6 +621,7 @@ export const getAnalyticsData = async (req, res) => {
       const typeId = req.requestTypeId;
       requestTypeMap.set(typeId, (requestTypeMap.get(typeId) || 0) + 1);
     });
+    const orderedRequestTypes = (requestTypes.map((rt) => rt.requestName))
 
     // ✅ Build weekly breakdown with all types (0 if no data)
     const weeklyRequestBreakdown = orderedRequestTypes.map((typeName) => {
@@ -709,7 +710,6 @@ export const getTodayAnalytics = async (req, res) => {
       select: { sessionId: true },
       orderBy: { sessionNumber: "desc" },
     });
-
     // If no active session, return empty data with all request types at 0
     if (!activeSession) {
       console.log("⚠️ No active session found");
@@ -723,7 +723,7 @@ export const getTodayAnalytics = async (req, res) => {
           completedPriority: 0,
           totalQueues: 0,
           requestBreakdown: [
-            { requestType: "Good Moral Certificat", total: 0 },
+            { requestType: "Good Moral Certificate", total: 0 },
             { requestType: "Insurance", total: 0 },
             { requestType: "Approval/Transmittal Letter", total: 0 },
             { requestType: "Temporary Gate Pass", total: 0 },
@@ -823,15 +823,15 @@ export const getTodayAnalytics = async (req, res) => {
     );
 
     // ✅ Define the fixed order of request types - MATCH SEED DATA
-    const orderedRequestTypes = [
-      "Good Moral Certificat",
+    const defaultOrderedRequestNames = [
+      "Good Moral Certificate",
       "Insurance",
       "Approval/Transmittal Letter",
       "Temporary Gate Pass",
       "Uniform Exception",
       "Enrollment/Transfer",
     ];
-
+    const orderedRequestTypes = (requestTypes.map((rt) => rt.requestName))
     // ✅ Create a map of requestName to requestTypeId
     const nameToIdMap = new Map(
       requestTypes.map((rt) => [rt.requestName, rt.requestTypeId])
