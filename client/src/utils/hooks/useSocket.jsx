@@ -11,12 +11,18 @@ export const useSocket = (onDisconnectOrCleanup) => {
 
   useEffect(() => {
     if (!socketRef.current) {
+      const token = sessionStorage.getItem("auth_token");
+
       socketRef.current = io(backendConnection(), {
         withCredentials: true,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
         timeout: 20000,
+        extraHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+        auth: {
+          token: token,
+        },
       });
 
       setSocket(socketRef.current); // ✅ Set socket in state

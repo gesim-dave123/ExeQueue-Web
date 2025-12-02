@@ -13,7 +13,7 @@ function safeSchedule(label, fn) {
     fn();
     console.log(`🕐 ${label} scheduled successfully`);
   } catch (err) {
-    console.error(`❌ Failed to schedule ${label}:`, err);
+    console.error(`Failed to schedule ${label}:`, err);
   }
 }
 
