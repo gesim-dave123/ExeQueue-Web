@@ -1000,6 +1000,45 @@ export const manualWindowRelease = async (req, res) => {
       });
 
       if (!activeAssignment) {
+        const orphanedQueue = await tx.queue.findFirst({
+          where: {
+            windowId: window.windowId,
+            queueStatus: Status.IN_SERVICE,
+            calledAt: { not: null },
+            servedByStaff: { not: null },
+            windowId: windowNum,
+          },
+          select: {
+            queueId: true,
+            ticketNumber: true,
+            servedByStaff: true,
+            calledAt: true,
+          },
+        });
+
+        if (orphanedQueue) {
+          await tx.queue.update({
+            where: {
+              queueId: orphanedQueue.queueId,
+            },
+            data: {
+              queueStatus: Status.WAITING,
+              calledAt: null,
+              servedByStaff: null,
+              windowId: null,
+            },
+          });
+
+          return res.status(200).json({
+            success: false,
+            message:
+              "Orphaned queue data detected and cleaned up. No active staff assigned to this window.",
+            wasWindowAssigned: false,
+            orphanedDataCleaned: true,
+            orphanedTicket: orphanedQueue.ticketNumber,
+          });
+        }
+
         return res.status(200).json({
           success: false,
           message: "There is no active staff assigned to this window",

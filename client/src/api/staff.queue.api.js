@@ -1,20 +1,12 @@
-import axios from "axios";
-import backendConnection from "./backendConnection.js";
+import axios from "./axiosConfig.js";
 
 export const studentsQueueDetails = async (queueDetails) => {
   try {
     if (!queueDetails) throw new Error("Queue Details is Empty!");
 
-    const response = await axios.post(
-      `${backendConnection()}/api/queue/generate`,
-      queueDetails,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Using axios, base URL and default config are automatically applied.
+    const response = await axios.post("/api/queue/generate", queueDetails);
+
     if (response.data.success && response.status === 201) {
       return {
         success: true,
@@ -24,13 +16,17 @@ export const studentsQueueDetails = async (queueDetails) => {
     }
   } catch (error) {
     console.error("Error in Generating Queue: ", error);
+    // The interceptor handles global errors, but we return a standard structure here
+    // for local error handling logic (e.g., showing a user-friendly message).
     return {
       success: false,
-      message: "Internal Server Error",
+      message: error.response?.data?.message || "Internal Server Error",
       queueDetails: null,
     };
   }
 };
+
+// GET Queue List by Query (Protected Staff Route)
 export const getQueueListByQuery = async (status, options = {}) => {
   try {
     const {
@@ -53,24 +49,18 @@ export const getQueueListByQuery = async (status, options = {}) => {
       ...(searchValue && { search: searchValue.toString() }),
     });
 
+    // Use axios.get with the path and params
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?${params.toString()}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/list?${params.toString()}`
     );
 
-    // Check if response is successful AND has success: true
     if (response.status === 200 && response.data.success) {
       console.log(
         "Queues retrieved successfully:",
         response.data.queues?.length || 0,
         "items"
       );
-      return response.data; // Return full response to access queues, pagination, etc.
+      return response.data;
     } else {
       console.warn("Unexpected response format:", response.data);
       return {
@@ -81,8 +71,6 @@ export const getQueueListByQuery = async (status, options = {}) => {
     }
   } catch (error) {
     console.error("Error in getQueueListByQuery:", error);
-
-    // Return structured error response
     return {
       success: false,
       queues: [],
@@ -91,18 +79,11 @@ export const getQueueListByQuery = async (status, options = {}) => {
     };
   }
 };
+
+// PUT - Call Next Queue (Protected Staff Route)
 export const getCallNextQueue = async (windowId) => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/call/${windowId}`,
-      {}, // ✅ Empty body object
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.put(`/api/staff/queue/call/${windowId}`);
 
     if (response?.status === 200 && response?.data.success) {
       return response.data;
@@ -110,8 +91,7 @@ export const getCallNextQueue = async (windowId) => {
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error in Call Next Queue:", error);
-    // ✅ Fixed: use error.response instead of response
+    console.error("Error in Call Next Queue:", error);
     if (error.response) {
       return error.response.data;
     }
@@ -119,6 +99,7 @@ export const getCallNextQueue = async (windowId) => {
   }
 };
 
+// PUT - Set Request Status (Protected Staff Route)
 export const setRequestStatus = async (
   queueId,
   requestId,
@@ -127,15 +108,9 @@ export const setRequestStatus = async (
 ) => {
   try {
     console.log("Request Id in API:", requestId);
+    // Use template literal for clean URL construction
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/set/status/${queueId}/${requestId}/${requestStatus}/${windowId}`,
-      {}, // ✅ Empty body object
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/set/status/${queueId}/${requestId}/${requestStatus}/${windowId}`
     );
 
     if (response?.status === 200 && response?.data.success) {
@@ -144,8 +119,7 @@ export const setRequestStatus = async (
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error in setRequestStatus:", error);
-    // ✅ Fixed: use error.response instead of response
+    console.error("Error in setRequestStatus:", error);
     if (error.response?.data) {
       return error.response.data;
     }
@@ -156,6 +130,7 @@ export const setRequestStatus = async (
   }
 };
 
+// PUT - Set Deferred Request Status (Protected Staff Route)
 export const setDeferredRequestStatus = async (
   queueId,
   requestId,
@@ -164,15 +139,9 @@ export const setDeferredRequestStatus = async (
 ) => {
   try {
     console.log("Request Id in API:", requestId);
+    // Use template literal for clean URL construction
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/set/status/deferred/${queueId}/${requestId}/${windowId}/${requestStatus}`,
-      {}, // ✅ Empty body object
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/set/status/deferred/${queueId}/${requestId}/${windowId}/${requestStatus}`
     );
 
     if (response?.status === 200 && response?.data.success) {
@@ -181,8 +150,7 @@ export const setDeferredRequestStatus = async (
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error in setDeferredRequestStatus:", error);
-    // ✅ Fixed: use error.response instead of response
+    console.error("Error in setDeferredRequestStatus:", error);
     if (error.response?.data) {
       return error.response.data;
     }
@@ -193,17 +161,11 @@ export const setDeferredRequestStatus = async (
   }
 };
 
+// PUT - Mark Queue Status (Protected Staff Route)
 export const markQueueStatus = async (queueId, windowId) => {
   try {
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/${queueId}/${windowId}/mark-status`,
-      {}, // ✅ Empty body object
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/${queueId}/${windowId}/mark-status`
     );
 
     console.log("Response from api", response);
@@ -214,8 +176,7 @@ export const markQueueStatus = async (queueId, windowId) => {
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error in markQueueStatus:", error);
-    // ✅ Fixed: use error.response instead of response
+    console.error("Error in markQueueStatus:", error);
     if (error.response?.data) {
       return error.response.data;
     }
@@ -226,16 +187,11 @@ export const markQueueStatus = async (queueId, windowId) => {
   }
 };
 
+// GET - Current Served Queue (Protected Staff Route)
 export const currentServedQueue = async (windowId) => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/current/window/${windowId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/current/window/${windowId}`
     );
 
     console.log("Response from api", response);
@@ -246,8 +202,7 @@ export const currentServedQueue = async (windowId) => {
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error in currentServedQueue:", error);
-    // ✅ Fixed: use error.response instead of response
+    console.error("Error in currentServedQueue:", error);
     if (error.response?.data) {
       return error.response.data;
     }
@@ -258,16 +213,12 @@ export const currentServedQueue = async (windowId) => {
   }
 };
 
+// GET - Queue by Status and Window (Protected Staff Route)
 export const getQueueByStatusAndWindow = async (status, windowId) => {
   try {
+    // Query string construction is simplified
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}&windowId=${windowId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/list?status=${status}&windowId=${windowId}`
     );
 
     if (response.status === 200 && response.data.success) {
@@ -283,16 +234,12 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
   }
 };
 
+// GET - Deferred Queue (Protected Staff Route)
 export const getDeferredQueue = async (status) => {
   try {
+    // Query string construction is simplified
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}&requestStatus=STALLED,SKIPPED`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/list?status=${status}&requestStatus=STALLED,SKIPPED`
     );
 
     if (response.status === 200 && response.data.success) {
@@ -308,6 +255,7 @@ export const getDeferredQueue = async (status) => {
   }
 };
 
+// GET - Single Queue Details (Protected Staff Route)
 export const getSingleQueue = async (
   queueId,
   referenceNumber,
@@ -318,21 +266,16 @@ export const getSingleQueue = async (
 
     // Build query parameters
     const params = new URLSearchParams({
-      // ...(referenceNumber && { referenceNumber: referenceNumber }),
       ...(status && { status: status }),
       ...(windowId && { windowId: windowId.toString() }),
       ...(requestStatus && { requestStatus }),
     });
 
+    // Use template literal for the main path and append constructed params
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/get/${queueId}/${referenceNumber}/?${params.toString()}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/get/${queueId}/${referenceNumber}/?${params.toString()}`
     );
+
     if (response.status === 200 && response.data.success) {
       return response.data.queue;
     } else {
