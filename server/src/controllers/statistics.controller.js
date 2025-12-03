@@ -1,24 +1,23 @@
-import { Queue_Type, Status } from '@prisma/client';
-import prisma from '../../prisma/prisma.js';
-import DateAndTimeFormatter from '../../utils/DateAndTimeFormatter.js';
-import { sortByPriorityPattern } from '../../utils/SortByPriorityPattern.js';
-import { addClient, broadcast } from '../../utils/SseManager.js';
-import { formatQueueNumber } from '../services/queue/QueueNumber.js';
+import { Queue_Type, Status } from "@prisma/client";
+import prisma from "../../prisma/prisma.js";
+import DateAndTimeFormatter from "../../utils/DateAndTimeFormatter.js";
+import { sortByPriorityPattern } from "../../utils/SortByPriorityPattern.js";
+import { addClient, broadcast } from "../../utils/SseManager.js";
+import { formatQueueNumber } from "../services/queue/QueueNumber.js";
 
 export const getDashboardStatistics = async (req, res) => {
   try {
-
     // Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      'Asia/Manila'
+      "Asia/Manila"
     );
 
     // 1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true, sessionNumber: true },
-      orderBy: { sessionNumber: 'asc' },
+      orderBy: { sessionNumber: "asc" },
     });
 
     // 2) Get ALL today's sessions (for totals)
@@ -32,7 +31,7 @@ export const getDashboardStatistics = async (req, res) => {
     if (!activeSession || sessionIds.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No active session found. Dashboard empty.',
+        message: "No active session found. Dashboard empty.",
         data: {
           session: null,
           windows: [
@@ -73,7 +72,7 @@ export const getDashboardStatistics = async (req, res) => {
         // canServePriority: true,
         // canServeRegular: true,
       },
-      orderBy: { windowNo: 'asc' },
+      orderBy: { windowNo: "asc" },
     });
 
     // Map windows by number for clean access
@@ -102,17 +101,17 @@ export const getDashboardStatistics = async (req, res) => {
             queueNumber: true,
             queueType: true,
           },
-          orderBy: { calledAt: 'desc' },
+          orderBy: { calledAt: "desc" },
         });
 
-        console.log('Current Serving for Window', winNo, ':', currentServing);
+        console.log("Current Serving for Window", winNo, ":", currentServing);
 
         const formattedCurrent = currentServing
           ? {
               queueId: currentServing.queueId,
               queueNumber: currentServing.queueNumber,
               formattedQueueNumber: formatQueueNumber(
-                currentServing.queueType === 'PRIORITY' ? 'P' : 'R',
+                currentServing.queueType === "PRIORITY" ? "P" : "R",
                 currentServing.queueNumber
               ),
               queueType: currentServing.queueType,
@@ -216,24 +215,24 @@ export const getDashboardStatistics = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Dashboard statistics retrieved successfully.',
+      message: "Dashboard statistics retrieved successfully.",
       data: dashboardOverview,
     });
   } catch (error) {
-    console.error('❌ Error fetching dashboard stats:', error);
+    console.error("❌ Error fetching dashboard stats:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
 };
 
 export const streamDashboardUpdates = async (req, res) => {
-  addClient('dashboard', req, res);
+  addClient("dashboard", req, res);
 };
 export const sendDashboardUpdate = async (data = {}) => {
-  broadcast('dashboard', 'dashboard-update', data);
+  broadcast("dashboard", "dashboard-update", data);
 };
 
 export const getLiveDisplayData = async (req, res) => {
@@ -241,14 +240,14 @@ export const getLiveDisplayData = async (req, res) => {
     // ✅ Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      'Asia/Manila'
+      "Asia/Manila"
     );
 
     // 1) Find the active session (for dashboard view)
     const activeSession = await prisma.queueSession.findFirst({
       where: { sessionDate: todayUTC, isServing: true, isActive: true },
       select: { sessionId: true, sessionNumber: true },
-      orderBy: { sessionNumber: 'asc' },
+      orderBy: { sessionNumber: "asc" },
     });
 
     // 2) Get ALL today's sessions (for totals)
@@ -262,7 +261,7 @@ export const getLiveDisplayData = async (req, res) => {
     if (!activeSession || sessionIds.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No active session found. Live Data empty.',
+        message: "No active session found. Live Data empty.",
         data: {
           session: null,
           windows: [
@@ -297,7 +296,7 @@ export const getLiveDisplayData = async (req, res) => {
         windowNo: true,
         windowName: true,
       },
-      orderBy: { windowNo: 'asc' },
+      orderBy: { windowNo: "asc" },
     });
 
     // Map windows by number for clean access
@@ -323,7 +322,7 @@ export const getLiveDisplayData = async (req, res) => {
             queueNumber: true,
             queueType: true,
           },
-          orderBy: { calledAt: 'desc' },
+          orderBy: { calledAt: "desc" },
         });
 
         const formattedCurrent = currentServing
@@ -331,7 +330,7 @@ export const getLiveDisplayData = async (req, res) => {
               queueId: currentServing.queueId,
               queueNumber: currentServing.queueNumber,
               formattedQueueNumber: formatQueueNumber(
-                currentServing.queueType === 'PRIORITY' ? 'P' : 'R',
+                currentServing.queueType === "PRIORITY" ? "P" : "R",
                 currentServing.queueNumber
               ),
               queueType: currentServing.queueType,
@@ -351,15 +350,15 @@ export const getLiveDisplayData = async (req, res) => {
     );
     // Filter to only valid queue types
     const validTypes = lastServedTypeToAllWindows.filter(
-      (type) => type === 'PRIORITY' || type === 'REGULAR'
+      (type) => type === "PRIORITY" || type === "REGULAR"
     );
 
     let allPriority = false;
     let allRegular = false;
 
     if (validTypes.length > 0) {
-      allPriority = validTypes.every((t) => t === 'PRIORITY');
-      allRegular = validTypes.every((t) => t === 'REGULAR');
+      allPriority = validTypes.every((t) => t === "PRIORITY");
+      allRegular = validTypes.every((t) => t === "REGULAR");
     }
 
     // console.log("All Priority:", allPriority);
@@ -371,7 +370,7 @@ export const getLiveDisplayData = async (req, res) => {
       ? Queue_Type.REGULAR
       : Queue_Type.PRIORITY;
 
-    console.log('Determined last served type for alternation:', lastServedType);
+    console.log("Determined last served type for alternation:", lastServedType);
     const nextInLineRaw = await prisma.queue.findMany({
       where: {
         session: {
@@ -385,10 +384,10 @@ export const getLiveDisplayData = async (req, res) => {
       orderBy: [
         {
           session: {
-            sessionNumber: 'asc',
+            sessionNumber: "asc",
           },
         },
-        { sequenceNumber: 'asc' },
+        { sequenceNumber: "asc" },
       ],
       // take: 10,
       // orderBy: [{ queueNumber: "asc" }], // keep raw order simple
@@ -398,7 +397,7 @@ export const getLiveDisplayData = async (req, res) => {
         queueType: true,
       },
     });
-    console.log('Next in line (raw):', nextInLineRaw);
+    console.log("Next in line (raw):", nextInLineRaw);
 
     // 🧠 Then apply your custom alternation logic
     const sortedNextInLine = sortByPriorityPattern(
@@ -411,7 +410,7 @@ export const getLiveDisplayData = async (req, res) => {
       queueId: q.queueId,
       queueNumber: q.queueNumber,
       formattedQueueNumber: formatQueueNumber(
-        q.queueType === 'PRIORITY' ? 'P' : 'R',
+        q.queueType === "PRIORITY" ? "P" : "R",
         q.queueNumber
       ),
       queueType: q.queueType,
@@ -449,31 +448,31 @@ export const getLiveDisplayData = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Live Data statistics fetched successfully',
+      message: "Live Data statistics fetched successfully",
       data: liveDataOverview,
     });
   } catch (error) {
-    console.error('❌ Error fetching live data stats:', error);
+    console.error("❌ Error fetching live data stats:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
 };
 
 export const streamLiveDisplayUpdates = async (req, res) => {
-  addClient('live-display', req, res);
+  addClient("live-display", req, res);
 };
 export const sendLiveDisplayUpdate = async (data = {}) => {
-  broadcast('live-display', 'live-display-update', data);
+  broadcast("live-display", "live-display-update", data);
 };
 
 //weekly charts
 export const getAnalyticsData = async (req, res) => {
   try {
     // ✅ Get current time in Manila timezone
-    const nowManila = DateAndTimeFormatter.nowInTimeZone('Asia/Manila');
+    const nowManila = DateAndTimeFormatter.nowInTimeZone("Asia/Manila");
     const day = nowManila.getDay();
 
     // Calculate Monday of current week in Manila time
@@ -487,10 +486,10 @@ export const getAnalyticsData = async (req, res) => {
     saturdayManila.setHours(23, 59, 59, 999);
 
     // Convert to UTC for database query
-    const monday = DateAndTimeFormatter.toUTC(mondayManila, 'Asia/Manila');
-    const saturday = DateAndTimeFormatter.toUTC(saturdayManila, 'Asia/Manila');
+    const monday = DateAndTimeFormatter.toUTC(mondayManila, "Asia/Manila");
+    const saturday = DateAndTimeFormatter.toUTC(saturdayManila, "Asia/Manila");
 
-    console.log('📅 Week Range (Manila):', mondayManila, 'to', saturdayManila);
+    console.log("📅 Week Range (Manila):", mondayManila, "to", saturdayManila);
 
     // ✅ Query ALL queues for bar graph (regardless of status)
     const allQueues = await prisma.queue.findMany({
@@ -518,23 +517,23 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
 
-    console.log('Found queues:', allQueues.length);
+    console.log("Found queues:", allQueues.length);
 
     const DAYS_OF_WEEK = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
     ];
 
     // ✅ Use DateAndTimeFormatter for proper timezone conversion
     const getDayName = (date) => {
       const dayName = DateAndTimeFormatter.formatInTimeZone(
         new Date(date),
-        'EEEE', // Full day name
-        'Asia/Manila'
+        "EEEE", // Full day name
+        "Asia/Manila"
       );
 
       return dayName;
@@ -579,15 +578,15 @@ export const getAnalyticsData = async (req, res) => {
           };
     });
 
-    console.log('Queue Summary:', queueSummary);
+    console.log("Queue Summary:", queueSummary);
 
-    const orderedRequestTypes = [
-      'Good Moral Certificat',
-      'Insurance',
-      'Approval/Transmittal Letter',
-      'Temporary Gate Pass',
-      'Uniform Exception',
-      'Enrollment/Transfer',
+    const defaultOrderedRequestNames = [
+      "Good Moral Certificate",
+      "Insurance",
+      "Transmittal Letter",
+      "Temporary Gate Pass",
+      "Uniform Exception",
+      "Enrollment/Transfer",
     ];
 
     // --- FETCH COMPLETED REQUESTS OF THE WEEK - ✅ COMPLETED ONLY ---
@@ -605,7 +604,7 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
 
-    console.log('📊 Found COMPLETED requests:', allRequestOfTheWeek.length);
+    console.log("📊 Found COMPLETED requests:", allRequestOfTheWeek.length);
 
     // Fetch request type names
     const requestTypes = await prisma.requestType.findMany();
@@ -622,6 +621,7 @@ export const getAnalyticsData = async (req, res) => {
       const typeId = req.requestTypeId;
       requestTypeMap.set(typeId, (requestTypeMap.get(typeId) || 0) + 1);
     });
+    const orderedRequestTypes = requestTypes.map((rt) => rt.requestName);
 
     // ✅ Build weekly breakdown with all types (0 if no data)
     const weeklyRequestBreakdown = orderedRequestTypes.map((typeName) => {
@@ -634,7 +634,7 @@ export const getAnalyticsData = async (req, res) => {
       };
     });
 
-    console.log('📊 Weekly Request Breakdown:', weeklyRequestBreakdown);
+    console.log("📊 Weekly Request Breakdown:", weeklyRequestBreakdown);
 
     // --- GROUP REQUESTS BY DAY AND REQUEST TYPE ---
     const dayRequestMap = {};
@@ -649,7 +649,7 @@ export const getAnalyticsData = async (req, res) => {
     allRequestOfTheWeek.forEach((req) => {
       const day = getDayName(req.createdAt);
       const typeId = req.requestTypeId;
-      const typeName = typeIdToNameMap.get(typeId) || 'Unknown';
+      const typeName = typeIdToNameMap.get(typeId) || "Unknown";
 
       if (dayRequestMap[day] && orderedRequestTypes.includes(typeName)) {
         dayRequestMap[day][typeName] += 1;
@@ -665,11 +665,11 @@ export const getAnalyticsData = async (req, res) => {
       }));
     });
 
-    console.log('📊 Everyday Request Breakdown:', everydayRequestBreakdown);
+    console.log("📊 Everyday Request Breakdown:", everydayRequestBreakdown);
 
     return res.status(200).json({
       success: true,
-      message: 'Successfully fetched analytics data',
+      message: "Successfully fetched analytics data",
       weekRange: {
         from: monday,
         to: saturday,
@@ -681,10 +681,10 @@ export const getAnalyticsData = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching analytics data:', error);
+    console.error("Error fetching analytics data:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
@@ -695,28 +695,27 @@ export const getTodayAnalytics = async (req, res) => {
     // ✅ Get current date in Asia/Manila timezone
     const todayUTC = DateAndTimeFormatter.startOfDayInTimeZone(
       new Date(),
-      'Asia/Manila'
+      "Asia/Manila"
     );
 
-    console.log('📅 Fetching today analytics for date:', todayUTC);
+    console.log("📅 Fetching today analytics for date:", todayUTC);
 
     // ✅ Find the CURRENT ACTIVE SESSION (isServing: true)
-    const activeSession = await prisma.queueSession.findFirst({
+    const activeSessions = await prisma.queueSession.findMany({
       where: {
         sessionDate: todayUTC,
         isServing: true,
         isActive: true,
       },
       select: { sessionId: true },
-      orderBy: { sessionNumber: 'desc' },
+      orderBy: { sessionNumber: "desc" },
     });
-
     // If no active session, return empty data with all request types at 0
-    if (!activeSession) {
-      console.log('⚠️ No active session found');
+    if (!activeSessions.length === 0) {
+      console.log("⚠️ No active session found");
       return res.status(200).json({
         success: true,
-        message: 'No active session found. All data is 0.',
+        message: "No active session found. All data is 0.",
         data: {
           completed: 0,
           inProgress: 0,
@@ -724,25 +723,25 @@ export const getTodayAnalytics = async (req, res) => {
           completedPriority: 0,
           totalQueues: 0,
           requestBreakdown: [
-            { requestType: 'Good Moral Certificat', total: 0 },
-            { requestType: 'Insurance', total: 0 },
-            { requestType: 'Approval/Transmittal Letter', total: 0 },
-            { requestType: 'Temporary Gate Pass', total: 0 },
-            { requestType: 'Uniform Exception', total: 0 },
-            { requestType: 'Enrollment/Transfer', total: 0 },
+            { requestType: "Good Moral Certificate", total: 0 },
+            { requestType: "Insurance", total: 0 },
+            { requestType: "Approval/Transmittal Letter", total: 0 },
+            { requestType: "Temporary Gate Pass", total: 0 },
+            { requestType: "Uniform Exception", total: 0 },
+            { requestType: "Enrollment/Transfer", total: 0 },
           ],
         },
       });
     }
 
-    const sessionId = activeSession.sessionId;
-    console.log('✅ Active session ID:', sessionId);
+    const sessionIds = activeSessions.map((s) => s.sessionId);
+    // console.log("✅ Active session ID:", sessionId);
 
     // ⚡ Fetch queues + requests from CURRENT SESSION ONLY
     const [sessionQueues, sessionRequests, requestTypes] = await Promise.all([
       prisma.queue.findMany({
         where: {
-          sessionId: sessionId,
+          sessionId: { in: sessionIds },
           isActive: true,
         },
         select: {
@@ -754,7 +753,7 @@ export const getTodayAnalytics = async (req, res) => {
       prisma.request.findMany({
         where: {
           queue: {
-            sessionId: sessionId,
+            sessionId: { in: sessionIds },
           },
           isActive: true,
         },
@@ -773,8 +772,8 @@ export const getTodayAnalytics = async (req, res) => {
       }),
     ]);
 
-    console.log('📊 Found queues in active session:', sessionQueues.length);
-    console.log('📊 Found requests in active session:', sessionRequests.length);
+    console.log("📊 Found queues in active session:", sessionQueues.length);
+    console.log("📊 Found requests in active session:", sessionRequests.length);
 
     // 🧮 Queue analytics
     const completed = sessionQueues.filter(
@@ -815,7 +814,7 @@ export const getTodayAnalytics = async (req, res) => {
       });
 
     console.log(
-      '📊 Completed requests by type:',
+      "📊 Completed requests by type:",
       Array.from(requestTypeMap.entries())
     );
 
@@ -824,15 +823,15 @@ export const getTodayAnalytics = async (req, res) => {
     );
 
     // ✅ Define the fixed order of request types - MATCH SEED DATA
-    const orderedRequestTypes = [
-      'Good Moral Certificat',
-      'Insurance',
-      'Approval/Transmittal Letter',
-      'Temporary Gate Pass',
-      'Uniform Exception',
-      'Enrollment/Transfer',
+    const defaultOrderedRequestNames = [
+      "Good Moral Certificate",
+      "Insurance",
+      "Approval/Transmittal Letter",
+      "Temporary Gate Pass",
+      "Uniform Exception",
+      "Enrollment/Transfer",
     ];
-
+    const orderedRequestTypes = requestTypes.map((rt) => rt.requestName);
     // ✅ Create a map of requestName to requestTypeId
     const nameToIdMap = new Map(
       requestTypes.map((rt) => [rt.requestName, rt.requestTypeId])
@@ -859,18 +858,18 @@ export const getTodayAnalytics = async (req, res) => {
       requestBreakdown,
     };
 
-    console.log('✅ Today analytics:', analytics);
+    console.log("✅ Today analytics:", analytics);
 
     return res.status(200).json({
       success: true,
-      message: 'Successfully fetched today analytics',
+      message: "Successfully fetched today analytics",
       data: analytics,
     });
   } catch (error) {
-    console.error('❌ Error fetching today analytics:', error);
+    console.error("❌ Error fetching today analytics:", error);
     return res.status(500).json({
       success: false,
-      message: 'Internal Server Error',
+      message: "Internal Server Error",
       error: error.message,
     });
   }
