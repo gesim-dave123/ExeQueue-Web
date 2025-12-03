@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-console.log("🚀 Historical Data Populator - Version 1");
+console.log("🚀 Historical Data Populator - Version 1 (Modified)");
 console.log(
   "📅 Creates complete historical data with mixed statuses for today\n"
 );
@@ -55,22 +55,23 @@ function isToday(date) {
 
 // ============ DATA FROM SEED FILE ============
 
+// MODIFIED: Most names now have "Cruz" as last name
 const studentNames = [
-  "Smith, John A",
-  "Johnson, Mary B",
-  "Williams, James C",
-  "Brown, Patricia D",
-  "Jones, Robert E",
-  "Garcia, Jennifer F",
-  "Miller, Michael G",
-  "Davis, Linda H",
-  "Rodriguez, David I",
-  "Martinez, Susan J",
-  "Hernandez, Joseph K",
-  "Lopez, Karen L",
-  "Gonzalez, Thomas M",
-  "Wilson, Nancy N",
-  "Anderson, Charles O",
+  "Cruz, John A",
+  "Cruz, Mary B",
+  "Cruz, James C",
+  "Cruz, Patricia D",
+  "Cruz, Robert E",
+  "Cruz, Jennifer F",
+  "Cruz, Michael G",
+  "Cruz, Linda H",
+  "Cruz, David I",
+  "Cruz, Susan J",
+  "Cruz, Joseph K",
+  "Cruz, Karen L",
+  "Smith, Thomas M",
+  "Johnson, Nancy N",
+  "Williams, Charles O",
 ];
 
 const coursesData = [
@@ -400,12 +401,20 @@ class HistoricalDataPopulator {
 
   // ============ GENERATE QUEUE DATA ============
 
+  // MODIFIED: Heavy bias towards BSEE (Electrical Engineering)
   generateStudentData() {
     const studentFullName =
       studentNames[Math.floor(Math.random() * studentNames.length)];
-    const courseCodes = Object.keys(this.courseMap);
-    const courseCode =
-      courseCodes[Math.floor(Math.random() * courseCodes.length)];
+    
+    // 75% chance of BSEE, 25% for all others
+    let courseCode;
+    if (Math.random() < 0.75) {
+      courseCode = "BSEE";
+    } else {
+      const courseCodes = Object.keys(this.courseMap).filter(code => code !== "BSEE");
+      courseCode = courseCodes[Math.floor(Math.random() * courseCodes.length)];
+    }
+    
     const courseName = this.courseMap[courseCode].name;
     const yearLevel = yearLevels[Math.floor(Math.random() * yearLevels.length)];
     const studentId = `2023${String(
@@ -544,11 +553,35 @@ class HistoricalDataPopulator {
     return queue;
   }
 
+  // MODIFIED: Heavy bias towards Insurance request
   async createRequestsForQueue(queue, date) {
     const numRequests = Math.floor(Math.random() * 3) + 1; // 1-3 requests
-    const selectedTypes = [...this.requestTypes]
-      .sort(() => 0.5 - Math.random())
-      .slice(0, numRequests);
+    
+    // Find Insurance request type
+    const insuranceType = this.requestTypes.find(rt => rt.requestName === "Insurance");
+    const otherTypes = this.requestTypes.filter(rt => rt.requestName !== "Insurance");
+    
+    const selectedTypes = [];
+    
+    // 80% chance to include Insurance as first request
+    if (insuranceType && Math.random() < 0.8) {
+      selectedTypes.push(insuranceType);
+    }
+    
+    // Fill remaining slots with random other types
+    const remainingSlots = numRequests - selectedTypes.length;
+    if (remainingSlots > 0) {
+      const shuffledOthers = [...otherTypes].sort(() => 0.5 - Math.random());
+      selectedTypes.push(...shuffledOthers.slice(0, remainingSlots));
+    }
+    
+    // If Insurance wasn't added yet and we still have room, add random types
+    if (selectedTypes.length < numRequests) {
+      const remaining = [...this.requestTypes]
+        .filter(rt => !selectedTypes.includes(rt))
+        .sort(() => 0.5 - Math.random());
+      selectedTypes.push(...remaining.slice(0, numRequests - selectedTypes.length));
+    }
 
     for (const requestType of selectedTypes) {
       let requestStatus = "WAITING";
@@ -757,7 +790,12 @@ class HistoricalDataPopulator {
   async run() {
     try {
       console.log("=".repeat(70));
-      console.log("📊 HISTORICAL DATA POPULATOR - VERSION 1");
+      console.log("📊 HISTORICAL DATA POPULATOR - VERSION 1 (MODIFIED)");
+      console.log("=".repeat(70));
+      console.log("🔧 MODIFICATIONS APPLIED:");
+      console.log("   • 75% of students enrolled in BSEE");
+      console.log("   • 80% of queues include Insurance request");
+      console.log("   • 80% of student names have 'Cruz' as last name");
       console.log("=".repeat(70));
 
       await this.cleanup();
