@@ -1,42 +1,81 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider.jsx";
 import { useLoading } from "./LoadingProvider.jsx";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refreshAuth } = useAuth();
   const { setIsLoading, setProgress, setLoadingText } = useLoading();
   const location = useLocation();
+  const [isAnimationRunning, setIsAnimationRunning] = useState(false);
+  const animationIntervalRef = useRef(null);
+  const finishTimeoutRef = useRef(null);
+  const CHECK_INTERVAL = 30 * 60 * 1000;
 
-  // Animate the loading overlay while checking auth
-  useEffect(() => {
-    if (isLoading) {
-      setIsLoading(true);
-      setLoadingText("Authenticating...");
-      setProgress(0);
+  const clearTimers = () => {
+    if (animationIntervalRef.current)
+      clearInterval(animationIntervalRef.current);
+    if (finishTimeoutRef.current) clearTimeout(finishTimeoutRef.current);
+    animationIntervalRef.current = null;
+    finishTimeoutRef.current = null;
+  };
 
-      const interval = setInterval(() => {
-        setProgress((prev) => (prev < 90 ? prev + 10 : 90));
-      }, 200);
+  const startAnimation = () => {
+    clearTimers();
+    setIsLoading(true);
+    setLoadingText("Authenticating...");
+    setProgress(0);
+    setIsAnimationRunning(true);
 
-      return () => clearInterval(interval);
-    } else {
+    animationIntervalRef.current = setInterval(() => {
+      setProgress((prev) => (prev < 90 ? prev + Math.random() * 15 : prev));
+    }, 200);
+  };
+
+  const finishAnimation = async () => {
+    clearTimers();
+    if (isAnimationRunning) {
       setProgress(100);
-      setTimeout(() => setIsLoading(false), 500); // smooth fade-out
-    }
-  }, [isLoading, setIsLoading, setProgress, setLoadingText]);
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-  // Block rendering of route while loading
-  if (isLoading) {
-    return null; // overlay is global, so nothing else renders
+      finishTimeoutRef.current = setTimeout(() => {
+        setIsLoading(false);
+        setProgress(0);
+        setIsAnimationRunning(false);
+      }, 100);
+    }
+  };
+
+  useEffect(() => {
+    if (isLoading && !isAnimationRunning) {
+      startAnimation();
+    } else if (!isLoading && isAnimationRunning) {
+      finishAnimation();
+    }
+
+    return () => clearTimers();
+  }, [isLoading, isAnimationRunning]);
+
+  useEffect(() => {
+    if (!user || isLoading) {
+      return;
+    }
+    const intervalId = setInterval(async () => {
+      console.log("Heartbeat: Checking token validity...");
+      await refreshAuth();
+    }, CHECK_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [user, isLoading, refreshAuth]);
+
+  if (isLoading || isAnimationRunning) {
+    return null;
   }
 
-  // Now we can safely redirect if user is not logged in
   if (!user) {
     return <Navigate to="/staff/login" state={{ from: location }} replace />;
   }
 
-  // Check allowed roles
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     return <Navigate to="/staff/dashboard" replace />;
   }

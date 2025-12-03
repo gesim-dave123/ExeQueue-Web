@@ -1,34 +1,35 @@
-import axios from 'axios';
-import backendConnection from './backendConnection.js';
+import axios from "axios";
+import { showToast } from "../components/toast/ShowToast.jsx";
+import backendConnection from "./backendConnection.js";
 
 // Api to submit Queue Details
-export const submitQueueDetail = async (queueDetails) => {
+export const generateQueue = async (queueDetails) => {
   try {
-    if (!queueDetails) throw new Error('Queue Details is Empty!');
+    if (!queueDetails) throw new Error("Queue Details is Empty!");
 
     const response = await axios.post(
       `${backendConnection()}/api/student/queue/generate`,
       queueDetails,
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
         withCredentials: true,
       }
     );
 
     if (response.data.success && response.status === 201) {
-      console.log('✅ Queue created successfully', response.data);
+      console.log("✅ Queue created successfully", response.data);
 
       return {
         success: true,
-        message: 'Queue Generated',
-        data: response.data.data,
+        message: "Queue Generated",
+        queueData: response.data.queueData,
       };
     } else {
-      console.error('❌ Backend error:', response.data.message);
+      console.error("❌ Backend error:", response.data.message);
       return { success: false, message: response.data.message };
     }
   } catch (error) {
-    console.error('Error in Generating Queue:', error);
+    console.error("Error in Generating Queue:", error);
     return { success: false, message: error.message };
   }
 };
@@ -40,7 +41,7 @@ export const getCourseData = async () => {
       {},
       {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
@@ -52,8 +53,8 @@ export const getCourseData = async () => {
       };
     }
   } catch (error) {
-    console.error('Error in Course Api (GET): ', error);
-    showToast(error, 'error');
+    console.error("Error in Course Api (GET): ", error);
+    showToast(error, "error");
   }
 };
 // Api to get Request Types
@@ -64,7 +65,7 @@ export const getRequestType = async () => {
       {},
       {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
@@ -76,18 +77,25 @@ export const getRequestType = async () => {
       };
     }
   } catch (error) {
-    console.error('Error in fetching request-type data: ', error);
-    showToast(error, 'error');
+    console.error("Error in fetching request-type data: ", error);
+    showToast(error, "error");
   }
 };
 
-export const getQueueDisplay = async (referenceNumber) => {
+export const getQueueDisplay = async (queueId, options = {}) => {
   try {
+    const { referenceNumber } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      ...(referenceNumber && { referenceNumber: referenceNumber }),
+    });
+
     const response = await axios.get(
-      `${backendConnection()}/api/student/queue/${referenceNumber}`,
+      `${backendConnection()}/api/student/queue/${queueId}/?${params.toString()}`,
       {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
@@ -96,11 +104,11 @@ export const getQueueDisplay = async (referenceNumber) => {
     if (response.data.success && response.status === 200) {
       return {
         success: true,
-        data: response.data.data,
+        data: response.data.queue.queueDetails,
       };
     }
   } catch (error) {
-    console.error('Error fetching display queue:', error);
+    console.error("Error fetching display queue:", error);
     return { success: false, data: null };
   }
 };
@@ -114,7 +122,7 @@ export const searchQueue = async (searchParams) => {
       `${backendConnection()}/api/student/queue/search?${queryString}`,
       {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         withCredentials: true,
       }
@@ -122,7 +130,7 @@ export const searchQueue = async (searchParams) => {
 
     return response.data;
   } catch (error) {
-    console.error('Error searching queue:', error);
+    console.error("Error searching queue:", error);
     throw error;
   }
 };

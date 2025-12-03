@@ -4,37 +4,46 @@ import { io } from "socket.io-client";
 import backendConnection from "../../api/backendConnection"; // Adjust path as needed
 import { showToast } from "../../components/toast/ShowToast";
 
-export const useSocket = () => {
+export const useSocket = (onDisconnectOrCleanup) => {
   const socketRef = useRef(null);
-  const [socket, setSocket] = useState(null); // ✅ Add this
+  const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (!socketRef.current) {
+      const token = sessionStorage.getItem("auth_token");
+
       socketRef.current = io(backendConnection(), {
         withCredentials: true,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
         timeout: 20000,
+        extraHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+        auth: {
+          token: token,
+        },
       });
 
       setSocket(socketRef.current); // ✅ Set socket in state
 
       socketRef.current.on("connect", () => {
-        console.log("🟢 Socket connected:", socketRef.current.id);
+        console.log("Connected:", socketRef.current.id);
+        showToast("Connected", "success");
         setIsConnected(true);
       });
 
       socketRef.current.on("disconnect", (reason) => {
-        console.log("🔴 Socket disconnected:", reason);
-        showToast("Socket disconnected", "error");
+        console.log("Disconnected:", reason);
+        onDisconnectOrCleanup?.();
+        showToast("Disconnected", "error");
         setIsConnected(false);
       });
 
       socketRef.current.on("connect_error", (error) => {
-        console.error("❌ Socket connection error:", error);
-        showToast("Socket connection error", "error");
+        console.error("Cconnection error:", error);
+        onDisconnectOrCleanup?.();
+        showToast("Connection error", "error");
         setIsConnected(false);
       });
     }
@@ -42,6 +51,7 @@ export const useSocket = () => {
     return () => {
       if (socketRef.current) {
         console.log("🧹 Cleaning up socket connection");
+        onDisconnectOrCleanup?.();
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         socketRef.current.off("connect_error");

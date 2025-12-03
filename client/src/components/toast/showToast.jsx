@@ -1,12 +1,38 @@
 import { toast } from "sonner";
 
-const shownMessages = new Set();
+// Track active toasts and their counts
+const activeToasts = new Map(); // { message: { toastId, count, timeoutId } }
 
 export const showToast = (message, type = "error") => {
-  if (shownMessages.has(message)) return; // skip duplicate
-  shownMessages.add(message);
-  toast[type](message);
+  const existing = activeToasts.get(message);
 
-  // remove from set after 3 seconds (default toast duration)
-  setTimeout(() => shownMessages.delete(message), 3000);
+  if (existing) {
+    // Dismiss the old toast using toast.dismiss()
+    toast.dismiss(existing.toastId);
+
+    // Clear existing timeout
+    clearTimeout(existing.timeoutId);
+
+    // Increment count and show new toast with count
+    const newCount = existing.count + 1;
+    const toastId = toast[type](`${message} (${newCount})`);
+
+    // Set new timeout for cleanup
+    const timeoutId = setTimeout(() => {
+      activeToasts.delete(message);
+    }, 3000);
+
+    activeToasts.set(message, { toastId, count: newCount, timeoutId });
+  } else {
+    // Create new toast (returns the toast ID)
+    const toastId = toast[type](message);
+
+    // Set timeout for cleanup
+    const timeoutId = setTimeout(() => {
+      activeToasts.delete(message);
+    }, 1000);
+
+    // Store toast reference
+    activeToasts.set(message, { toastId, count: 1, timeoutId });
+  }
 };

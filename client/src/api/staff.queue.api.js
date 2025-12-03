@@ -1,89 +1,105 @@
-import axios from "axios";
-import backendConnection from "./backendConnection.js";
+import axios from "./axiosConfig.js";
 
 export const studentsQueueDetails = async (queueDetails) => {
   try {
     if (!queueDetails) throw new Error("Queue Details is Empty!");
 
-    const response = await axios.post(
-      `${backendConnection()}/api/queue/generate`,
-      queueDetails,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Using axios, base URL and default config are automatically applied.
+    const response = await axios.post("/api/queue/generate", queueDetails);
 
     if (response.data.success && response.status === 201) {
       return {
         success: true,
         message: "Queue Generated",
-        queueDetails: response.data.queueDetails,
+        queueDetails: response.data.queueData,
       };
     }
   } catch (error) {
     console.error("Error in Generating Queue: ", error);
+    // The interceptor handles global errors, but we return a standard structure here
+    // for local error handling logic (e.g., showing a user-friendly message).
     return {
       success: false,
-      message: "Internal Server Error",
+      message: error.response?.data?.message || "Internal Server Error",
       queueDetails: null,
     };
   }
 };
-export const getQueueListByStatus = async (status) => {
+
+// GET Queue List by Query (Protected Staff Route)
+export const getQueueListByQuery = async (status, options = {}) => {
   try {
+    const {
+      limit = 100,
+      offset = 0,
+      include_total = false,
+      windowId,
+      requestStatus,
+      searchValue,
+    } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      status,
+      limit: limit.toString(),
+      offset: offset.toString(),
+      include_total: include_total.toString(),
+      ...(windowId && { windowId: windowId.toString() }),
+      ...(requestStatus && { requestStatus }),
+      ...(searchValue && { search: searchValue.toString() }),
+    });
+
+    // Use axios.get with the path and params
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}`,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/type",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/list?${params.toString()}`
     );
-    // Correct condition - check if status is 200 AND success is true
+
     if (response.status === 200 && response.data.success) {
-      console.log("Queue List:", response.data.queueList);
-      return response.data.queueList;
+      console.log(
+        "Queues retrieved successfully:",
+        response.data.queues?.length || 0,
+        "items"
+      );
+      return response.data;
     } else {
       console.warn("Unexpected response format:", response.data);
-      return [];
+      return {
+        success: false,
+        queues: [],
+        message: response.data?.message || "Unexpected response format",
+      };
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
-    return [];
+    console.error("Error in getQueueListByQuery:", error);
+    return {
+      success: false,
+      queues: [],
+      message: error.response?.data?.message || "Failed to fetch queues",
+      error: error.message,
+    };
   }
 };
 
+// PUT - Call Next Queue (Protected Staff Route)
 export const getCallNextQueue = async (windowId) => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/call/${windowId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    const response = await axios.put(`/api/staff/queue/call/${windowId}`);
+
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
 
     return response.data;
   } catch (error) {
-    console.error("❌ Error in Call Next Queue:", error);
+    console.error("Error in Call Next Queue:", error);
     if (error.response) {
       return error.response.data;
-      ssage;
     }
     return { success: false, message: "Network error." };
   }
 };
 
+// PUT - Set Request Status (Protected Staff Route)
 export const setRequestStatus = async (
   queueId,
   requestId,
@@ -92,14 +108,9 @@ export const setRequestStatus = async (
 ) => {
   try {
     console.log("Request Id in API:", requestId);
+    // Use template literal for clean URL construction
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/set/status/${queueId}/${requestId}/${requestStatus}/${windowId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/set/status/${queueId}/${requestId}/${requestStatus}/${windowId}`
     );
 
     if (response?.status === 200 && response?.data.success) {
@@ -108,11 +119,18 @@ export const setRequestStatus = async (
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Call Next Api", error);
-    return response.data.error;
+    console.error("Error in setRequestStatus:", error);
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return {
+      success: false,
+      message: error.message || "Failed to update request status",
+    };
   }
 };
 
+// PUT - Set Deferred Request Status (Protected Staff Route)
 export const setDeferredRequestStatus = async (
   queueId,
   requestId,
@@ -121,14 +139,9 @@ export const setDeferredRequestStatus = async (
 ) => {
   try {
     console.log("Request Id in API:", requestId);
+    // Use template literal for clean URL construction
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/set/status/deferred/${queueId}/${requestId}/${windowId}/${requestStatus}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/set/status/deferred/${queueId}/${requestId}/${windowId}/${requestStatus}`
     );
 
     if (response?.status === 200 && response?.data.success) {
@@ -137,70 +150,77 @@ export const setDeferredRequestStatus = async (
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Call Next Api", error);
-    return response.data.error;
+    console.error("Error in setDeferredRequestStatus:", error);
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return {
+      success: false,
+      message: error.message || "Failed to update deferred request status",
+    };
   }
 };
 
+// PUT - Mark Queue Status (Protected Staff Route)
 export const markQueueStatus = async (queueId, windowId) => {
   try {
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/${queueId}/${windowId}/mark-status`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/${queueId}/${windowId}/mark-status`
     );
+
     console.log("Response from api", response);
+
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Mark Queue Status Api", error);
-    return response.data.error;
+    console.error("Error in markQueueStatus:", error);
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return {
+      success: false,
+      message: error.message || "Failed to mark queue status",
+    };
   }
 };
 
+// GET - Current Served Queue (Protected Staff Route)
 export const currentServedQueue = async (windowId) => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/current/${windowId}`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/current/window/${windowId}`
     );
+
     console.log("Response from api", response);
+
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     }
 
     return response.data;
   } catch (error) {
-    console.error("An error occured in Current Served Queue Api", error);
-    return response.data.error;
+    console.error("Error in currentServedQueue:", error);
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return {
+      success: false,
+      message: error.message || "Failed to get current served queue",
+    };
   }
 };
 
+// GET - Queue by Status and Window (Protected Staff Route)
 export const getQueueByStatusAndWindow = async (status, windowId) => {
   try {
+    // Query string construction is simplified
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}&windowId=${windowId}`,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/type",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/list?status=${status}&windowId=${windowId}`
     );
-    // Correct condition - check if status is 200 AND success is true
+
     if (response.status === 200 && response.data.success) {
       console.log("Queue List:", response.data.queueList);
       return response.data.queueList;
@@ -209,32 +229,61 @@ export const getQueueByStatusAndWindow = async (status, windowId) => {
       return [];
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getQueueByStatusAndWindow:", error);
     return [];
   }
 };
+
+// GET - Deferred Queue (Protected Staff Route)
 export const getDeferredQueue = async (status) => {
   try {
+    // Query string construction is simplified
     const response = await axios.get(
-      `${backendConnection()}/api/staff/queue/list?status=${status}&requestStatus=STALLED,SKIPPED`,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/type",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/list?status=${status}&requestStatus=STALLED,SKIPPED`
     );
-    // Correct condition - check if status is 200 AND success is true
+
     if (response.status === 200 && response.data.success) {
-      console.log("Queue List:", response.data.queueList);
+      console.log("Deferred Response Api", response.data.queueList);
       return response.data.queueList;
     } else {
       console.warn("Unexpected response format:", response.data);
       return [];
     }
   } catch (error) {
-    console.error("Error in getQueueListByStatus:", error);
+    console.error("Error in getDeferredQueue:", error);
     return [];
+  }
+};
+
+// GET - Single Queue Details (Protected Staff Route)
+export const getSingleQueue = async (
+  queueId,
+  referenceNumber,
+  options = {}
+) => {
+  try {
+    const { status, windowId, requestStatus } = options;
+
+    // Build query parameters
+    const params = new URLSearchParams({
+      ...(status && { status: status }),
+      ...(windowId && { windowId: windowId.toString() }),
+      ...(requestStatus && { requestStatus }),
+    });
+
+    // Use template literal for the main path and append constructed params
+    const response = await axios.get(
+      `/api/staff/queue/get/${queueId}/${referenceNumber}/?${params.toString()}`
+    );
+
+    if (response.status === 200 && response.data.success) {
+      return response.data.queue;
+    } else {
+      console.warn("Unexpected response format:", response.data);
+      return response.data.message;
+    }
+  } catch (error) {
+    console.error("Error in getSingleQueue:", error);
+    return null;
   }
 };

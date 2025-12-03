@@ -38,7 +38,7 @@ export function formatQueueNextItem(formattedQueue) {
 
 export const formatQueueData = (queueData) => {
   return {
-    queueId: queueData.queueId, // ✅ Preserve the ID
+    queueId: String(queueData.queueId), // ✅ Preserve the ID
     queueNo: `${queueData.queueType === "PRIORITY" ? "P" : "R"}${String(
       queueData.queueNumber
     ).padStart(3, "0")}`,

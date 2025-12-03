@@ -34,7 +34,7 @@ import {
   currentServedQueue,
   getCallNextQueue,
   getDeferredQueue,
-  getQueueListByStatus,
+  getQueueListByQuery,
   markQueueStatus,
   setDeferredRequestStatus,
   setRequestStatus,
@@ -104,10 +104,6 @@ export default function Manage_Queue() {
       return type === Queue_Type.REGULAR.toString().toUpperCase();
     });
     // .sort((a, b) => (a.sequenceNumber || 0) - (b.sequenceNumber || 0));
-
-    // console.log("📊 Priority count:", priority.length);
-    // console.log("📊 Regular count:", regular.length);
-
     const sorted = [];
     let pIndex = 0;
     let rIndex = 0;
@@ -124,7 +120,6 @@ export default function Manage_Queue() {
       }
     }
 
-    // console.log("✅ Final sorted count:", sorted.length);
     return sorted;
   }, []);
   const handleAddNewQueue = useCallback(
@@ -194,7 +189,7 @@ export default function Manage_Queue() {
       setIsLoading(true);
 
       // ✅ Fetch WAITING queues (global - no windowId)
-      const waitingQueues = await getQueueListByStatus(Status.WAITING);
+      const waitingQueues = await getQueueListByQuery(Status.WAITING);
 
       if (waitingQueues && Array.isArray(waitingQueues)) {
         const formattedQueue = waitingQueues.map(formatQueueData);
@@ -228,30 +223,26 @@ export default function Manage_Queue() {
     // refreshWindowStatus();
   }, []);
 
-  // Handle when this window is released
   const handleWindowRelease = useCallback(
     async (data) => {
-      // 🚨 CASE 1: The client who owns the released window
-      if (data.previousWindowId === selectedWindow?.id) {
-        // Clear local state
-        setSelectedWindow(null);
-        setCurrentQueue(null);
+      try {
         setIsLoading(true);
-        localStorage.removeItem("selectedWindow");
+        if (data.previousWindowId === selectedWindow?.id) {
+          setSelectedWindow(null);
+          setCurrentQueue(null);
+          setIsLoading(true);
+          localStorage.removeItem("selectedWindow");
 
-        showToast("Your window has been released", "info");
-
-        // 🌀 Force refresh window list — same behavior as when first loading the page
-        await loadWindows(); // reuse your existing window loader
-        setShowWindowModal(true); // show the window selection modal again
-        return;
+          showToast("Your window has been released", "info");
+          await loadWindows();
+          setShowWindowModal(true);
+          return;
+        }
+        showToast(`${data.message}`, "info");
+        await loadWindows();
+      } catch (error) {
+        console.error("Error handling window release:", error);
       }
-
-      // 🚨 CASE 2: Other clients — just info toast + soft refresh
-      showToast(`${data.message}`, "info");
-
-      // Optional: also refresh window list in background for accuracy
-      await loadWindows();
     },
     [selectedWindow?.id]
   );
@@ -262,8 +253,8 @@ export default function Manage_Queue() {
     setIsLoading(false);
   }, []);
   useEffect(() => {
-    // ✅ Only fetch queues AFTER window is assigned
     if (selectedWindow?.id && !showWindowModal) {
+      //Only fetch queues AFTER window is assigned
       fetchQueueList();
     }
   }, [selectedWindow?.id, showWindowModal, fetchQueueList]);
@@ -271,9 +262,7 @@ export default function Manage_Queue() {
   useEffect(() => {
     if (!socket || !isConnected || !selectedWindow?.id) return;
 
-    // When new queue is created globally
     const handleQueueCreated = (newQueueData) => {
-      // Just add to global list, no auto-call logic here
       const formattedNewQueue = formatQueueData(newQueueData);
       setGlobalQueueList((prev) => {
         const exists = prev.some(
@@ -284,24 +273,22 @@ export default function Manage_Queue() {
         return sortByPriorityPattern(merged);
       });
     };
-    // 🟡 When another window removes someone from the global queue
+
     const handleQueueRemoved = (data) => {
       setGlobalQueueList((prev) =>
         prev.filter((q) => q.queueId !== data.queueId)
       );
     };
 
-    // 🟢 When a queue is deferred
     const handleDeferredQueue = (queue) => {
-      // console.log("🟡 Queue deferred:", queue);
       const formattedDeferredQueue = formatQueueData(queue);
       showToast(
         `Queue (${formattedDeferredQueue.queueNo}) deferred`,
         "warning"
       );
 
-      // Add to deferred list if not already there
       setDeferredQueue((prev) => {
+        // Add to deferred list if not exists
         const exists = prev.some(
           (q) => q.queueId === formattedDeferredQueue.queueId
         );
@@ -314,14 +301,16 @@ export default function Manage_Queue() {
       console.log("✅ Queue Completed:", queue);
       const formattedCompletedQueue = formatQueueData(queue);
 
-      // Remove from deferred list if it exists there
-      setDeferredQueue((prev) =>
-        prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
+      setDeferredQueue(
+        (
+          prev // Remove from deferred list if it exists there
+        ) => prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
       );
 
-      // Also remove from global queue list if needed
-      setGlobalQueueList((prev) =>
-        prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
+      setGlobalQueueList(
+        (
+          prev // Also remove from global queue list if needed
+        ) => prev.filter((q) => q.queueId !== formattedCompletedQueue.queueId)
       );
     };
 
@@ -395,11 +384,6 @@ export default function Manage_Queue() {
             }
           : prev
       );
-
-      // Optional: Show notification for remote updates only
-      // if (data.updatedBy !== currentStaffId) {
-      //   showToast(`Request in queue updated by another window`, "info");
-      // }
     };
 
     const handleQueueReset = (data) => {
@@ -1145,14 +1129,14 @@ export default function Manage_Queue() {
 
   // Loading Skeleton Component
   const LoadingSkeleton = () => (
-    <div className="min-h-screen bg-transparent w-full p-4 md:p-10">
-      <div className="max-w-full mx-auto">
+    <div className="min-h-screen bg-transparent w-full p-4 md:p-10 ">
+      <div className="max-w-full mx-auto ">
         {/* Header Skeleton */}
         <div className="h-8 bg-gray-200 rounded w-64 mb-9 mt-6 animate-pulse"></div>
 
         {/* Main Card Skeleton */}
         <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
-          <div className="p-4 md:p-6">
+          <div className="p-4 md:p-6 z-0">
             {/* Window Header Skeleton */}
             <div className="flex items-center gap-2 mb-4">
               <div className="bg-gray-200 p-2 rounded-xl w-10 h-10 animate-pulse"></div>
@@ -1181,7 +1165,7 @@ export default function Manage_Queue() {
               {/* Right Side Skeleton */}
               <div className="flex flex-col flex-5 justify-between">
                 <div className="flex-1">
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="border border-gray-200 w-20 lg:w-auto  rounded-lg overflow-hidden">
                     <div className="h-75 overflow-y-auto">
                       <table className="w-full">
                         <thead>
@@ -1244,7 +1228,7 @@ export default function Manage_Queue() {
     </div>
   );
   return (
-    <div className="relative min-h-screen w-full">
+    <div className=" min-h-screen w-full">
       {/* Loading skeleton overlay */}
       {isLoading && <LoadingSkeleton />}
 
@@ -1258,20 +1242,20 @@ export default function Manage_Queue() {
           iconAlt="Window Selection"
           buttons={windowButtons}
           buttonLayout="grid"
-          modalWidth="w-1/3"
+          modalWidth="w-full lg:w-1/3 "
           modalHeight="h-auto"
           showCloseButton={true}
         />
       )}
       {!isLoading && currentQueue && (
-        <div className="min-h-screen bg-transparent w-full p-4 md:p-10">
+        <div className="min-h-screen bg-transparent w-full pr-7 py-15 xl:py-18 sm:pl-15 xl:pl-9">
           <div className="max-w-full mx-auto">
-            <h1 className="text-2xl md:text-3xl font-semibold text-left text-gray-900 mb-9 mt-6">
+            <h1 className="text-3xl font-semibold text-left text-gray-900 mb-9">
               Manage Queue
             </h1>
             {/* Current Queue Display - Updated */}
             <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
-              <div className="p-4 bg- md:p-6">
+              <div className="p-4 md:p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="bg-[#F5F5F5] p-2 rounded-xl">
                     <img src="/assets/Monitor.png" alt="" />
@@ -1282,12 +1266,12 @@ export default function Manage_Queue() {
                 </div>
 
                 {/* container */}
-                <div className="flex  items-center justify-between gap-6 h-full">
+                <div className="flex md:flex-row flex-col  items-center justify-between gap-6 h-full">
                   {/* left side */}
-                  <div className="border-2 flex-1  border-[#E2E3E4] rounded-lg p-6 h-full">
-                    <div className=" text-left mb-4 ">
+                  <div className="border w-full sm:w-auto flex flex-col border-[#E2E3E4] rounded-lg p-6 xl:px-8 md:p-6 h-full">
+                    <div className="text-left mb-4">
                       <div
-                        className={`text-7xl text-center ring-1 rounded-xl py-4 font-bold mb-2 text-[#1A73E8] ${
+                        className={`text-7xl text-center ring-1 rounded-xl p-4 font-bold mb-2 text-[#1A73E8] ${
                           currentQueue.type === "Priority"
                             ? "text-[#F9AB00] border-[#F9AB00]"
                             : "text-[#1A73E8] border-[#1A73E8]"
@@ -1335,12 +1319,12 @@ export default function Manage_Queue() {
                   </div>
 
                   {/* right side */}
-                  <div className="flex flex-col flex-5 justify-between">
+                  <div className="flex flex-col flex-5 md:gap-6 lg:gap-1 justify-between">
                     <div className="flex-1">
                       <div className="space-y-3">
                         <div className="border border-gray-200 rounded-lg overflow-hidden">
                           {/* Scrollable wrapper for table body */}
-                          <div className="h-75 overflow-y-auto custom-scrollbar">
+                          <div className="h-75 w-[36vh] sm:w-auto  overflow-y-auto custom-scrollbar">
                             <table className="w-full">
                               <thead className="bg-white sticky top-0 z-10">
                                 {/* Service Requests Header Row */}
@@ -1475,7 +1459,7 @@ export default function Manage_Queue() {
                       </div>
                     </div>
 
-                    <div className="flex gap-3 mt-15 justify-end">
+                    <div className="flex gap-3 mt-5 md:mt-15 items-center justify-center sm:justify-end ">
                       <button
                         onClick={() =>
                           handleButtonClick(
@@ -1525,7 +1509,7 @@ export default function Manage_Queue() {
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                           shouldDisableAnnounce()
                             ? "bg-[#FACC15]/50 cursor-not-allowed text-gray-200"
-                            : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
+                            : "bg-[#F9AB00] hover:bg-yellow-600 text-white cursor-pointer"
                         }`}
                       >
                         <img
@@ -1543,7 +1527,7 @@ export default function Manage_Queue() {
             <div className="bg-white rounded-xl shadow-xs mb-4 overflow-hidden">
               <button
                 onClick={() => setDeferredOpen(!deferredOpen)}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                className="w-full flex lg:items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <span className="font-semibold text-gray-900">Deferred</span>
@@ -1883,10 +1867,10 @@ export default function Manage_Queue() {
                   </button>
                 </div>
 
-                <div className="p-6">
-                  <div className="flex items-center justify-between gap-6 h-full">
+                <div className="px-6 py-5 lg:py-0">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 h-full">
                     {/* left side */}
-                    <div className="border-2 flex-1 border-[#E2E3E4] rounded-lg p-6 h-full">
+                    <div className="border w-full md:w-auto mb-8 border-[#E2E3E4] rounded-lg p-7 h-full">
                       <div className="text-left mb-4">
                         <div className="text-5xl text-center border border-[#1A73E8] rounded-xl py-3 font-bold text-blue-600 mb-2">
                           {selectedQueue.queueNo}
@@ -1932,7 +1916,7 @@ export default function Manage_Queue() {
                         <div className="space-y-3">
                           <div className="border border-gray-200 rounded-lg overflow-hidden">
                             {/* Scrollable wrapper for table body */}
-                            <div className="h-75 overflow-y-auto custom-scrollbar">
+                            <div className="h-75 w-[36vh] lg:w-auto overflow-y-auto custom-scrollbar">
                               <table className="w-full">
                                 <thead className="bg-white sticky top-0 z-10">
                                   {/* Service Requests Header Row */}
@@ -2005,7 +1989,10 @@ export default function Manage_Queue() {
                                               }
                                               className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors cursor-pointer"
                                             >
-                                              <Pause className="w-4 h-4" />
+                                              <img
+                                                src="/assets/manage_queue/pause.png"
+                                                alt="Edit"
+                                              />
                                             </button>
                                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                               Stall
@@ -2024,7 +2011,10 @@ export default function Manage_Queue() {
                                               }
                                               className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded hover:bg-orange-200 transition-colors cursor-pointer"
                                             >
-                                              <SkipForward className="w-4 h-4" />
+                                              <img
+                                                src="/assets/manage_queue/forward.png"
+                                                alt="Edit"
+                                              />
                                             </button>
                                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-20">
                                               Skip
@@ -2061,7 +2051,7 @@ export default function Manage_Queue() {
                         </div>
                       </div>
 
-                      <div className="flex gap-3 mt-8 justify-end">
+                      <div className="flex gap-3 sm:mb-8 md:mb-6 lg:mb-7 justify-end">
                         <button
                           onClick={handleDonePanel}
                           disabled={
@@ -2072,7 +2062,7 @@ export default function Manage_Queue() {
                                 request.status === "Skipped"
                             )
                           }
-                          className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                          className={`flex items-center gap-2 px-6 mt-10 sm:mt-18 md:mt-15 lg:mt-15 xl:mt-13   py-3 rounded-lg transition-colors ${
                             selectedQueue.requests.every(
                               (request) =>
                                 request.status === "Completed" ||

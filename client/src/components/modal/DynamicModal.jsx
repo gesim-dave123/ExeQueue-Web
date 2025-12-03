@@ -10,7 +10,7 @@ export default function DynamicModal({
 
   // 🔹 Text Content
   title = "Modal Title",
-  titleClassName = "text-2xl font-semibold text-gray-800 text-center mb-4",
+  titleClassName = "text-2xl px- font-semibold text-gray-800 text-center mb-4",
   description = "Modal description goes here.",
   descriptionClassName = "text-gray-600 text-center",
 
@@ -28,14 +28,11 @@ export default function DynamicModal({
 
   // 🔹 Dynamic Content
   children = null,
-  buttons = [], // Array of { text, onClick, className, loading, loadingText }
-  buttonLayout = "horizontal", // 'horizontal' | 'vertical' | 'grid'
+  buttons = [],
+  buttonLayout = "horizontal",
   customContent = null,
 
   // 🔹 Styling
-  // modalWidth = "max-w-md",
-  // modalHeight = "max-h-md",
-  modalWidth = "max-w-sm",
   modalHeight = "h-auto",
   contentClassName = "",
   modalClassName = "",
@@ -45,7 +42,6 @@ export default function DynamicModal({
 }) {
   if (!isOpen) return null;
 
-  // 🔹 Button layout presets
   const getButtonLayoutClass = () => {
     switch (buttonLayout) {
       case "vertical":
@@ -58,40 +54,36 @@ export default function DynamicModal({
         return "flex justify-between space-x-3";
       case "horizontal-wrap":
         return "flex flex-wrap justify-center gap-3";
-      default: // horizontal
-        return "flex items-center space-x-3"; // Default to left-aligned
+      default:
+        return "flex items-center space-x-3";
     }
   };
 
   return (
     <>
-      {/* Overlay */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="fixed inset-0 bg-black/20 backdrop-blur-xs flex items-center justify-center z-50 p-4"
         onClick={overlayClickClose ? onClose : undefined}
       >
-        {/* Modal Body */}
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className={`bg-white rounded-2xl shadow-xl p-10 flex flex-col justify-around ${modalWidth} ${modalHeight} relative ${modalClassName}`}
+          className={`bg-white rounded-3xl shadow-xl px-7 lg:px-9  py-12 flex flex-col justify-around w-full sm:w-[320px] md:w-[380px] lg:w-[450px] ${modalHeight} relative ${modalClassName}`}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Close Button */}
           {showCloseButton && (
             <button
               onClick={onClose}
               disabled={loading && showLoading}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
             >
               <X size={25} />
             </button>
           )}
 
-          {/* Icon */}
           {icon && (
             <div className="flex justify-center mb-4">
               <img
@@ -102,29 +94,19 @@ export default function DynamicModal({
             </div>
           )}
 
-          {/* Title */}
           {title && <h3 className={titleClassName}>{title}</h3>}
 
-          {/* Description */}
           {description && (
             <div className="py-1">
               <p className={descriptionClassName}>{description}</p>
             </div>
           )}
 
-          {/* Custom Content (children or JSX) */}
-          {children && (
-            <div className={`mt-4 ${contentClassName}`}>{children}</div>
-          )}
-          {customContent && (
-            <div className={contentClassName}>{customContent}</div>
-          )}
+          {children && <div className={`mt-4 ${contentClassName}`}>{children}</div>}
+          {customContent && <div className={contentClassName}>{customContent}</div>}
 
-          {/* Action Buttons */}
           {!hideActions && buttons.length > 0 && (
             <div className={`mt-6 ${getButtonLayoutClass()}`}>
-              {" "}
-              {/* Reduced mt-8 to mt-6 */}
               {buttons.map((button, index) => (
                 <motion.button
                   key={index}
@@ -137,9 +119,7 @@ export default function DynamicModal({
                     ${button.className || ""}
                   `}
                 >
-                  {button.loading
-                    ? button.loadingText || "Loading..."
-                    : button.text}
+                  {button.loading ? button.loadingText || "Loading..." : button.text}
                 </motion.button>
               ))}
             </div>
@@ -147,7 +127,6 @@ export default function DynamicModal({
         </motion.div>
       </motion.div>
 
-      {/* Global Loading Overlay */}
       {loading && showLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
           <Loading text={loadingText} progress={progress} />
