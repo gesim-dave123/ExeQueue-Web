@@ -10,10 +10,8 @@ const activeTimers = new Map();
 const GRACE_PERIOD = 30 * 60 * 1000; // 10 mins
 
 export function scheduleAssignmentTimer(assignmentId, lastHeartbeat, io) {
-  const delay = Math.max(
-    lastHeartbeat.getTime() + GRACE_PERIOD - Date.now(),
-    0
-  );
+  const heartbeatTime = lastHeartbeat ? lastHeartbeat.getTime() : Date.now();
+  const delay = Math.max(heartbeatTime + GRACE_PERIOD - Date.now(), 0);
 
   if (activeTimers.has(assignmentId))
     clearTimeout(activeTimers.get(assignmentId));

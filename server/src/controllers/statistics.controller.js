@@ -621,7 +621,7 @@ export const getAnalyticsData = async (req, res) => {
       const typeId = req.requestTypeId;
       requestTypeMap.set(typeId, (requestTypeMap.get(typeId) || 0) + 1);
     });
-    const orderedRequestTypes = (requestTypes.map((rt) => rt.requestName))
+    const orderedRequestTypes = requestTypes.map((rt) => rt.requestName);
 
     // ✅ Build weekly breakdown with all types (0 if no data)
     const weeklyRequestBreakdown = orderedRequestTypes.map((typeName) => {
@@ -701,7 +701,7 @@ export const getTodayAnalytics = async (req, res) => {
     console.log("📅 Fetching today analytics for date:", todayUTC);
 
     // ✅ Find the CURRENT ACTIVE SESSION (isServing: true)
-    const activeSession = await prisma.queueSession.findFirst({
+    const activeSessions = await prisma.queueSession.findMany({
       where: {
         sessionDate: todayUTC,
         isServing: true,
@@ -711,7 +711,7 @@ export const getTodayAnalytics = async (req, res) => {
       orderBy: { sessionNumber: "desc" },
     });
     // If no active session, return empty data with all request types at 0
-    if (!activeSession) {
+    if (!activeSessions.length === 0) {
       console.log("⚠️ No active session found");
       return res.status(200).json({
         success: true,
@@ -734,14 +734,14 @@ export const getTodayAnalytics = async (req, res) => {
       });
     }
 
-    const sessionId = activeSession.sessionId;
-    console.log("✅ Active session ID:", sessionId);
+    const sessionIds = activeSessions.map((s) => s.sessionId);
+    // console.log("✅ Active session ID:", sessionId);
 
     // ⚡ Fetch queues + requests from CURRENT SESSION ONLY
     const [sessionQueues, sessionRequests, requestTypes] = await Promise.all([
       prisma.queue.findMany({
         where: {
-          sessionId: sessionId,
+          sessionId: { in: sessionIds },
           isActive: true,
         },
         select: {
@@ -753,7 +753,7 @@ export const getTodayAnalytics = async (req, res) => {
       prisma.request.findMany({
         where: {
           queue: {
-            sessionId: sessionId,
+            sessionId: { in: sessionIds },
           },
           isActive: true,
         },
@@ -831,7 +831,7 @@ export const getTodayAnalytics = async (req, res) => {
       "Uniform Exception",
       "Enrollment/Transfer",
     ];
-    const orderedRequestTypes = (requestTypes.map((rt) => rt.requestName))
+    const orderedRequestTypes = requestTypes.map((rt) => rt.requestName);
     // ✅ Create a map of requestName to requestTypeId
     const nameToIdMap = new Map(
       requestTypes.map((rt) => [rt.requestName, rt.requestTypeId])
