@@ -1010,7 +1010,7 @@ export const manualWindowRelease = async (req, res) => {
           },
           select: {
             queueId: true,
-            ticketNumber: true,
+            // ticketNumber: true,
             servedByStaff: true,
             calledAt: true,
           },
@@ -1035,7 +1035,7 @@ export const manualWindowRelease = async (req, res) => {
               "Orphaned queue data detected and cleaned up. No active staff assigned to this window.",
             wasWindowAssigned: false,
             orphanedDataCleaned: true,
-            orphanedTicket: orphanedQueue.ticketNumber,
+            // orphanedTicket: orphanedQueue.ticketNumber,
           });
         }
 
