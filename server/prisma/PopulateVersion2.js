@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-console.log("🚀 Historical Data Populator - Version 2");
-console.log("📅 Creates historical data with ALL TODAY's queues as WAITING\n");
+console.log("🚀 Historical Data Populator - Version 3 (Analytics Focus)");
+console.log("📅 Creates historical data for ANALYTICS - Previous days only\n");
 
 // ============ UTILITY FUNCTIONS ============
 
@@ -22,24 +22,29 @@ function getRandomBusinessTime(date, startHour = 8, endHour = 17) {
   return targetDate;
 }
 
-function getCurrentWeekDates() {
+function getPreviousDaysInWeek() {
   const now = new Date();
-  const day = now.getDay(); // 0 (Sun) to 6 (Sat)
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-
+  const today = now.getDay(); // 0 (Sun) to 6 (Sat)
+  
+  // Get Monday of current week
   const monday = new Date(now);
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
   monday.setDate(diff);
   monday.setHours(0, 0, 0, 0);
 
   const dates = [];
 
-  // Add Monday to Saturday (or until today)
+  // Generate dates from Monday up to yesterday
   for (let i = 0; i < 6; i++) {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
-
-    if (date <= now) {
+    
+    // Only add dates that are before today AND not in the future
+    if (date < now && date.toDateString() !== now.toDateString()) {
       dates.push(date);
+    } else {
+      break; // Stop when we reach today or future dates
     }
   }
 
@@ -53,22 +58,23 @@ function isToday(date) {
 
 // ============ DATA FROM SEED FILE ============
 
+// MODIFIED: Most names now have "Cruz" as last name
 const studentNames = [
-  "Smith, John A",
-  "Johnson, Mary B",
-  "Williams, James C",
-  "Brown, Patricia D",
-  "Jones, Robert E",
-  "Garcia, Jennifer F",
-  "Miller, Michael G",
-  "Davis, Linda H",
-  "Rodriguez, David I",
-  "Martinez, Susan J",
-  "Hernandez, Joseph K",
-  "Lopez, Karen L",
-  "Gonzalez, Thomas M",
-  "Wilson, Nancy N",
-  "Anderson, Charles O",
+  "Cruz, John A",
+  "Cruz, Mary B",
+  "Cruz, James C",
+  "Cruz, Patricia D",
+  "Cruz, Robert E",
+  "Cruz, Jennifer F",
+  "Cruz, Michael G",
+  "Cruz, Linda H",
+  "Cruz, David I",
+  "Cruz, Susan J",
+  "Cruz, Joseph K",
+  "Cruz, Karen L",
+  "Smith, Thomas M",
+  "Johnson, Nancy N",
+  "Williams, Charles O",
 ];
 
 const coursesData = [
@@ -133,7 +139,7 @@ const requestTypesData = [
   },
   { requestName: "Insurance", description: "Insurance Payment" },
   {
-    requestName: "Transmittal Letter",
+    requestName: "Approval/Transmittal Letter",
     description: "Submission of Approval/Transmittal Letter",
   },
   {
@@ -285,7 +291,7 @@ const yearLevels = ["1", "2", "3", "4"];
 
 // ============ MAIN POPULATOR CLASS ============
 
-class WaitingOnlyPopulator {
+class AnalyticsPopulator {
   constructor() {
     this.staff = {};
     this.windows = [];
@@ -398,16 +404,24 @@ class WaitingOnlyPopulator {
 
   // ============ GENERATE QUEUE DATA ============
 
+  // MODIFIED: Heavy bias towards BSEE (Electrical Engineering)
   generateStudentData() {
     const studentFullName =
       studentNames[Math.floor(Math.random() * studentNames.length)];
-    const courseCodes = Object.keys(this.courseMap);
-    const courseCode =
-      courseCodes[Math.floor(Math.random() * courseCodes.length)];
+    
+    // 75% chance of BSEE, 25% for all others
+    let courseCode;
+    if (Math.random() < 0.75) {
+      courseCode = "BSEE";
+    } else {
+      const courseCodes = Object.keys(this.courseMap).filter(code => code !== "BSEE");
+      courseCode = courseCodes[Math.floor(Math.random() * courseCodes.length)];
+    }
+    
     const courseName = this.courseMap[courseCode].name;
     const yearLevel = yearLevels[Math.floor(Math.random() * yearLevels.length)];
     const studentId = `2023${String(
-      Math.floor(Math.random() * 90000) + 10000
+      Math.floor(Math.random() * 9000) + 1000
     )}`;
 
     return {
@@ -420,45 +434,46 @@ class WaitingOnlyPopulator {
   }
 
   getQueueStatusForDate(date, isPriority) {
-    const today = isToday(date);
+    // For analytics data - realistic distribution for completed days
+    const rand = Math.random();
 
-    if (!today) {
-      // HISTORICAL DAYS: All finalized (NO IN_SERVICE)
-      // QUEUE STATUS: Only CANCELLED, COMPLETED, or DEFERRED (no STALLED or SKIPPED for queues)
-      const rand = Math.random();
-
-      if (rand < 0.7) return "COMPLETED";
-      if (rand < 0.85) return "CANCELLED";
-      // Remaining 15%: DEFERRED
-      return "DEFERRED";
-    } else {
-      // TODAY: ALL WAITING
-      return "WAITING";
-    }
+    if (rand < 0.65) return "COMPLETED"; // 65% completed
+    if (rand < 0.80) return "CANCELLED"; // 15% cancelled
+    // Remaining 20%: DEFERRED for analytics testing
+    return "DEFERRED";
   }
 
-  getWindowForQueue(status, isPriority) {
-    if (status === "WAITING" || status === "DEFERRED") {
-      return null;
+ getWindowForQueue(status, isPriority) {
+  // For DEFERRED queues that will be partially processed (40% chance in createQueue)
+  // They should have a window assigned
+  if (status === "DEFERRED") {
+    // 40% of deferred queues will get windows (matching the 40% in createQueue)
+    if (Math.random() < 0.4) {
+      const window1 = this.windows.find((w) => w.windowNo === 1);
+      const window2 = this.windows.find((w) => w.windowNo === 2);
+
+      if (isPriority) {
+        return window2?.windowId;
+      }
+
+      return Math.random() > 0.5 ? window1?.windowId : window2?.windowId;
     }
-
-    const window1 = this.windows.find((w) => w.windowNo === 1);
-    const window2 = this.windows.find((w) => w.windowNo === 2);
-
-    if (isPriority) {
-      return window2?.windowId;
-    }
-
-    return Math.random() > 0.5 ? window1?.windowId : window2?.windowId;
+    return null;
   }
 
-  getStaffForQueue(status) {
-    if (status === "WAITING" || status === "DEFERRED") return null;
+  const window1 = this.windows.find((w) => w.windowNo === 1);
+  const window2 = this.windows.find((w) => w.windowNo === 2);
 
-    if (status === "CANCELLED" && Math.random() > 0.5) {
-      return this.staff.admin?.sasStaffId;
-    }
+  if (isPriority) {
+    return window2?.windowId;
+  }
 
+  return Math.random() > 0.5 ? window1?.windowId : window2?.windowId;
+}
+
+getStaffForQueue(status) {
+  // For DEFERRED queues that will be partially processed
+  if (status === "DEFERRED" && Math.random() < 0.4) {
     const scholars = [
       this.staff.working,
       this.staff.working2,
@@ -469,123 +484,198 @@ class WaitingOnlyPopulator {
     return scholars[Math.floor(Math.random() * scholars.length)]?.sasStaffId;
   }
 
+  if (status === "CANCELLED" && Math.random() > 0.5) {
+    return this.staff.admin?.sasStaffId;
+  }
+
+  const scholars = [
+    this.staff.working,
+    this.staff.working2,
+    this.staff.working3,
+    this.staff.working4,
+  ].filter((s) => s);
+
+  return scholars[Math.floor(Math.random() * scholars.length)]?.sasStaffId;
+}
+
   // ============ CREATE QUEUES ============
 
-  async createQueue(session, queueNumber, sequenceNumber, isPriority, date) {
-    const studentData = this.generateStudentData();
-    const status = this.getQueueStatusForDate(date, isPriority);
-    const windowId = this.getWindowForQueue(status, isPriority);
-    const staffId = this.getStaffForQueue(status);
+async createQueue(session, queueNumber, sequenceNumber, isPriority, date) {
+  const studentData = this.generateStudentData();
+  const status = this.getQueueStatusForDate(date, isPriority);
+  const windowId = this.getWindowForQueue(status, isPriority);
+  const staffId = this.getStaffForQueue(status);
 
-    const sessionNumber = session.sessionNumber;
-    const createdAt = getRandomBusinessTime(
+  const sessionNumber = session.sessionNumber;
+  const createdAt = getRandomBusinessTime(
+    date,
+    sessionNumber === 1 ? 8 : 13,
+    sessionNumber === 1 ? 10 : 15
+  );
+  let calledAt = null;
+  let completedAt = null;
+  let servedByStaff = staffId;
+
+  // For DEFERRED queues: 40% chance to have partial processing data (called but not completed)
+  if (status === "DEFERRED" && Math.random() < 0.4) {
+    // These are "partially processed" deferred queues - they were called but not completed
+    calledAt = getRandomBusinessTime(
       date,
-      sessionNumber === 1 ? 8 : 13,
-      sessionNumber === 1 ? 10 : 15
+      sessionNumber === 1 ? 9 : 13,
+      sessionNumber === 1 ? 11 : 16
     );
-    let calledAt = null;
-    let completedAt = null;
+    // No completedAt - they were deferred before completion
+    servedByStaff = staffId; // They were served by someone
+  }
+  // Set calledAt and completedAt for COMPLETED or CANCELLED queues
+  else if (status === "COMPLETED" || status === "CANCELLED") {
+    calledAt = getRandomBusinessTime(
+      date,
+      sessionNumber === 1 ? 9 : 13,
+      sessionNumber === 1 ? 11 : 16
+    );
 
-    // Only set calledAt and completedAt for COMPLETED or CANCELLED queues
-    if (status === "COMPLETED" || status === "CANCELLED") {
-      calledAt = getRandomBusinessTime(
-        date,
-        sessionNumber === 1 ? 9 : 13,
-        sessionNumber === 1 ? 11 : 16
+    if (status === "COMPLETED") {
+      completedAt = new Date(calledAt);
+      completedAt.setMinutes(
+        completedAt.getMinutes() + Math.floor(Math.random() * 15) + 5
       );
+    } else if (status === "CANCELLED") {
+      completedAt = new Date(calledAt);
+      completedAt.setMinutes(completedAt.getMinutes() + 1); // Quick cancellation
+    }
+    servedByStaff = staffId;
+  }
 
-      if (status === "COMPLETED") {
-        completedAt = new Date(calledAt);
-        completedAt.setMinutes(
-          completedAt.getMinutes() + Math.floor(Math.random() * 15) + 5
-        );
-      } else if (status === "CANCELLED") {
-        completedAt = new Date(calledAt);
-        completedAt.setMinutes(completedAt.getMinutes() + 1); // Quick cancellation
+  // Generate reference number: YYMMDD-S-R001 or YYMMDD-S-P001
+  const yy = String(date.getFullYear()).slice(2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const typePrefix = isPriority ? "P" : "R";
+  const referenceNumber = `${yy}${mm}${dd}-${sessionNumber}-${typePrefix}${String(
+    queueNumber
+  ).padStart(3, "0")}`;
+
+  const queue = await prisma.queue.create({
+    data: {
+      sessionId: session.sessionId,
+      ...studentData,
+      queueNumber,
+      sequenceNumber,
+      referenceNumber,
+      queueType: isPriority ? "PRIORITY" : "REGULAR",
+      queueStatus: status,
+      windowId,
+      servedByStaff,
+      calledAt,
+      completedAt,
+      isActive: true,
+      createdAt,
+    },
+  });
+
+  this.stats.totalQueues++;
+  return queue;
+}
+
+  // MODIFIED: Heavy bias towards Insurance request AND includes STALLED requests for deferred queues
+// MODIFIED: Heavy bias towards Insurance request AND includes STALLED requests for deferred queues
+async createRequestsForQueue(queue, date) {
+  const numRequests = Math.floor(Math.random() * 3) + 1; // 1-3 requests
+  
+  // Find Insurance request type
+  const insuranceType = this.requestTypes.find(rt => rt.requestName === "Insurance");
+  const otherTypes = this.requestTypes.filter(rt => rt.requestName !== "Insurance");
+  
+  const selectedTypes = [];
+  
+  // 80% chance to include Insurance as first request
+  if (insuranceType && Math.random() < 0.8) {
+    selectedTypes.push(insuranceType);
+  }
+  
+  // Fill remaining slots with random other types
+  const remainingSlots = numRequests - selectedTypes.length;
+  if (remainingSlots > 0) {
+    const shuffledOthers = [...otherTypes].sort(() => 0.5 - Math.random());
+    selectedTypes.push(...shuffledOthers.slice(0, remainingSlots));
+  }
+  
+  // If Insurance wasn't added yet and we still have room, add random types
+  if (selectedTypes.length < numRequests) {
+    const remaining = [...this.requestTypes]
+      .filter(rt => !selectedTypes.includes(rt))
+      .sort(() => 0.5 - Math.random());
+    selectedTypes.push(...remaining.slice(0, numRequests - selectedTypes.length));
+  }
+
+  let stalledRequests = 0; // Track stalled requests
+
+  for (const requestType of selectedTypes) {
+    let requestStatus = "WAITING"; // All requests start as WAITING
+    let processedBy = queue.servedByStaff;
+    let processedAt = queue.completedAt || queue.calledAt;
+
+    // For COMPLETED queues
+    if (queue.queueStatus === "COMPLETED") {
+      const rand = Math.random();
+      if (rand < 0.9) {
+        requestStatus = "COMPLETED"; // 90% completed
+      } else if (rand < 0.95) {
+        requestStatus = "SKIPPED"; // 5% skipped (no STALLED for completed queues)
+      } else {
+        requestStatus = "SKIPPED"; // 5% skipped
+      }
+    } 
+    // For CANCELLED queues
+    else if (queue.queueStatus === "CANCELLED") {
+      requestStatus = "CANCELLED";
+    } 
+    // For DEFERRED queues - SPECIAL LOGIC
+    else if (queue.queueStatus === "DEFERRED") {
+      // Check if this is a partially processed deferred queue (has calledAt and servedByStaff)
+      const isPartiallyProcessed = queue.calledAt && queue.servedByStaff;
+      
+      if (isPartiallyProcessed) {
+        // This queue was called and partially processed before being deferred
+        const rand = Math.random();
+        if (rand < 0.4) {
+          requestStatus = "STALLED"; // 40% stalled - was being processed but got stuck
+          stalledRequests++;
+        } else if (rand < 0.8) {
+          requestStatus = "DEFERRED"; // 40% deferred normally
+        } else {
+          requestStatus = "WAITING"; // 20% still waiting
+        }
+      } else {
+        // Regular deferred queue (not called/processed)
+        const rand = Math.random();
+        if (rand < 0.7) {
+          requestStatus = "DEFERRED"; // 70% deferred
+        } else {
+          requestStatus = "WAITING"; // 30% still waiting
+        }
       }
     }
 
-    // Generate reference number: YYMMDD-S-R001 or YYMMDD-S-P001
-    const yy = String(date.getFullYear()).slice(2);
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    const typePrefix = isPriority ? "P" : "R";
-    const referenceNumber = `${yy}${mm}${dd}-${sessionNumber}-${typePrefix}${String(
-      queueNumber
-    ).padStart(3, "0")}`;
-
-    const queue = await prisma.queue.create({
+    const request = await prisma.request.create({
       data: {
-        sessionId: session.sessionId,
-        ...studentData,
-        queueNumber,
-        sequenceNumber,
-        referenceNumber,
-        queueType: isPriority ? "PRIORITY" : "REGULAR",
-        queueStatus: status,
-        windowId,
-        servedByStaff: staffId,
-        calledAt,
-        completedAt,
+        queueId: queue.queueId,
+        requestTypeId: requestType.requestTypeId,
+        processedBy,
+        requestStatus,
+        processedAt,
         isActive: true,
-        createdAt,
+        createdAt: queue.createdAt,
       },
     });
 
-    this.stats.totalQueues++;
-    return queue;
+    this.stats.totalRequests++;
+    await this.createTransactionHistory(queue, request, date);
   }
 
-  async createRequestsForQueue(queue, date) {
-    const numRequests = Math.floor(Math.random() * 3) + 1; // 1-3 requests
-    const selectedTypes = [...this.requestTypes]
-      .sort(() => 0.5 - Math.random())
-      .slice(0, numRequests);
-
-    for (const requestType of selectedTypes) {
-      let requestStatus = "WAITING"; // All requests start as WAITING
-      let processedBy = queue.servedByStaff;
-      let processedAt = queue.completedAt || queue.calledAt;
-
-      // For historical (non-WAITING) queues
-      if (queue.queueStatus !== "WAITING") {
-        // Requests can have STALLED or SKIPPED status (unlike queues)
-        const rand = Math.random();
-        if (queue.queueStatus === "COMPLETED") {
-          if (rand < 0.9) {
-            requestStatus = "COMPLETED"; // 90% completed
-          } else if (rand < 0.95) {
-            requestStatus = "STALLED"; // 5% stalled
-          } else {
-            requestStatus = "SKIPPED"; // 5% skipped
-          }
-        } else if (queue.queueStatus === "CANCELLED") {
-          requestStatus = "CANCELLED";
-        } else if (queue.queueStatus === "DEFERRED") {
-          requestStatus = "DEFERRED";
-        }
-      } else {
-        // For WAITING queues (today), everything is WAITING
-        processedBy = null;
-        processedAt = null;
-      }
-
-      const request = await prisma.request.create({
-        data: {
-          queueId: queue.queueId,
-          requestTypeId: requestType.requestTypeId,
-          processedBy,
-          requestStatus,
-          processedAt,
-          isActive: true,
-          createdAt: queue.createdAt,
-        },
-      });
-
-      this.stats.totalRequests++;
-      await this.createTransactionHistory(queue, request, date);
-    }
-  }
+  return stalledRequests; // Return the count
+}
 
   async createTransactionHistory(queue, request, date) {
     const transactions = [];
@@ -600,38 +690,47 @@ class WaitingOnlyPopulator {
       createdAt: queue.createdAt,
     });
 
-    // Only add additional transactions for historical (processed) queues
-    if (queue.queueStatus !== "WAITING" && queue.queueStatus !== "DEFERRED") {
-      // Add IN_SERVICE transaction for queues that were served
-      if (queue.calledAt) {
-        transactions.push({
-          queueId: queue.queueId,
-          requestId: request.requestId,
-          performedById: queue.servedByStaff || this.staff.working.sasStaffId,
-          performedByRole: "WORKING_SCHOLAR",
-          transactionStatus: "IN_SERVICE",
-          createdAt: queue.calledAt,
-        });
-      }
+    // Add IN_SERVICE transaction for queues that were served (not DEFERRED)
+    if (queue.calledAt && queue.queueStatus !== "DEFERRED") {
+      transactions.push({
+        queueId: queue.queueId,
+        requestId: request.requestId,
+        performedById: queue.servedByStaff || this.staff.working.sasStaffId,
+        performedByRole: "WORKING_SCHOLAR",
+        transactionStatus: "IN_SERVICE",
+        createdAt: queue.calledAt,
+      });
+    }
 
-      // Add final status transaction
-      if (
-        queue.completedAt ||
-        (queue.calledAt && queue.queueStatus === "CANCELLED")
-      ) {
-        transactions.push({
-          queueId: queue.queueId,
-          requestId: request.requestId,
-          performedById: queue.servedByStaff || this.staff.working.sasStaffId,
-          performedByRole:
-            queue.queueStatus === "CANCELLED" &&
-            queue.servedByStaff === this.staff.admin.sasStaffId
-              ? "PERSONNEL"
-              : "WORKING_SCHOLAR",
-          transactionStatus: queue.queueStatus,
-          createdAt: queue.completedAt || queue.calledAt,
-        });
-      }
+    // Add final status transaction for completed/cancelled
+    if ((queue.completedAt && queue.queueStatus !== "DEFERRED") ||
+        (queue.calledAt && queue.queueStatus === "CANCELLED")) {
+      transactions.push({
+        queueId: queue.queueId,
+        requestId: request.requestId,
+        performedById: queue.servedByStaff || this.staff.working.sasStaffId,
+        performedByRole:
+          queue.queueStatus === "CANCELLED" &&
+          queue.servedByStaff === this.staff.admin.sasStaffId
+            ? "PERSONNEL"
+            : "WORKING_SCHOLAR",
+        transactionStatus: queue.queueStatus,
+        createdAt: queue.completedAt || queue.calledAt,
+      });
+    }
+    // For DEFERRED queues, add a DEFERRED transaction
+    else if (queue.queueStatus === "DEFERRED") {
+      const deferredAt = new Date(queue.createdAt);
+      deferredAt.setMinutes(deferredAt.getMinutes() + Math.floor(Math.random() * 30) + 10);
+      
+      transactions.push({
+        queueId: queue.queueId,
+        requestId: request.requestId,
+        performedById: this.staff.admin.sasStaffId,
+        performedByRole: "PERSONNEL",
+        transactionStatus: "DEFERRED",
+        createdAt: deferredAt,
+      });
     }
 
     if (transactions.length > 0) {
@@ -644,20 +743,19 @@ class WaitingOnlyPopulator {
 
   async populateDay(date) {
     const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-    const isCurrentDay = isToday(date);
-
+    
     console.log(
-      `\n📅 ${dayName} - ${date.toDateString()} ${
-        isCurrentDay ? "[TODAY - ALL WAITING]" : "[HISTORICAL]"
-      }`
+      `\n📅 ${dayName} - ${date.toDateString()} [HISTORICAL FOR ANALYTICS]`
     );
 
+    // Initialize stats for this day
     this.stats.byDay[dayName] = {
       queues: 0,
-      waiting: 0,
       completed: 0,
       cancelled: 0,
       deferred: 0,
+      stalledRequests: 0,
+      totalRequests: 0,
     };
 
     // Create 2 sessions per day
@@ -670,15 +768,17 @@ class WaitingOnlyPopulator {
           currentQueueCount: 0,
           regularCount: 0,
           priorityCount: 0,
-          isAcceptingNew: isCurrentDay && sessionNum === 2,
-          isServing: isCurrentDay,
-          isActive: isCurrentDay,
+          isAcceptingNew: false,
+          isServing: false,
+          isActive: false,
         },
       });
 
       console.log(`  Session ${sessionNum}:`);
 
-      const queueCount = isCurrentDay ? 25 : 25;
+      // Vary queue count per day for more realistic analytics
+      const dayMultiplier = (sessionNum === 1) ? 1.0 : 0.8; // Afternoon sessions have fewer queues
+      const queueCount = Math.floor(Math.random() * 15) + 15; // 15-30 queues per session
       let regularSeq = 1;
       let prioritySeq = 1;
 
@@ -694,7 +794,8 @@ class WaitingOnlyPopulator {
           date
         );
 
-        await this.createRequestsForQueue(queue, date);
+        // Count stalled requests for deferred queues
+        const stalledCount = await this.createRequestsForQueue(queue, date);
 
         // Update session counts
         await prisma.queueSession.update({
@@ -708,8 +809,6 @@ class WaitingOnlyPopulator {
 
         // Update stats
         this.stats.byDay[dayName].queues++;
-        if (queue.queueStatus === "WAITING")
-          this.stats.byDay[dayName].waiting++;
         if (queue.queueStatus === "COMPLETED")
           this.stats.byDay[dayName].completed++;
         if (queue.queueStatus === "CANCELLED")
@@ -724,10 +823,20 @@ class WaitingOnlyPopulator {
 
   async run() {
     try {
+      const now = new Date();
+      const dayName = now.toLocaleDateString("en-US", { weekday: "long" });
+      
       console.log("=".repeat(70));
-      console.log(
-        "📊 HISTORICAL DATA POPULATOR - VERSION 2 (TODAY = ALL WAITING)"
-      );
+      console.log("📊 ANALYTICS DATA POPULATOR - VERSION 3");
+      console.log("=".repeat(70));
+      console.log(`📅 Today is: ${dayName} (${now.toDateString()})`);
+      console.log("🔧 MODIFICATIONS APPLIED:");
+      console.log("   • Only generates data for PREVIOUS days in current week");
+      console.log("   • 20% of queues are DEFERRED for analytics testing");
+      console.log("   • DEFERRED queues can have STALLED requests (30% chance)");
+      console.log("   • 75% of students enrolled in BSEE");
+      console.log("   • 80% of queues include Insurance request");
+      console.log("   • 80% of student names have 'Cruz' as last name");
       console.log("=".repeat(70));
 
       await this.cleanup();
@@ -736,48 +845,50 @@ class WaitingOnlyPopulator {
       await this.seedRequestTypes();
       await this.seedWindows();
 
-      const dates = getCurrentWeekDates();
-      console.log(`\n🗓️  Populating ${dates.length} days...\n`);
+      const dates = getPreviousDaysInWeek();
+      console.log(`\n🗓️  Populating ${dates.length} previous day(s) for analytics...\n`);
+
+      if (dates.length === 0) {
+        console.log("⚠️  No previous days to populate (maybe it's Monday?)");
+        console.log("⚠️  Try running this script on Tuesday or later in the week");
+      }
 
       for (const date of dates) {
         await this.populateDay(date);
       }
 
-      // Print summary
+      // Print detailed summary
       console.log("\n" + "=".repeat(70));
-      console.log("📊 POPULATION SUMMARY");
+      console.log("📊 ANALYTICS DATA SUMMARY");
       console.log("=".repeat(70));
       console.log(`Total Queues: ${this.stats.totalQueues}`);
       console.log(`Total Requests: ${this.stats.totalRequests}`);
       console.log(`Total Transactions: ${this.stats.totalTransactions}`);
 
-      console.log("\nBreakdown by Day:");
+      console.log("\n📈 Breakdown by Day (for Analytics):");
       for (const [day, stats] of Object.entries(this.stats.byDay)) {
-        console.log(`  ${day}:`);
+        console.log(`\n  ${day}:`);
         console.log(`    Total Queues: ${stats.queues}`);
-        console.log(`    Waiting: ${stats.waiting}`);
-        console.log(`    Completed: ${stats.completed}`);
-        console.log(`    Cancelled: ${stats.cancelled}`);
-        console.log(`    Deferred: ${stats.deferred}`);
+        console.log(`    • Completed: ${stats.completed} (${stats.queues > 0 ? Math.round((stats.completed/stats.queues)*100) : 0}%)`);
+        console.log(`    • Cancelled: ${stats.cancelled} (${stats.queues > 0 ? Math.round((stats.cancelled/stats.queues)*100) : 0}%)`);
+        console.log(`    • Deferred: ${stats.deferred} (${stats.queues > 0 ? Math.round((stats.deferred/stats.queues)*100) : 0}%)`);
+        
+        // Calculate stalled percentage from deferred queues
+        const stalledFromDeferred = stats.deferred > 0 ? Math.round(stats.deferred * 0.3) : 0;
+        console.log(`    • Estimated STALLED requests from deferred: ~${stalledFromDeferred}`);
       }
 
-      console.log("\n✅ Population complete!");
-      console.log("\n⚠️  KEY DIFFERENCE FROM VERSION 1:");
-      console.log(
-        "   • Historical days (Mon-Sat before today): Fully processed"
-      );
-      console.log("   • Today: ALL queues are WAITING (unprocessed)");
-      console.log("   • Perfect for testing queue processing workflows!");
-      console.log("\n⚠️  QUEUE STATUS RULES:");
-      console.log(
-        "   • Queues: Only CANCELLED, COMPLETED, DEFERRED, or WAITING"
-      );
-      console.log(
-        "   • Requests: Can be STALLED or SKIPPED (in addition to queue statuses)"
-      );
-      console.log(
-        "\n⚠️  NOTE: Window assignments NOT created - add them manually via your app"
-      );
+      console.log("\n🎯 ANALYTICS FEATURES TESTED:");
+      console.log("   • Daily queue completion rates");
+      console.log("   • Partially-processed DEFERRED queues (40% have calledAt/servedBy)");
+      console.log("   • STALLED requests from partially-processed DEFERRED queues (40% chance)");
+      console.log("   • Service window performance");
+      console.log("   • Request type frequency (Insurance bias)");
+      console.log("\n⚠️  NOTES:");
+      console.log("   • STALLED requests only from DEFERRED queues with calledAt/servedByStaff");
+      console.log("   • 40% of DEFERRED queues have partial processing data");
+      console.log("   • 40% of requests from partially-processed DEFERRED queues are STALLED");
+      console.log("   • Window assignments NOT created - add manually via your app");
       console.log("=".repeat(70));
     } catch (error) {
       console.error("❌ Error during population:", error);
@@ -790,5 +901,5 @@ class WaitingOnlyPopulator {
 
 // ============ RUN ============
 
-const populator = new WaitingOnlyPopulator();
+const populator = new AnalyticsPopulator();
 populator.run().catch(console.error);
