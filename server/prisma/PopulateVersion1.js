@@ -426,25 +426,22 @@ class HistoricalDataPopulator {
 
     if (!today) {
       // HISTORICAL DAYS: All finalized
-      // 70% COMPLETED, 10% CANCELLED, 10% SKIPPED, 5% STALLED, 5% DEFERRED
+      // QUEUE STATUS: Only CANCELLED, COMPLETED, or DEFERRED
       const rand = Math.random();
 
       if (rand < 0.7) return "COMPLETED";
       if (rand < 0.8) return "CANCELLED";
-      if (rand < 0.9) return "SKIPPED";
-      if (rand < 0.95) return "STALLED";
+      // Remaining 20%: DEFERRED
       return "DEFERRED";
     } else {
-      // TODAY: Mixed statuses
-      // 30% WAITING, 30% IN_SERVICE, 20% COMPLETED, 10% STALLED, 5% CANCELLED, 5% SKIPPED
+      // TODAY: Mixed statuses (only CANCELLED, COMPLETED, DEFERRED, or WAITING)
       const rand = Math.random();
 
-      if (rand < 0.3) return "WAITING";
-      if (rand < 0.6) return "IN_SERVICE";
+      if (rand < 0.6) return "WAITING";
       if (rand < 0.8) return "COMPLETED";
-      if (rand < 0.9) return "STALLED";
-      if (rand < 0.95) return "CANCELLED";
-      return "SKIPPED";
+      if (rand < 0.9) return "CANCELLED";
+      // Remaining 10%: DEFERRED
+      return "DEFERRED";
     }
   }
 
@@ -464,13 +461,9 @@ class HistoricalDataPopulator {
   }
 
   getStaffForQueue(status) {
-    if (status === "WAITING") return null;
+    if (status === "WAITING" || status === "DEFERRED") return null;
 
     if (status === "CANCELLED" && Math.random() > 0.5) {
-      return this.staff.admin?.sasStaffId;
-    }
-
-    if (status === "DEFERRED") {
       return this.staff.admin?.sasStaffId;
     }
 
@@ -501,27 +494,33 @@ class HistoricalDataPopulator {
     let calledAt = null;
     let completedAt = null;
 
-    if (status !== "WAITING") {
+    // Only set calledAt and completedAt for COMPLETED or CANCELLED queues
+    if (status === "COMPLETED" || status === "CANCELLED") {
       calledAt = getRandomBusinessTime(
         date,
         sessionNumber === 1 ? 9 : 13,
         sessionNumber === 1 ? 11 : 16
       );
 
-      if (["COMPLETED", "SKIPPED", "CANCELLED"].includes(status)) {
+      if (status === "COMPLETED") {
         completedAt = new Date(calledAt);
         completedAt.setMinutes(
           completedAt.getMinutes() + Math.floor(Math.random() * 15) + 5
         );
+      } else if (status === "CANCELLED") {
+        completedAt = new Date(calledAt);
+        completedAt.setMinutes(completedAt.getMinutes() + 1); // Quick cancellation
       }
     }
 
-    const referenceNumber = `Q${date.getFullYear()}${String(
-      date.getMonth() + 1
-    ).padStart(2, "0")}${String(date.getDate()).padStart(
-      2,
-      "0"
-    )}-${sessionNumber}-${String(queueNumber).padStart(3, "0")}`;
+    // Generate reference number: YYMMDD-S-R001 or YYMMDD-S-P001
+    const yy = String(date.getFullYear()).slice(2);
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const typePrefix = isPriority ? "P" : "R";
+    const referenceNumber = `${yy}${mm}${dd}-${sessionNumber}-${typePrefix}${String(
+      queueNumber
+    ).padStart(3, "0")}`;
 
     const queue = await prisma.queue.create({
       data: {
@@ -552,16 +551,29 @@ class HistoricalDataPopulator {
       .slice(0, numRequests);
 
     for (const requestType of selectedTypes) {
-      let requestStatus =
-        queue.queueStatus === "WAITING" ? "WAITING" : queue.queueStatus;
+      let requestStatus = "WAITING";
       let processedBy = queue.servedByStaff;
       let processedAt = queue.completedAt || queue.calledAt;
 
-      // For IN_SERVICE, some requests might still be waiting
-      if (queue.queueStatus === "IN_SERVICE" && Math.random() > 0.5) {
+      // Determine request status based on queue status
+      if (queue.queueStatus === "WAITING") {
         requestStatus = "WAITING";
         processedBy = null;
         processedAt = null;
+      } else if (queue.queueStatus === "COMPLETED") {
+        // For COMPLETED queues, requests can be COMPLETED, STALLED, or SKIPPED
+        const rand = Math.random();
+        if (rand < 0.7) {
+          requestStatus = "COMPLETED";
+        } else if (rand < 0.85) {
+          requestStatus = "STALLED";
+        } else {
+          requestStatus = "SKIPPED";
+        }
+      } else if (queue.queueStatus === "CANCELLED") {
+        requestStatus = "CANCELLED";
+      } else if (queue.queueStatus === "DEFERRED") {
+        requestStatus = "DEFERRED";
       }
 
       const request = await prisma.request.create({
@@ -584,7 +596,7 @@ class HistoricalDataPopulator {
   async createTransactionHistory(queue, request, date) {
     const transactions = [];
 
-    // Initial WAITING transaction
+    // Initial WAITING transaction (always created)
     transactions.push({
       queueId: queue.queueId,
       requestId: request.requestId,
@@ -594,38 +606,50 @@ class HistoricalDataPopulator {
       createdAt: queue.createdAt,
     });
 
-    // Add intermediate transactions based on status
-    if (queue.queueStatus !== "WAITING") {
-      transactions.push({
-        queueId: queue.queueId,
-        requestId: request.requestId,
-        performedById: queue.servedByStaff || this.staff.working.sasStaffId,
-        performedByRole: "WORKING_SCHOLAR",
-        transactionStatus: "IN_SERVICE",
-        createdAt: queue.calledAt || queue.createdAt,
-      });
-
-      if (
-        ["COMPLETED", "CANCELLED", "SKIPPED", "STALLED"].includes(
-          queue.queueStatus
-        )
-      ) {
+    // Add additional transactions based on request status
+    if (
+      request.requestStatus === "COMPLETED" ||
+      request.requestStatus === "STALLED" ||
+      request.requestStatus === "SKIPPED"
+    ) {
+      // For completed/stalled/skipped requests, add IN_SERVICE and final status transactions
+      if (queue.calledAt) {
         transactions.push({
           queueId: queue.queueId,
           requestId: request.requestId,
           performedById: queue.servedByStaff || this.staff.working.sasStaffId,
-          performedByRole:
-            queue.queueStatus === "CANCELLED" &&
-            queue.servedByStaff === this.staff.admin.sasStaffId
-              ? "PERSONNEL"
-              : "WORKING_SCHOLAR",
-          transactionStatus: queue.queueStatus,
-          createdAt: queue.completedAt || queue.calledAt || queue.createdAt,
+          performedByRole: "WORKING_SCHOLAR",
+          transactionStatus: "IN_SERVICE",
+          createdAt: queue.calledAt,
         });
       }
-    }
 
-    if (queue.queueStatus === "DEFERRED") {
+      if (queue.completedAt) {
+        transactions.push({
+          queueId: queue.queueId,
+          requestId: request.requestId,
+          performedById: queue.servedByStaff || this.staff.working.sasStaffId,
+          performedByRole: "WORKING_SCHOLAR",
+          transactionStatus: request.requestStatus,
+          createdAt: queue.completedAt,
+        });
+      }
+    } else if (request.requestStatus === "CANCELLED") {
+      // Cancelled requests might be cancelled by admin or working scholar
+      const cancelledByAdmin =
+        queue.servedByStaff === this.staff.admin?.sasStaffId;
+
+      // Add cancellation transaction (no IN_SERVICE needed for cancelled requests)
+      transactions.push({
+        queueId: queue.queueId,
+        requestId: request.requestId,
+        performedById: queue.servedByStaff || this.staff.admin.sasStaffId,
+        performedByRole: cancelledByAdmin ? "PERSONNEL" : "WORKING_SCHOLAR",
+        transactionStatus: "CANCELLED",
+        createdAt: queue.completedAt || queue.createdAt,
+      });
+    } else if (request.requestStatus === "DEFERRED") {
+      // Deferred requests
       transactions.push({
         queueId: queue.queueId,
         requestId: request.requestId,
@@ -654,10 +678,18 @@ class HistoricalDataPopulator {
 
     this.stats.byDay[dayName] = {
       queues: 0,
+      waiting: 0,
       completed: 0,
-      inProgress: 0,
       cancelled: 0,
-      stalled: 0,
+      deferred: 0,
+      requests: {
+        waiting: 0,
+        completed: 0,
+        stalled: 0,
+        skipped: 0,
+        cancelled: 0,
+        deferred: 0,
+      },
     };
 
     // Create 2 sessions per day
@@ -672,7 +704,7 @@ class HistoricalDataPopulator {
           priorityCount: 0,
           isAcceptingNew: isCurrentDay && sessionNum === 2,
           isServing: isCurrentDay,
-          isActive: true,
+          isActive: isCurrentDay, // ✅ Historical sessions = false, Today = true
         },
       });
 
@@ -694,7 +726,7 @@ class HistoricalDataPopulator {
           date
         );
 
-        await this.createRequestsForQueue(queue, date);
+        const queueRequests = await this.createRequestsForQueue(queue, date);
 
         // Update session counts
         await prisma.queueSession.update({
@@ -706,16 +738,16 @@ class HistoricalDataPopulator {
           },
         });
 
-        // Update stats
+        // Update queue stats
         this.stats.byDay[dayName].queues++;
+        if (queue.queueStatus === "WAITING")
+          this.stats.byDay[dayName].waiting++;
         if (queue.queueStatus === "COMPLETED")
           this.stats.byDay[dayName].completed++;
-        if (queue.queueStatus === "IN_SERVICE")
-          this.stats.byDay[dayName].inProgress++;
         if (queue.queueStatus === "CANCELLED")
           this.stats.byDay[dayName].cancelled++;
-        if (queue.queueStatus === "STALLED")
-          this.stats.byDay[dayName].stalled++;
+        if (queue.queueStatus === "DEFERRED")
+          this.stats.byDay[dayName].deferred++;
       }
 
       console.log(`    ✅ Created ${queueCount} queues`);
@@ -753,13 +785,26 @@ class HistoricalDataPopulator {
       for (const [day, stats] of Object.entries(this.stats.byDay)) {
         console.log(`  ${day}:`);
         console.log(`    Queues: ${stats.queues}`);
-        console.log(`    Completed: ${stats.completed}`);
-        console.log(`    In Progress: ${stats.inProgress}`);
-        console.log(`    Cancelled: ${stats.cancelled}`);
-        console.log(`    Stalled: ${stats.stalled}`);
+        console.log(`      Waiting: ${stats.waiting}`);
+        console.log(`      Completed: ${stats.completed}`);
+        console.log(`      Cancelled: ${stats.cancelled}`);
+        console.log(`      Deferred: ${stats.deferred}`);
       }
 
       console.log("\n✅ Population complete!");
+      console.log("\n⚠️  STATUS RULES:");
+      console.log(
+        "   • QUEUES: Only CANCELLED, COMPLETED, DEFERRED, or WAITING"
+      );
+      console.log(
+        "   • REQUESTS: Can be CANCELLED, COMPLETED, DEFERRED, STALLED, SKIPPED, or WAITING"
+      );
+      console.log(
+        "   • IN_SERVICE is only a transaction status, not a queue or request status"
+      );
+      console.log(
+        "\n⚠️  NOTE: Window assignments NOT created - add them manually via your app"
+      );
       console.log("=".repeat(70));
     } catch (error) {
       console.error("❌ Error during population:", error);
