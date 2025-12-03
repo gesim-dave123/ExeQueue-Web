@@ -9,6 +9,7 @@ import {
   streamLiveDisplayUpdates,
 } from "../controllers/statistics.controller.js";
 import {
+  authenticateSSE,
   authenticateToken,
   authorizeRoles,
 } from "../middlewares/auth.middleware.js";
@@ -23,10 +24,10 @@ router.get(
 );
 router.get(
   "/dashboard/stream",
-  authenticateToken,
+  authenticateSSE,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   streamDashboardUpdates
-); // ✅ Add this line
+);
 //this week analytics
 router.get(
   "/week",
@@ -51,7 +52,7 @@ router.get(
 
 router.get(
   "/queue/live/stream",
-  authenticateToken,
+  authenticateSSE,
   authorizeRoles(Role.PERSONNEL, Role.WORKING_SCHOLAR),
   streamLiveDisplayUpdates
 );

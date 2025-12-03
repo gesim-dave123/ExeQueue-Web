@@ -138,7 +138,7 @@ export default function Reset_Queue() {
               className="w-full cursor-pointer md:w-auto md:min-w-[180px] lg:min-w-[200px] xl:min-w-[220px] bg-[#E2E3E4] py-3 px-4 sm:px-5 rounded-lg sm:rounded-xl text-[#EA4335] text-sm sm:text-base lg:text-lg font-semibold hover:bg-[#d0d1d2] transition-colors whitespace-nowrap flex-shrink-0"
               onClick={() => handleOpenModal("priority")}
             >
-              Restart Priority Queue
+              Reset Priority Queue
             </button>
           </div>
 
@@ -157,7 +157,7 @@ export default function Reset_Queue() {
               className="w-full cursor-pointer md:w-auto md:min-w-[180px] lg:min-w-[200px] xl:min-w-[220px] bg-[#E2E3E4] py-3 px-4 sm:px-5 rounded-lg sm:rounded-xl text-[#EA4335] text-sm sm:text-base lg:text-lg font-semibold hover:bg-[#d0d1d2] transition-colors whitespace-nowrap flex-shrink-0"
               onClick={() => handleOpenModal("regular")}
             >
-              Restart Regular Queue
+              Reset Regular Queue
             </button>
           </div>
 
@@ -177,7 +177,7 @@ export default function Reset_Queue() {
               className="w-full cursor-pointer md:w-auto md:min-w-[180px] lg:min-w-[190px] xl:min-w-[200px] bg-[#EA4335] text-white py-3 px-4 sm:px-5 rounded-xl text-base sm:text-lg font-semibold hover:bg-[#d32f2f] transition-colors whitespace-nowrap text-center flex-shrink-0"
               onClick={() => handleOpenModal("all")}
             >
-              Restart All Queues
+              Reset All Queues
             </button>
           </div>
         </div>

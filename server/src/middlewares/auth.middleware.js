@@ -2,14 +2,19 @@ import jwt from "jsonwebtoken";
 import prisma from "../../prisma/prisma.js";
 
 export const authenticateToken = async (req, res, next) => {
-  let token = req.cookies.access_token;
+  let token = req.cookies?.access_token;
+  // console.log("Cookie: ", token);
 
-  // Fallback to Authorization header (for mobile/API)
   if (!token) {
-    const authHeader = req.headers.authorization;
+    const authHeader = req.headers?.authorization;
     if (authHeader?.startsWith("Bearer ")) {
       token = authHeader.substring(7);
+      // console.log("Session Storage Token: ", token);
     }
+  }
+  if (!token) {
+    token = req.query?.token;
+    // console.log("Query Token: ", token);
   }
 
   if (!token) {
@@ -129,3 +134,72 @@ async function releaseWindowForUser(userId) {
     console.error("Error releasing window:", e);
   }
 }
+export const authenticateSSE = async (req, res, next) => {
+  let token = null;
+  token = req.cookies.access_token;
+  if (!token && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "Not authenticated",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await prisma.sasStaff.findUnique({
+      where: {
+        sasStaffId: decoded.id,
+      },
+      select: {
+        sasStaffId: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        email: true,
+        role: true,
+        isActive: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found!",
+      });
+    }
+
+    if (!user.isActive || user.deletedAt !== null) {
+      return res.status(401).json({
+        success: false,
+        message: "Account not found!",
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("Error in authenticateSSE:", error);
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again.",
+      });
+    }
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token.",
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};

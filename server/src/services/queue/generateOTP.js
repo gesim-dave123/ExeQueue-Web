@@ -1,7 +1,7 @@
-import nodemailer from 'nodemailer';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import nodemailer from "nodemailer";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const otpStore = new Map();
 
@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 // ✅ Enhanced transporter with longer timeouts for slow connections
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.ADMIN_GMAIL,
     pass: process.env.GMAIL_PASSKEY,
@@ -23,19 +23,27 @@ const transporter = nodemailer.createTransport({
 });
 
 // Verify transporter on startup
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('❌ Email transporter error:', error);
-  } else {
-    console.log('✅ Email server ready');
+// transporter.verify((error, success) => {
+//   if (error) {
+//     console.error("❌ Email transporter error:", error);
+//   } else {
+//     console.log("✅ Email server ready");
+//   }
+// });
+setTimeout(async () => {
+  try {
+    await transporter.verify();
+    console.log("✅ Email server ready");
+  } catch (err) {
+    console.warn("⚠️ Email server unavailable (offline?)");
   }
-});
+}, 3000);
 
 export const generateCode = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
-// ✅ Enhanced with retry logic and PNG CID attachment
+// Enhanced with retry logic and PNG CID attachment
 export const sendCodeToEmail = async (email, code, retries = 3) => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -47,27 +55,27 @@ export const sendCodeToEmail = async (email, code, retries = 3) => {
       let logoAttachment = null;
       try {
         // Try to read the logo file from your project
-        const logoPath = path.join(__dirname, '../queue/Logo.png');
+        const logoPath = path.join(__dirname, "../queue/Logo.png");
         if (fs.existsSync(logoPath)) {
           const logoBuffer = fs.readFileSync(logoPath);
           logoAttachment = {
-            filename: 'Logo.png',
+            filename: "Logo.png",
             content: logoBuffer,
-            encoding: 'base64',
-            cid: 'exequeue-logo' // same cid value as in the img src
+            encoding: "base64",
+            cid: "exequeue-logo", // same cid value as in the img src
           };
-          console.log('✅ Logo file found and attached');
+          console.log("✅ Logo file found and attached");
         } else {
-          console.log('⚠️ Logo file not found, using text-based header');
+          console.log("⚠️ Logo file not found, using text-based header");
         }
       } catch (error) {
-        console.log('⚠️ Could not load logo file:', error.message);
+        console.log("⚠️ Could not load logo file:", error.message);
       }
 
       const mailOptions = {
         from: `"ExeQueue System" <${process.env.ADMIN_GMAIL}>`,
         to: email,
-        subject: 'Your Verification Code - ExeQueue',
+        subject: "Your Verification Code - ExeQueue",
         text: `Your verification code is: ${code}\n\nThis code expires in 1 minute.\n\nIf you did not request this, please ignore this email.`,
         html: `
           <!DOCTYPE html>
@@ -105,10 +113,10 @@ export const sendCodeToEmail = async (email, code, retries = 3) => {
                     <!-- Header with Logo -->
                     <tr>
                       <td align="center" style="padding: 60px 40px 50px 40px; background: linear-gradient(135deg, rgba(26, 115, 232, 0.03) 0%, rgba(252, 211, 77, 0.03) 100%);">
-                        ${logoAttachment ? 
-                          `<img src="cid:exequeue-logo" alt="ExeQueue Logo" style="width: 80px; height: 75px; display: block; margin: 0 auto 20px auto;" />` 
-                          : 
-                          `<div style="width: 80px; height: 80px; background: linear-gradient(135deg, #1A73E8 0%, #0d47a1 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; box-shadow: 0 8px 24px rgba(26, 115, 232, 0.3);">
+                        ${
+                          logoAttachment
+                            ? `<img src="cid:exequeue-logo" alt="ExeQueue Logo" style="width: 80px; height: 75px; display: block; margin: 0 auto 20px auto;" />`
+                            : `<div style="width: 80px; height: 80px; background: linear-gradient(135deg, #1A73E8 0%, #0d47a1 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; box-shadow: 0 8px 24px rgba(26, 115, 232, 0.3);">
                             <span style="color: #ffffff; font-size: 36px; font-weight: 700;">E</span>
                           </div>`
                         }
@@ -171,7 +179,7 @@ export const sendCodeToEmail = async (email, code, retries = 3) => {
           </body>
           </html>
         `,
-        priority: 'high',
+        priority: "high",
       };
 
       // Add attachment if logo exists

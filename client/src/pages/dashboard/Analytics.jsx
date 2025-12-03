@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import backendConnection from "../../api/backendConnection";
+import { SSE } from "../../api/sseApi";
 import { getTodayAnalytics, getWeeklyAnalytics } from "../../api/statistics";
 import BarGraph from "../../components/graphs/BarGraph";
 import DoughnutChart from "../../components/graphs/DoughnutChart";
 import { InlineLoading } from "../../components/InLineLoader";
-
 
 export default function Analytics() {
   const [view, setView] = useState("week");
@@ -17,7 +16,7 @@ export default function Analytics() {
   const viewRef = useRef(view);
 
   const iconMap = {
-    "Good Moral Certificat": "/assets/analytics/goodmoral.png",
+    "Good Moral Certificate": "/assets/analytics/goodmoral.png",
     Insurance: "/assets/analytics/insurancepay.png",
     "Approval/Transmittal Letter": "/assets/analytics/transmittal.png",
     "Temporary Gate Pass": "/assets/analytics/gatepass.png",
@@ -60,44 +59,17 @@ export default function Analytics() {
   }, []);
 
   // SSE for today's live updates
-  // ✅ SSE always connected, updates top cards on both views
   useEffect(() => {
-    // Connect to SSE regardless of view
-    const eventSource = new EventSource(
-      `${backendConnection()}/api/statistics/dashboard/stream`,
-      { withCredentials: true }
-    );
-
-    eventSource.onopen = () => {
-      console.log("🟢 Analytics SSE connection opened");
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log("📊 Analytics update received:", data);
-
-        if (data.type === "dashboard-update") {
-          // ✅ ONLY refresh today's data (top cards)
-          fetchTodayData();
-
-          // ✅ Weekly data does NOT refresh here - only on button click
-        }
-      } catch (error) {
-        console.error("Error parsing SSE message:", error);
+    fetchTodayData();
+    SSE.subscribe("statistics/dashboard", (data) => {
+      if (data.type === "dashboard-update") {
+        console.log("Received Dashboard update:", data);
+        fetchTodayData();
       }
-    };
+    });
 
-    eventSource.onerror = (error) => {
-      console.error("🔴 SSE error:", error);
-    };
-
-    // Cleanup on unmount only (not on view change)
-    return () => {
-      console.log("🔴 Closing Analytics SSE connection");
-      eventSource.close();
-    };
-  }, []); // ✅ Empty dependency array - only mount/unmount
+    return () => SSE.unsubscribe("statistics/dashboard");
+  }, []);
 
   const handleToday = () => {
     setView("today");

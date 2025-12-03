@@ -1,19 +1,9 @@
-import axios from "axios";
-import backendConnection from "./backendConnection.js";
-
-// GET - Get Window Data
+import axios from "./axiosConfig.js";
 export const getWindowData = async () => {
   try {
-    const response = await axios.get(
-      `${backendConnection()}/api/staff/window/get`,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // The interceptor's baseURL handles the domain, and the token is auto-added
+    const response = await axios.get("/api/staff/window/get");
+
     if (response.status === 200 && response.data.success) {
       return {
         windows: response.data.windows,
@@ -27,16 +17,9 @@ export const getWindowData = async () => {
 
 export const checkAvailableWindow = async (windowIds) => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/staff/window/check`,
-      { windowIds },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios instead of axios.post
+    const response = await axios.post("/api/staff/window/check", { windowIds });
+
     if (response.status === 200 && response.data.success) {
       return response.data;
     } else {
@@ -48,20 +31,15 @@ export const checkAvailableWindow = async (windowIds) => {
     return null;
   }
 };
+
 export const assignServiceWindow = async (windowId) => {
   try {
-    const response = await axios.post(
-      `${backendConnection()}/api/staff/window/${windowId}/assign`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      } // Include auth cookies/tokens
-    );
+    // Note the cleaner POST call. No need for the empty data object or config.
+    const response = await axios.post(`/api/staff/window/${windowId}/assign`);
     return response.data;
   } catch (error) {
     console.error("Error assigning window:", error);
+    // The response interceptor handles the global error, but this handles local message formatting
     return {
       success: false,
       message: error.response?.data?.message || "Failed to assign window",
@@ -71,16 +49,9 @@ export const assignServiceWindow = async (windowId) => {
 
 export const releaseServiceWindow = async () => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/window/release`,
-      {},
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios.put
+    const response = await axios.put("/api/staff/window/release");
+
     if (
       response.status === 200 &&
       response.data.success &&
@@ -103,15 +74,8 @@ export const releaseServiceWindow = async () => {
 
 export const getMyWindowAssignment = async () => {
   try {
-    const response = await axios.get(
-      `${backendConnection()}/api/staff/window/get/own`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios.get
+    const response = await axios.get("/api/staff/window/get/own");
     return response.data;
   } catch (error) {
     console.error("Error getting window assignment:", error);
@@ -125,15 +89,9 @@ export const getMyWindowAssignment = async () => {
 
 export const overrideQueueNumberReset = async (queueType) => {
   try {
+    // Use axios.put
     const response = await axios.put(
-      `${backendConnection()}/api/staff/queue/reset/${queueType.toString()}`,
-      {},
-      {
-        header: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
+      `/api/staff/queue/reset/${queueType.toString()}`
     );
 
     if (response.status === 200 && response.data.success) {
@@ -151,16 +109,8 @@ export const overrideQueueNumberReset = async (queueType) => {
 
 export const overrideSessionReset = async () => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/session/reset`,
-      {},
-      {
-        header: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios.put
+    const response = await axios.put("/api/staff/session/reset");
 
     if (response.status === 200 && response.data.success) {
       return response.data;
@@ -170,23 +120,15 @@ export const overrideSessionReset = async () => {
       throw new Error(response.data.error);
     }
   } catch (error) {
-    console.error("Error in manual session override  api: ", error);
+    console.error("Error in manual session override  api: ", error);
     return null;
   }
 };
 
 export const overrideWindowRelease = async (windowNum) => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/window/release/${windowNum}`,
-      {},
-      {
-        header: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios.put
+    const response = await axios.put(`/api/staff/window/release/${windowNum}`);
 
     if (
       response.status === 200 &&
@@ -207,18 +149,10 @@ export const overrideWindowRelease = async (windowNum) => {
 
 export const updateHeartbeatInterval = async (windowId) => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/window/update/heartbeat`,
-      {
-        windowId,
-      },
-      {
-        header: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios.put
+    const response = await axios.put("/api/staff/window/update/heartbeat", {
+      windowId,
+    });
     if (response?.status === 200 && response?.data.success) {
       return response.data;
     } else {
@@ -232,18 +166,13 @@ export const updateHeartbeatInterval = async (windowId) => {
 
 export const updateAdminProfile = async (accountData) => {
   try {
-    const response = await axios.put(
-      `${backendConnection()}/api/staff/personnel/profile-setting`,
-      { accountData },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      }
-    );
+    // Use axios.put
+    const response = await axios.put("/api/staff/personnel/profile-setting", {
+      accountData,
+    });
     return response.data;
   } catch (error) {
+    // The response interceptor handles the global error, but this is fine for specific local catch
     if (error.response) {
       return error.response.data;
     } else if (error.request) {
